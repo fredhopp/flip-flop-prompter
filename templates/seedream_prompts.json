@@ -1,0 +1,18 @@
+{
+  "model": "seedream",
+  "data": {
+    "environment": "interior, hotel lobby",
+    "weather": "sunny with a few clouds",
+    "date_time": "7am",
+    "subjects": "a 20yo man, a woman in her 40s",
+    "pose_action": "The man stands looking at the woman who is seated on a lounge. He walks and sits down next to her. He puts a hand on her shoulder and reaches for her hand",
+    "camera": "shot on a 22mm lens on Arri Alexa",
+    "framing_action": "The camera starts 5m away from our subjects and dollies in. We start close to the ground at 1' close in at 2' from their faces",
+    "grading": "the color should look like captured on a Fuji Xperia film"
+  },
+  "metadata": {
+    "description": "Example hotel lobby scene with romantic interaction",
+    "tags": ["interior", "romantic", "hotel", "dramatic"],
+    "created": "2024-01-01T00:00:00Z"
+  }
+}

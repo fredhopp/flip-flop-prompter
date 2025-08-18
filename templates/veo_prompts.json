@@ -1,0 +1,18 @@
+{
+  "model": "veo",
+  "data": {
+    "environment": "outdoor, city street",
+    "weather": "overcast, light rain",
+    "date_time": "late afternoon",
+    "subjects": "a young woman in a red coat, people walking in the background",
+    "pose_action": "The woman walks down the street, occasionally stopping to look in shop windows. She adjusts her umbrella as the rain picks up",
+    "camera": "shot with a 35mm lens on Canon C300",
+    "framing_action": "The camera follows the woman from a medium distance, occasionally cutting to close-ups of her face and hands",
+    "grading": "cinematic, moody, with enhanced contrast and desaturated colors"
+  },
+  "metadata": {
+    "description": "Example street scene with atmospheric weather",
+    "tags": ["outdoor", "atmospheric", "urban", "cinematic"],
+    "created": "2024-01-01T00:00:00Z"
+  }
+}

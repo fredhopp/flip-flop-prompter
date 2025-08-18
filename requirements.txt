@@ -1,0 +1,17 @@
+# Core dependencies (built-in modules - no installation needed)
+# tkinter  # Usually comes with Python
+# argparse  # Built-in
+
+# Optional dependencies for advanced features
+openai>=1.0.0  # For LLM integration
+requests>=2.28.0  # For API calls
+pyyaml>=6.0  # For configuration files
+jsonschema>=4.17.0  # For validation
+
+# Development dependencies
+pytest>=7.0.0  # For testing
+black>=22.0.0  # For code formatting
+flake8>=5.0.0  # For linting
+
+# Packaging
+pyinstaller>=5.0.0  # For creating executables
