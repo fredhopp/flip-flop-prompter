@@ -4,14 +4,27 @@ A Python-based tool for formulating prompts for various text-to-image and text-t
 
 > **🤖 AI-Generated Project**: This entire project was created with the assistance of **Cursor**, an AI-powered code editor and development assistant. The codebase, architecture, documentation, and implementation were all developed through (limited) human-AI collaboration.
 
+## ⚠️ Important: Ollama Requirement
+
+**This tool requires [Ollama](https://ollama.ai/) to be installed and running locally for LLM-powered prompt refinement.**
+
+- **Ollama Server**: Must be running on `localhost:11434` for LLM integration
+- **Local LLM Models**: Uses your local Ollama models (e.g., `deepseek-r1:8b`, `gemma3:4b`)
+- **Fallback Mode**: Works without Ollama using basic prompt formatting
+- **No Cloud Dependencies**: All LLM processing happens locally on your machine
+
+If you don't have Ollama installed or don't want to use local LLMs, the tool will fall back to basic prompt concatenation.
+
 ## Features
 
 - **GUI Interface**: User-friendly graphical interface with structured input fields
 - **CLI Interface**: Command-line interface for automation and ComfyUI integration
+- **LLM-Powered Refinement**: Uses local Ollama models for intelligent prompt optimization
 - **Model-Specific Optimization**: Tailored prompt formatting for each supported model
 - **Real-time Preview**: See your prompt as you build it
 - **Template System**: Save and reuse prompt templates
 - **Export Options**: Copy to clipboard or export in various formats
+- **Local Processing**: All LLM operations happen locally via Ollama
 
 ## Supported Models
 
@@ -26,6 +39,10 @@ A Python-based tool for formulating prompts for various text-to-image and text-t
 ### Prerequisites
 - Python 3.8 or higher
 - Git (for cloning the repository)
+- **[Ollama](https://ollama.ai/)** (for LLM-powered prompt refinement)
+  - Install from [ollama.ai](https://ollama.ai/)
+  - Pull at least one model: `ollama pull deepseek-r1:8b`
+  - Start the server: `ollama serve`
 
 ### Setup
 ```bash
@@ -35,6 +52,12 @@ cd flip-flop-prompter
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Start Ollama server (required for LLM features)
+ollama serve
+
+# In another terminal, pull a model (optional but recommended)
+ollama pull deepseek-r1:8b
 
 # Run the application
 python main.py
