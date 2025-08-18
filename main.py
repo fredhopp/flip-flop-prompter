@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FlipFlopPrompt - AI Model Prompt Formulation Tool
+Flip-Flop Prompter - AI Model Prompt Formulation Tool
 
 Main entry point for the application.
 Supports both GUI and CLI modes.
@@ -19,7 +19,7 @@ from src.gui.main_window import MainWindow
 
 
 def main():
-    """Main entry point for FlipFlopPrompt."""
+    """Main entry point for Flip-Flop Prompter."""
     
     # Check if GUI mode is requested
     if len(sys.argv) == 1 or '--gui' in sys.argv:
@@ -60,7 +60,7 @@ def run_cli():
 def show_help():
     """Show help information."""
     help_text = """
-FlipFlopPrompt - AI Model Prompt Formulation Tool
+Flip-Flop Prompter - AI Model Prompt Formulation Tool
 
 USAGE:
   python main.py                    # Start GUI mode

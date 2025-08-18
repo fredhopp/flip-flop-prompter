@@ -1,4 +1,4 @@
-# FlipFlopPrompt
+# Flip-Flop Prompter
 
 A Python-based tool for formulating prompts for various text-to-image and text-to-video AI models including Seedream, Veo, Flux, Wan, and Hailuo.
 
@@ -28,8 +28,8 @@ A Python-based tool for formulating prompts for various text-to-image and text-t
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/FlipFlopPrompt.git
-cd FlipFlopPrompt
+git clone https://github.com/yourusername/flip-flop-prompter.git
+cd flip-flop-prompter
 
 # Install dependencies
 pip install -r requirements.txt
@@ -82,7 +82,7 @@ python main.py --model seedream --json --environment "hotel lobby" --subjects "2
 
 ### Project Structure
 ```
-FlipFlopPrompt/
+flip-flop-prompter/
 ├── src/           # Source code
 ├── tests/         # Test files
 ├── docs/          # Documentation

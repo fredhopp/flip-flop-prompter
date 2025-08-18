@@ -18,7 +18,7 @@ class MainWindow:
     
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("FlipFlopPrompt - AI Model Prompt Formulation Tool")
+        self.root.title("Flip-Flop Prompter - AI Model Prompt Formulation Tool")
         self.root.geometry("1200x1200")
         self.root.minsize(1000, 1000)
         
@@ -51,7 +51,7 @@ class MainWindow:
         # Title
         self.title_label = ttk.Label(
             self.main_frame, 
-            text="FlipFlopPrompt", 
+            text="Flip-Flop Prompter", 
             font=("Arial", 16, "bold")
         )
         

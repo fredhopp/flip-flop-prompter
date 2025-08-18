@@ -1,5 +1,5 @@
 """
-Setup script for FlipFlopPrompt.
+Setup script for Flip-Flop Prompter.
 """
 
 from setuptools import setup, find_packages
@@ -16,14 +16,14 @@ def read_requirements():
         return [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="flipflopprompt",
+    name="flip-flop-prompter",
     version="0.1.0",
-    author="FlipFlopPrompt Team",
-    author_email="contact@flipflopprompt.com",
+    author="Flip-Flop Prompter Team",
+    author_email="contact@flipflopprompter.com",
     description="AI Model Prompt Formulation Tool for text-to-image and text-to-video models",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/FlipFlopPrompt",
+    url="https://github.com/yourusername/flip-flop-prompter",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     classifiers=[
@@ -55,7 +55,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "flipflopprompt=main:main",
+            "flip-flop-prompter=main:main",
         ],
     },
     include_package_data=True,
@@ -64,8 +64,8 @@ setup(
     },
     keywords="ai, prompt, generation, text-to-image, text-to-video, seedream, veo, flux, wan, hailuo",
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/FlipFlopPrompt/issues",
-        "Source": "https://github.com/yourusername/FlipFlopPrompt",
-        "Documentation": "https://github.com/yourusername/FlipFlopPrompt/docs",
+        "Bug Reports": "https://github.com/yourusername/flip-flop-prompter/issues",
+        "Source": "https://github.com/yourusername/flip-flop-prompter",
+        "Documentation": "https://github.com/yourusername/flip-flop-prompter/docs",
     },
 )
