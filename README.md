@@ -2,6 +2,8 @@
 
 A Python-based tool for formulating prompts for various text-to-image and text-to-video AI models including Seedream, Veo, Flux, Wan, and Hailuo.
 
+> **🤖 AI-Generated Project**: This entire project was created with the assistance of **Cursor**, an AI-powered code editor and development assistant. The codebase, architecture, documentation, and implementation were all developed through (limited) human-AI collaboration.
+
 ## Features
 
 - **GUI Interface**: User-friendly graphical interface with structured input fields
@@ -115,6 +117,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
+- **Cursor AI** - This entire project was created with the assistance of Cursor, an AI-powered code editor and development assistant
 - Seedream team for their technical documentation
 - The open-source AI community for inspiration
 - ComfyUI community for integration ideas
