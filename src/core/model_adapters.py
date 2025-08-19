@@ -57,8 +57,8 @@ class SeedreamAdapter(ModelAdapter):
         parts = []
         
         # Scene setting
-        if prompt_data.environment:
-            parts.append(f"Scene: {prompt_data.environment}")
+        if prompt_data.setting:
+            parts.append(f"Scene: {prompt_data.setting}")
         
         if prompt_data.weather:
             parts.append(f"Atmosphere: {prompt_data.weather}")
@@ -115,8 +115,8 @@ class VeoAdapter(ModelAdapter):
         # Build a natural language description
         scene_desc = []
         
-        if prompt_data.environment:
-            scene_desc.append(prompt_data.environment)
+        if prompt_data.setting:
+            scene_desc.append(prompt_data.setting)
         
         if prompt_data.weather:
             scene_desc.append(f"with {prompt_data.weather}")
@@ -172,8 +172,8 @@ class FluxAdapter(ModelAdapter):
         parts = []
         
         # Artistic scene description
-        if prompt_data.environment:
-            parts.append(f"Set in {prompt_data.environment}")
+        if prompt_data.setting:
+            parts.append(f"Set in {prompt_data.setting}")
         
         if prompt_data.weather:
             parts.append(f"with {prompt_data.weather} lighting")
@@ -228,8 +228,8 @@ class WanAdapter(ModelAdapter):
         parts = []
         
         # Detailed scene description
-        if prompt_data.environment:
-            parts.append(f"Location: {prompt_data.environment}")
+        if prompt_data.setting:
+            parts.append(f"Location: {prompt_data.setting}")
         
         if prompt_data.weather:
             parts.append(f"Conditions: {prompt_data.weather}")
@@ -286,8 +286,8 @@ class HailuoAdapter(ModelAdapter):
         # Comprehensive scene description
         scene_elements = []
         
-        if prompt_data.environment:
-            scene_elements.append(prompt_data.environment)
+        if prompt_data.setting:
+            scene_elements.append(prompt_data.setting)
         
         if prompt_data.weather:
             scene_elements.append(prompt_data.weather)
@@ -327,3 +327,21 @@ class HailuoAdapter(ModelAdapter):
     
     def get_supported_features(self) -> List[str]:
         return ['basic_prompt', 'camera_specs', 'lighting', 'style', 'versatile', 'detailed']
+
+
+def get_model_adapter(model_name: str) -> ModelAdapter:
+    """Get the appropriate model adapter for the given model name."""
+    adapters = {
+        'seedream': SeedreamAdapter,
+        'veo': VeoAdapter,
+        'flux': FluxAdapter,
+        'wan': WanAdapter,
+        'hailuo': HailuoAdapter
+    }
+    
+    adapter_class = adapters.get(model_name.lower())
+    if adapter_class:
+        return adapter_class()
+    else:
+        # Default to SeedreamAdapter if model not found
+        return SeedreamAdapter()

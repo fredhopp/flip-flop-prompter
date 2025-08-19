@@ -33,7 +33,7 @@ class PromptEngine:
             'hailuo': HailuoAdapter()
         }
     
-    def generate_prompt(self, model: str, prompt_data: PromptData, content_rating: str = "PG") -> str:
+    def generate_prompt(self, model: str, prompt_data: PromptData, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """
         Generate a formatted prompt for the specified model.
 
@@ -41,6 +41,7 @@ class PromptEngine:
             model: Target model name (seedream, veo, flux, wan, hailuo)
             prompt_data: Prompt components data
             content_rating: Content rating (PG, NSFW, Hentai)
+            debug_enabled: Whether to enable debug file generation
 
         Returns:
             Formatted prompt string
@@ -51,7 +52,7 @@ class PromptEngine:
         # Try LLM refinement first if available
         if self.use_llm and self.llm_manager and self.llm_manager.is_available():
             try:
-                return self.llm_manager.refine_prompt(prompt_data, model, model, content_rating)
+                return self.llm_manager.refine_prompt(prompt_data, model, model, content_rating, debug_enabled)
             except Exception as e:
                 # Fall back to adapter if LLM fails
                 print(f"LLM refinement failed, using adapter: {str(e)}")
@@ -92,8 +93,8 @@ class PromptEngine:
         errors = []
         
         # Required fields
-        if not prompt_data.environment.strip():
-            errors.append("Environment is required")
+        if not prompt_data.setting.strip():
+            errors.append("Setting is required")
         
         if not prompt_data.subjects.strip():
             errors.append("Subjects are required")
@@ -102,8 +103,8 @@ class PromptEngine:
             errors.append("Subject pose and action is required")
         
         # Optional validation
-        if prompt_data.environment and len(prompt_data.environment) < 3:
-            errors.append("Environment description should be more detailed")
+        if prompt_data.setting and len(prompt_data.setting) < 3:
+            errors.append("Setting description should be more detailed")
         
         if prompt_data.subjects and len(prompt_data.subjects) < 5:
             errors.append("Subject description should be more detailed")
@@ -122,9 +123,9 @@ class PromptEngine:
         """
         parts = []
         
-        # Environment and weather
-        if prompt_data.environment:
-            parts.append(f"Setting: {prompt_data.environment}")
+        # Setting and weather
+        if prompt_data.setting:
+            parts.append(f"Setting: {prompt_data.setting}")
         if prompt_data.weather:
             parts.append(f"Weather: {prompt_data.weather}")
         

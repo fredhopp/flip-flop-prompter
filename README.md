@@ -1,148 +1,210 @@
-# Flip-Flop Prompter
+# FlipFlopPrompt
 
-A Python-based tool for formulating prompts for various text-to-image and text-to-video AI models including Seedream, Veo, Flux, Wan, and Hailuo.
+A powerful AI image generation prompt builder with a clean, user-friendly interface. Create, refine, and save prompts for various AI image generation models.
 
-> **🤖 AI-Generated Project**: This entire project was created with the assistance of **Cursor**, an AI-powered code editor and development assistant. The codebase, architecture, documentation, and implementation were all developed through (limited) human-AI collaboration.
+## ✨ Features
 
-## ⚠️ Important: Ollama Requirement
-
-**This tool requires [Ollama](https://ollama.ai/) to be installed and running locally for LLM-powered prompt refinement.**
-
-- **Ollama Server**: Must be running on `localhost:11434` for LLM integration
-- **Local LLM Models**: Uses your local Ollama models (e.g., `deepseek-r1:8b`, `gemma3:4b`)
-- **Fallback Mode**: Works without Ollama using basic prompt formatting
-- **100% Open Source**: No cloud dependencies, all processing happens locally on your machine
-- **Completely Free**: No API costs or subscriptions required
-
-If you don't have Ollama installed or don't want to use local LLMs, the tool will fall back to basic prompt concatenation.
-
-## Features
-
-- **GUI Interface**: User-friendly graphical interface with structured input fields
-- **CLI Interface**: Command-line interface for automation and ComfyUI integration
-- **LLM-Powered Refinement**: Uses local Ollama models for intelligent prompt optimization
-- **Model-Specific Optimization**: Tailored prompt formatting for each supported model
+### **Core Functionality**
+- **Multi-Model Support**: Generate prompts optimized for Seedream, Veo, Flux, Wan, and Hailuo
+- **LLM Integration**: Uses Ollama for local, free prompt refinement
+- **Content Rating System**: PG, NSFW, and custom ratings with appropriate filtering
+- **Snippet System**: Quick selection from categorized prompt elements
+- **Template System**: Save and load complete prompt configurations
 - **Real-time Preview**: See your prompt as you build it
-- **Template System**: Save and reuse prompt templates
-- **Export Options**: Copy to clipboard or export in various formats
-- **100% Open Source**: No cloud dependencies, completely free to use
-- **Local Processing**: All LLM operations happen locally via Ollama
 
-## Supported Models
+### **User Interface**
+- **Clean Design**: Simple, readable interface with clear contrast
+- **Intuitive Layout**: Logical field organization and workflow
+- **Responsive**: Adapts to different window sizes
+- **Accessible**: High contrast colors for readability
 
-- **Seedream 3.0**: Based on technical documentation
-- **Veo**: Google's text-to-video model
-- **Flux**: Stability AI's video model
-- **Wan**: Video generation model
-- **Hailuo**: Text-to-video model
+### **Data Management**
+- **User Data Folders**: Automatic organization of snippets, templates, and preferences
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Persistent Settings**: Remembers your preferences between sessions
+- **Debug System**: Optional detailed logging for troubleshooting
 
-## Installation
+## 🚀 Quick Start
 
-### Prerequisites
+### **Prerequisites**
 - Python 3.8 or higher
-- Git (for cloning the repository)
-- **[Ollama](https://ollama.ai/)** (for LLM-powered prompt refinement)
-  - Install from [ollama.ai](https://ollama.ai/)
-  - Pull at least one model: `ollama pull deepseek-r1:8b`
-  - Start the server: `ollama serve`
+- Ollama (for LLM functionality)
 
-### Setup
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/flip-flop-prompter.git
-cd flip-flop-prompter
+### **Installation**
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/FlipFlopPrompt.git
+   cd FlipFlopPrompt
+   ```
 
-# Install dependencies
-pip install -r requirements.txt
+2. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
 
-# Start Ollama server (required for LLM features)
-ollama serve
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# In another terminal, pull a model (optional but recommended)
-ollama pull deepseek-r1:8b
+4. Start Ollama (if using LLM features):
+   ```bash
+   ollama serve
+   ```
 
-# Run the application
-python main.py
-```
-
-## Usage
-
-### GUI Mode
+### **Running the Application**
 ```bash
 python main.py --gui
 ```
-Or simply:
+
+## 📖 Usage
+
+### **Basic Workflow**
+1. **Select Model**: Choose your target AI image generation model
+2. **Set Content Rating**: Select appropriate content rating (affects LLM filtering)
+3. **Fill Fields**: Use the form fields to describe your image
+4. **Use Snippets**: Click snippet buttons for quick suggestions
+5. **Preview**: See your prompt in real-time
+6. **Generate**: Click "Generate Prompt" for LLM refinement
+7. **Save**: Save your prompt or template for later use
+
+### **Field Descriptions**
+- **Style**: Art style (painting, photorealistic, anime, etc.)
+- **Setting**: Environment and location
+- **Weather**: Atmospheric conditions
+- **Date and Time**: Season and time of day
+- **Subjects**: Main subjects in the image
+- **Pose and Action**: How subjects are positioned/acting
+- **Camera**: Camera type and characteristics
+- **Framing and Action**: Camera angle and movement
+- **Color Grading & Mood**: Visual style and atmosphere
+- **Additional Details**: Any extra information
+
+### **Snippets**
+- Click the "Snippets" button next to any field
+- Browse categories and click items to add/remove them
+- Snippets are filtered by content rating
+- Supports toggle behavior (click again to remove)
+
+### **Templates**
+- **Save Template**: File → Save Template (saves current state)
+- **Load Template**: File → Load Template (restores saved state)
+- Templates include all field values, settings, and generated prompts
+- Stored in user data folder for easy access
+
+## 🗂️ File Structure
+
+```
+FlipFlopPrompt/
+├── main.py                 # Application entry point
+├── requirements.txt        # Python dependencies
+├── README.md              # This file
+├── TODO.md                # Development tasks
+├── .gitignore             # Git ignore rules
+├── src/                   # Source code
+│   ├── core/              # Core functionality
+│   │   ├── data_models.py
+│   │   ├── prompt_engine.py
+│   │   ├── llm_integration.py
+│   │   └── model_adapters.py
+│   ├── gui/               # User interface
+│   │   ├── main_window.py
+│   │   ├── field_widgets.py
+│   │   └── snippet_widgets.py
+│   ├── utils/             # Utilities
+│   │   ├── snippet_manager.py
+│   │   └── theme_manager.py
+│   └── cli/               # Command line interface
+└── data/                  # Application data
+    └── snippets/          # Default snippet files
+```
+
+## ⚙️ Configuration
+
+### **User Data Directory**
+The application creates a user data directory to store:
+- **Snippets**: Custom snippet files
+- **Templates**: Saved prompt templates
+- **Prompts**: Generated prompts
+- **Preferences**: Application settings
+- **Debug**: Debug logs (when enabled)
+
+**Location:**
+- Windows: `%APPDATA%\FlipFlopPrompt\`
+- macOS: `~/Library/Application Support/FlipFlopPrompt/`
+- Linux: `~/.config/FlipFlopPrompt/`
+
+### **Content Ratings**
+- **PG**: Family-friendly content
+- **NSFW**: Adult content (non-explicit)
+- **Hentai**: Explicit adult content
+- **Custom**: User-defined ratings
+
+### **LLM Models**
+The application supports various Ollama models:
+- **deepseek-coder:6.7b**: Recommended for prompt refinement
+- **gemma:2b**: Lightweight option (PG content only)
+- **llama2:7b**: General purpose
+
+## 🔧 Development
+
+### **Running in Development Mode**
 ```bash
-python main.py
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run with debug mode
+python main.py --gui
 ```
 
-### CLI Mode
-```bash
-python main.py --model seedream \
-    --environment "hotel lobby" \
-    --weather "sunny with a few clouds" \
-    --time "7am" \
-    --subjects "a 20yo man, a woman in her 40s" \
-    --pose "The man stands looking at the woman who is seated on a lounge" \
-    --camera "shot on a 22mm lens on Arri Alexa" \
-    --framing "The camera starts 5m away and dollies in" \
-    --grading "color should look like captured on Fuji Xperia film"
-```
+### **Debug Mode**
+Enable debug mode in the Debug menu to:
+- Generate detailed logs
+- Save LLM input/output
+- Track prompt generation steps
+- Debug files saved to user data directory
 
-### ComfyUI Integration
-```bash
-python main.py --model seedream --json --environment "hotel lobby" --subjects "20yo man" --pose "standing"
-```
+### **Adding Snippets**
+1. Create JSON files in the user snippets directory
+2. Follow the snippet format (see existing files)
+3. Use the "Reload Snippets" menu option
+4. Snippets are automatically categorized by field and rating
 
-## Input Fields
-
-1. **Environment**: Setting and location (e.g., "interior, hotel lobby")
-2. **Weather**: Atmospheric conditions (e.g., "sunny with a few clouds")
-3. **Date and Time**: Time of day (e.g., "7am")
-4. **Subjects**: People or objects in the scene (e.g., "a 20yo man, a woman in her 40s")
-5. **Subjects Pose and Action**: What the subjects are doing (e.g., "The man stands looking at the woman")
-6. **Camera**: Technical specifications (e.g., "shot on a 22mm lens on Arri Alexa")
-7. **Camera Framing and Action**: Camera movement and positioning (e.g., "camera dollies in")
-8. **Grading**: Color and style (e.g., "Fuji Xperia film look")
-
-## Development
-
-### Project Structure
-```
-flip-flop-prompter/
-├── src/           # Source code
-├── tests/         # Test files
-├── docs/          # Documentation
-├── templates/     # Prompt templates
-└── main.py        # Entry point
-```
-
-### Running Tests
-```bash
-pytest tests/
-```
-
-### Code Formatting
-```bash
-black src/
-flake8 src/
-```
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
+4. Test thoroughly
 5. Submit a pull request
 
-## License
+### **Development Guidelines**
+- Follow PEP 8 style guidelines
+- Add docstrings to new functions
+- Update TODO.md with new tasks
+- Test on multiple platforms
+- Update documentation as needed
+
+## 📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- **Cursor AI** - This entire project was created with the assistance of Cursor, an AI-powered code editor and development assistant
-- Seedream team for their technical documentation
-- The open-source AI community for inspiration
-- ComfyUI community for integration ideas
+- Built with Python and Tkinter
+- LLM integration powered by Ollama
+- Inspired by the need for better AI prompt tools
+- Community feedback and contributions
+
+## 📞 Support
+
+- **Issues**: Use GitHub Issues for bug reports
+- **Discussions**: Use GitHub Discussions for questions
+- **Wiki**: Check the wiki for detailed documentation
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: August 2025  
+**Status**: Active Development

@@ -8,13 +8,18 @@ from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
 import requests
 from .data_models import PromptData
+from datetime import datetime
+from pathlib import Path
+
+from ..core.data_models import PromptData
+from ..utils.theme_manager import theme_manager
 
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
     
     @abstractmethod
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str) -> str:
+    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt data into a cohesive, model-optimized prompt."""
         pass
     
@@ -31,6 +36,10 @@ class OllamaProvider(LLMProvider):
         self.model_name = model_name
         self.base_url = base_url
         self.session = requests.Session()
+        
+        # Create debug directory in user data folder
+        self.debug_dir = theme_manager.user_data_dir / "debug"
+        self.debug_dir.mkdir(parents=True, exist_ok=True)
     
     def is_available(self) -> bool:
         """Check if Ollama is running and model is available."""
@@ -43,14 +52,26 @@ class OllamaProvider(LLMProvider):
         except:
             return False
     
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG") -> str:
+    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt using Ollama."""
+        
+        # Create debug folder with timestamp if debug is enabled
+        debug_folder = None
+        if debug_enabled:
+            timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+            debug_folder = self.debug_dir / timestamp
+            debug_folder.mkdir(exist_ok=True)
         
         # Create the system prompt
         system_prompt = self._create_system_prompt(target_model, content_rating)
         
         # Create the user prompt
         user_prompt = self._create_user_prompt(prompt_data, target_model)
+        
+        # Save debug files if enabled
+        if debug_enabled and debug_folder:
+            self._save_debug_file(debug_folder, "01_input_to_llm.txt", user_prompt)
+            self._save_debug_file(debug_folder, "02_system_prompt.txt", system_prompt)
         
         # Call Ollama API
         payload = {
@@ -72,9 +93,32 @@ class OllamaProvider(LLMProvider):
             response.raise_for_status()
             result = response.json()
             raw_content = result["message"]["content"].strip()
-            return self._clean_prompt_output(raw_content)
+            
+            # Save raw LLM output if debug is enabled
+            if debug_enabled and debug_folder:
+                self._save_debug_file(debug_folder, "03_raw_llm_output.txt", raw_content)
+            
+            # Clean and save final prompt
+            final_prompt = self._clean_prompt_output(raw_content)
+            if debug_enabled and debug_folder:
+                self._save_debug_file(debug_folder, "04_final_prompt.txt", final_prompt)
+            
+            return final_prompt
         except Exception as e:
+            # Save error information if debug is enabled
+            if debug_enabled and debug_folder:
+                error_info = f"Error: {str(e)}\nPayload: {json.dumps(payload, indent=2)}"
+                self._save_debug_file(debug_folder, "error.txt", error_info)
             raise Exception(f"Ollama API error: {str(e)}")
+    
+    def _save_debug_file(self, debug_folder: Path, filename: str, content: str):
+        """Save debug content to a file."""
+        try:
+            filepath = debug_folder / filename
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+        except Exception as e:
+            print(f"Warning: Could not save debug file {filename}: {e}")
     
     def _create_system_prompt(self, target_model: str, content_rating: str = "PG") -> str:
         """Create system prompt for the target model."""
@@ -119,6 +163,8 @@ SEEDREAM 3.0 GUIDELINES:
 - Keep prompts concise but descriptive
 - Include quality modifiers like "high quality", "cinematic", "professional lighting"
 
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
+
 FORMAT: Natural, flowing description with technical details integrated naturally.
 """,
             "veo": f"""
@@ -133,6 +179,8 @@ VEO GUIDELINES:
 - Be specific about character details and actions
 - Use descriptive but accessible language
 - Emphasize visual quality and realism
+
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
 
 FORMAT: Flowing narrative style with natural transitions.
 """,
@@ -149,6 +197,8 @@ FLUX GUIDELINES:
 - Be creative with descriptions and metaphors
 - Emphasize unique visual qualities
 
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
+
 FORMAT: Artistic, expressive descriptions with creative flair.
 """,
             "wan": f"""
@@ -163,6 +213,8 @@ WAN GUIDELINES:
 - Include environmental and atmospheric details
 - Focus on authenticity and believability
 - Use clear, straightforward language
+
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
 
 FORMAT: Realistic, detailed descriptions with natural flow.
 """,
@@ -179,12 +231,19 @@ HAILUO GUIDELINES:
 - Use structured but natural language
 - Include quality and style specifications
 
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
+
 FORMAT: Comprehensive, detailed descriptions with technical precision.
 """
         }
         
-        return model_guides.get(target_model.lower(), """
+        return model_guides.get(target_model.lower(), f"""
 You are an expert prompt engineer for AI text-to-video generation.
+
+{content_instructions}
+
+IMPORTANT: Respond with ONLY the refined prompt. Do not include any introductory text, explanations, or meta-commentary. Start directly with the prompt content.
+
 Create natural, cohesive prompts that flow well and are optimized for the target model.
 """)
     
@@ -195,8 +254,8 @@ Create natural, cohesive prompts that flow well and are optimized for the target
         
         # Build scene description
         scene_elements = []
-        if prompt_data.environment:
-            scene_elements.append(f"Environment: {prompt_data.environment}")
+        if prompt_data.setting:
+            scene_elements.append(f"Environment: {prompt_data.setting}")
         if prompt_data.weather:
             scene_elements.append(f"Weather: {prompt_data.weather}")
         if prompt_data.date_time:
@@ -266,12 +325,33 @@ Make it sound natural and professional, not like a list of components.
             "Okay, here are a couple of flowing options optimized for",
             "Okay, here's a refined prompt designed for",
             "Okay, here's that raw data synthesized into a single, flowing prompt optimized for",
-            "Okay, here is the refined"
+            "Okay, here is the refined",
+            "Okay,",
+            "Here's",
+            "Here is",
+            "Here are",
+            "I'll create",
+            "I'll generate",
+            "Let me create",
+            "Let me generate",
+            "I've created",
+            "I've generated",
+            "Here's a prompt:",
+            "Here is a prompt:",
+            "Here's the prompt:",
+            "Here is the prompt:"
         ]
         
         for prefix in prefixes_to_remove:
             if content.startswith(prefix):
                 content = content[len(prefix):].strip()
+        
+        # Also remove common patterns that might appear at the start
+        # Remove "Okay" followed by any punctuation and common phrases
+        content = re.sub(r'^Okay[,\s]*.*?(?:here|here\'s|here is|I\'ll|Let me|I\'ve).*?(?:prompt|create|generate)[:\s]*', '', content, flags=re.IGNORECASE | re.DOTALL)
+        
+        # Remove any remaining "Okay," at the start
+        content = re.sub(r'^Okay[,\s]*', '', content, flags=re.IGNORECASE)
         
         # Remove common suffixes
         suffixes_to_remove = [
@@ -417,12 +497,12 @@ class LLMManager:
         """Check if any LLM provider is available."""
         return self.active_provider is not None
     
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG") -> str:
+    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt using the active provider."""
         if not self.active_provider:
             raise Exception("No LLM provider available. Install Ollama to use LLM features.")
         
-        return self.active_provider.refine_prompt(prompt_data, model_name, target_model, content_rating)
+        return self.active_provider.refine_prompt(prompt_data, model_name, target_model, content_rating, debug_enabled)
     
     def get_provider_info(self) -> Dict[str, Any]:
         """Get information about the active provider."""

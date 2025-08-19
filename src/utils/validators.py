@@ -24,8 +24,8 @@ class Validator:
         errors = []
         
         # Required fields
-        if not prompt_data.environment.strip():
-            errors.append("Environment is required")
+        if not prompt_data.setting.strip():
+            errors.append("Setting is required")
         
         if not prompt_data.subjects.strip():
             errors.append("Subjects are required")
@@ -34,7 +34,7 @@ class Validator:
             errors.append("Subject pose and action is required")
         
         # Field-specific validation
-        errors.extend(Validator._validate_environment(prompt_data.environment))
+        errors.extend(Validator._validate_setting(prompt_data.setting))
         errors.extend(Validator._validate_subjects(prompt_data.subjects))
         errors.extend(Validator._validate_pose_action(prompt_data.pose_action))
         errors.extend(Validator._validate_camera(prompt_data.camera))
@@ -46,15 +46,15 @@ class Validator:
         return errors
     
     @staticmethod
-    def _validate_environment(environment: str) -> List[str]:
+    def _validate_setting(setting: str) -> List[str]:
         """Validate environment field."""
         errors = []
         
-        if environment and len(environment.strip()) < 3:
-            errors.append("Environment description should be at least 3 characters")
+        if setting and len(setting.strip()) < 3:
+            errors.append("Setting description should be at least 3 characters")
         
-        if environment and len(environment.strip()) > 200:
-            errors.append("Environment description should be less than 200 characters")
+        if setting and len(setting.strip()) > 200:
+            errors.append("Setting description should be less than 200 characters")
         
         return errors
     
