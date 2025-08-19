@@ -6,6 +6,7 @@
 requests>=2.28.0  # For API calls
 pyyaml>=6.0  # For configuration files
 jsonschema>=4.17.0  # For validation
+tkcalendar>=1.6.1  # For calendar widget
 
 # Development dependencies
 pytest>=7.0.0  # For testing

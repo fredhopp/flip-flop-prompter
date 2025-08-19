@@ -5,17 +5,28 @@ Snippet widgets for providing hierarchical prompt suggestions.
 import tkinter as tk
 from tkinter import ttk
 from typing import Dict, List, Callable, Optional
+from ..utils.snippet_manager import snippet_manager
 
 
 class SnippetDropdown:
     """Hierarchical dropdown for prompt snippets."""
     
-    def __init__(self, parent, snippets: Dict[str, List[str]], on_select: Callable[[str], None]):
+    def __init__(self, parent, field_name: str, on_select: Callable[[str], None], content_rating: str = "PG"):
         self.parent = parent
-        self.snippets = snippets
+        self.field_name = field_name
         self.on_select = on_select
+        self.content_rating = content_rating
+        
+        # Get snippets from snippet manager
+        self.snippets = snippet_manager.get_snippets_for_field(field_name, content_rating)
         
         self._create_widgets()
+    
+    def update_content_rating(self, new_rating: str):
+        """Update the content rating and refresh snippets."""
+        self.content_rating = new_rating
+        self.snippets = snippet_manager.get_snippets_for_field(self.field_name, new_rating)
+        self._build_menu()
     
     def _create_widgets(self):
         """Create the dropdown widget."""
@@ -38,6 +49,11 @@ class SnippetDropdown:
     def _build_menu(self):
         """Build the hierarchical menu from snippets."""
         self.menu.delete(0, tk.END)
+        
+        if not self.snippets:
+            # No snippets available
+            self.menu.add_command(label="No snippets available", state="disabled")
+            return
         
         for category, items in self.snippets.items():
             if isinstance(items, list):
@@ -110,13 +126,17 @@ class ContentRatingWidget:
         self.rating_combo.pack(side=tk.LEFT)
         self.rating_combo.bind('<<ComboboxSelected>>', self._on_change)
     
-    def _on_change(self):
+    def _on_change(self, event=None):
         """Handle rating change."""
         if self.on_change:
             self.on_change(self.rating_var.get())
     
     def get_rating(self) -> str:
         """Get the current rating."""
+        return self.rating_var.get()
+    
+    def get_value(self) -> str:
+        """Get the current rating (alias for get_rating)."""
         return self.rating_var.get()
     
     def set_rating(self, rating: str):

@@ -38,6 +38,9 @@ class MainWindow:
         # Initialize LLM status
         self._update_llm_status()
         
+        # Initialize snippet dropdowns with current content rating
+        self._initialize_snippet_dropdowns()
+        
         # Load test data for development
         self._load_test_data()
         
@@ -474,7 +477,35 @@ class MainWindow:
         """Handle content rating change."""
         # Update LLM model selection based on content rating
         self._update_llm_models_for_rating(rating)
+        
+        # Update all snippet dropdowns with new content rating
+        self._update_snippet_dropdowns(rating)
+        
         self._update_preview()
+    
+    def _initialize_snippet_dropdowns(self):
+        """Initialize snippet dropdowns with current content rating."""
+        current_rating = self.content_rating_widget.get_value()
+        self._update_snippet_dropdowns(current_rating)
+    
+    def _update_snippet_dropdowns(self, rating: str):
+        """Update all snippet dropdowns with new content rating."""
+        # Get all field widgets that have snippet dropdowns
+        field_widgets = [
+            self.environment_widget,
+            self.weather_widget,
+            self.datetime_widget,
+            self.subjects_widget,
+            self.pose_widget,
+            self.camera_widget,
+            self.framing_widget,
+            self.grading_widget
+        ]
+        
+        # Update each widget's snippet dropdown
+        for widget in field_widgets:
+            if hasattr(widget, 'snippet_dropdown') and widget.snippet_dropdown:
+                widget.snippet_dropdown.update_content_rating(rating)
     
     def _update_llm_models_for_rating(self, rating: str):
         """Update available LLM models based on content rating."""
