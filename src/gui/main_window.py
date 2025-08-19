@@ -252,12 +252,12 @@ class MainWindow:
         self.llm_combo.pack(pady=5)
         self.llm_status_label.pack(pady=2)
         
+        # Buttons frame (above preview panel)
+        self.buttons_frame.pack(fill=tk.X, pady=(0, 10))
+        
         # Create and pack preview panel
         self.preview_panel = PreviewPanel(self.main_frame)
         self.preview_panel.pack(fill=tk.BOTH, expand=False, pady=(0, 10))
-        
-        # Buttons frame (always at bottom)
-        self.buttons_frame.pack(fill=tk.X, pady=(0, 10))
         
         buttons = [
             self.generate_btn,

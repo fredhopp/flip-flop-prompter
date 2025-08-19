@@ -353,6 +353,10 @@ Make it sound natural and professional, not like a list of components.
             content = content.split('Reasoning:')[0].strip()
         if 'Breakdown:' in content:
             content = content.split('Breakdown:')[0].strip()
+        if '### Enhancements' in content:
+            content = content.split('### Enhancements')[0].strip()
+        if '###' in content:
+            content = content.split('###')[0].strip()
         
         # Handle FLUX-style intro lines
         content = re.sub(r"^Okay, let[\'’]s translate .*? refined version:.*?Prompt:", '', content, flags=re.DOTALL).strip()

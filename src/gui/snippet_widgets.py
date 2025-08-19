@@ -99,33 +99,16 @@ class ContentRatingWidget:
         self.label = ttk.Label(self.frame, text="Content Rating:")
         self.label.pack(side=tk.LEFT, padx=(0, 5))
         
-        # Radio buttons
-        self.pg_radio = ttk.Radiobutton(
+        # Dropdown
+        self.rating_combo = ttk.Combobox(
             self.frame,
-            text="PG",
-            variable=self.rating_var,
-            value="PG",
-            command=self._on_change
+            textvariable=self.rating_var,
+            values=["PG", "NSFW", "Hentai"],
+            state="readonly",
+            width=10
         )
-        self.pg_radio.pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.nsfw_radio = ttk.Radiobutton(
-            self.frame,
-            text="NSFW",
-            variable=self.rating_var,
-            value="NSFW",
-            command=self._on_change
-        )
-        self.nsfw_radio.pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.hentai_radio = ttk.Radiobutton(
-            self.frame,
-            text="Hentai",
-            variable=self.rating_var,
-            value="Hentai",
-            command=self._on_change
-        )
-        self.hentai_radio.pack(side=tk.LEFT)
+        self.rating_combo.pack(side=tk.LEFT)
+        self.rating_combo.bind('<<ComboboxSelected>>', self._on_change)
     
     def _on_change(self):
         """Handle rating change."""
@@ -339,7 +322,7 @@ SNIPPET_DATA = {
         ]
     },
     
-    "pose_action": {
+    "subjects_pose_and_action": {
         "Standing": [
             "standing",
             "standing tall",
@@ -412,8 +395,23 @@ SNIPPET_DATA = {
             "Canon C300",
             "Sony FX9",
             "Blackmagic URSA",
+            "Canon 5D Mark IV",
+            "Nikon D850",
+            "Sony A7R IV",
+            "Leica M10",
+            "Hasselblad X1D",
             "iPhone",
             "GoPro"
+        ],
+        "Film Cameras": [
+            "Leica M6",
+            "Nikon F3",
+            "Canon AE-1",
+            "Pentax K1000",
+            "Hasselblad 500C/M",
+            "Mamiya RB67",
+            "Rolleiflex TLR",
+            "Polaroid SX-70"
         ],
         "Lens": [
             "wide angle lens",
@@ -438,7 +436,7 @@ SNIPPET_DATA = {
         ]
     },
     
-    "framing_action": {
+    "camera_framing_and_action": {
         "Movement": [
             "dollies in",
             "dollies out",
@@ -483,7 +481,7 @@ SNIPPET_DATA = {
         ]
     },
     
-    "grading": {
+    "color_grading_&_mood": {
         "Film Look": [
             "Fuji Xperia",
             "Kodak Portra",
