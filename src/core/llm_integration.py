@@ -43,11 +43,11 @@ class OllamaProvider(LLMProvider):
         except:
             return False
     
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str) -> str:
+    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG") -> str:
         """Refine prompt using Ollama."""
         
         # Create the system prompt
-        system_prompt = self._create_system_prompt(target_model)
+        system_prompt = self._create_system_prompt(target_model, content_rating)
         
         # Create the user prompt
         user_prompt = self._create_user_prompt(prompt_data, target_model)
@@ -76,12 +76,39 @@ class OllamaProvider(LLMProvider):
         except Exception as e:
             raise Exception(f"Ollama API error: {str(e)}")
     
-    def _create_system_prompt(self, target_model: str) -> str:
+    def _create_system_prompt(self, target_model: str, content_rating: str = "PG") -> str:
         """Create system prompt for the target model."""
         
+        # Add content rating instructions
+        content_instructions = ""
+        if content_rating == "NSFW":
+            content_instructions = """
+CONTENT RATING: NSFW
+- This prompt may contain adult content, nudity, or mature themes
+- Use appropriate language and descriptions for adult content
+- Maintain artistic and professional quality
+"""
+        elif content_rating == "Hentai":
+            content_instructions = """
+CONTENT RATING: HENTAI
+- This prompt is for explicit adult content and hentai-style art
+- Use explicit language and detailed descriptions for adult content
+- Focus on artistic quality and detailed anatomy
+- Include appropriate adult content descriptors
+"""
+        else:
+            content_instructions = """
+CONTENT RATING: PG
+- Keep content family-friendly and appropriate for all audiences
+- Avoid explicit language or adult content
+- Focus on artistic and cinematic quality
+"""
+        
         model_guides = {
-            "seedream": """
+            "seedream": f"""
 You are an expert prompt engineer specializing in Seedream 3.0 text-to-video generation.
+
+{content_instructions}
 
 SEEDREAM 3.0 GUIDELINES:
 - Use detailed, cinematic descriptions
@@ -94,8 +121,10 @@ SEEDREAM 3.0 GUIDELINES:
 
 FORMAT: Natural, flowing description with technical details integrated naturally.
 """,
-            "veo": """
+            "veo": f"""
 You are an expert prompt engineer specializing in Google Veo text-to-video generation.
+
+{content_instructions}
 
 VEO GUIDELINES:
 - Use natural, conversational language
@@ -107,8 +136,10 @@ VEO GUIDELINES:
 
 FORMAT: Flowing narrative style with natural transitions.
 """,
-            "flux": """
+            "flux": f"""
 You are an expert prompt engineer specializing in Stability AI Flux text-to-video generation.
+
+{content_instructions}
 
 FLUX GUIDELINES:
 - Emphasize artistic and creative elements
@@ -120,8 +151,10 @@ FLUX GUIDELINES:
 
 FORMAT: Artistic, expressive descriptions with creative flair.
 """,
-            "wan": """
+            "wan": f"""
 You are an expert prompt engineer specializing in Wan text-to-video generation.
+
+{content_instructions}
 
 WAN GUIDELINES:
 - Focus on realistic and natural scenes
@@ -133,8 +166,10 @@ WAN GUIDELINES:
 
 FORMAT: Realistic, detailed descriptions with natural flow.
 """,
-            "hailuo": """
+            "hailuo": f"""
 You are an expert prompt engineer specializing in Hailuo text-to-video generation.
+
+{content_instructions}
 
 HAILUO GUIDELINES:
 - Use comprehensive, detailed descriptions
@@ -313,6 +348,12 @@ Make it sound natural and professional, not like a list of components.
         content = re.sub(r'^Okay, here\'s a refined prompt for.*?designed to leverage.*?system\'s strengths.*?cinematic scene:Prompt:', '', content, flags=re.DOTALL).strip()
         content = re.sub(r'^Okay, here\'s a refined prompt for.*?designed to leverage.*?platform\'s strengths.*?cinematic result:Prompt:', '', content, flags=re.DOTALL).strip()
         
+        # Remove everything after "Reasoning:" or "Breakdown:"
+        if 'Reasoning:' in content:
+            content = content.split('Reasoning:')[0].strip()
+        if 'Breakdown:' in content:
+            content = content.split('Breakdown:')[0].strip()
+        
         # Handle FLUX-style intro lines
         content = re.sub(r"^Okay, let[\'’]s translate .*? refined version:.*?Prompt:", '', content, flags=re.DOTALL).strip()
         content = re.sub(r'^.*?\bFLUX Prompt:\s*', '', content, flags=re.DOTALL).strip()
@@ -342,103 +383,7 @@ Make it sound natural and professional, not like a list of components.
         return content.strip()
 
 
-class OpenAIProvider(LLMProvider):
-    """OpenAI API provider."""
-    
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.model = model
-        self.session = requests.Session()
-        if self.api_key:
-            self.session.headers.update({"Authorization": f"Bearer {self.api_key}"})
-    
-    def is_available(self) -> bool:
-        """Check if OpenAI API is available."""
-        return bool(self.api_key)
-    
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str) -> str:
-        """Refine prompt using OpenAI API."""
-        
-        if not self.api_key:
-            raise Exception("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
-        
-        # Create the system prompt (same as Ollama)
-        system_prompt = OllamaProvider()._create_system_prompt(target_model)
-        
-        # Create the user prompt (same as Ollama)
-        user_prompt = OllamaProvider()._create_user_prompt(prompt_data, target_model)
-        
-        # Call OpenAI API
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 500
-        }
-        
-        try:
-            response = self.session.post("https://api.openai.com/v1/chat/completions", json=payload)
-            response.raise_for_status()
-            result = response.json()
-            raw_content = result["choices"][0]["message"]["content"].strip()
-            return self._clean_prompt_output(raw_content)
-        except Exception as e:
-            raise Exception(f"OpenAI API error: {str(e)}")
-    
-    def _clean_prompt_output(self, raw_content: str) -> str:
-        """Clean the raw LLM output to extract only the actual prompt."""
-        
-        # Remove <think> sections
-        import re
-        
-        # Remove <think>...</think> blocks
-        content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL)
-        
-        # Remove markdown formatting
-        content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)  # Remove **bold**
-        content = re.sub(r'\*([^*]+)\*', r'\1', content)      # Remove *italic*
-        content = re.sub(r'__([^_]+)__', r'\1', content)      # Remove __underline__
-        
-        # Remove common prefixes
-        prefixes_to_remove = [
-            "Okay, here is a refined prompt:",
-            "Here's a refined prompt:",
-            "Here is the refined prompt:",
-            "**Prompt:**",
-            "Prompt:",
-            "### Optimized Prompt",
-            "### Prompt",
-            "**Optimized Prompt**",
-            "**Prompt**"
-        ]
-        
-        for prefix in prefixes_to_remove:
-            if content.startswith(prefix):
-                content = content[len(prefix):].strip()
-        
-        # Remove common suffixes
-        suffixes_to_remove = [
-            "### Breakdown of how this fits",
-            "### Breakdown",
-            "Breakdown:",
-            "This prompt incorporates",
-            "The prompt follows",
-            "Key elements:",
-            "Elements included:"
-        ]
-        
-        for suffix in suffixes_to_remove:
-            if suffix in content:
-                content = content.split(suffix)[0].strip()
-        
-        # Clean up extra whitespace and newlines
-        content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)  # Remove excessive newlines
-        content = re.sub(r'^\s+|\s+$', '', content, flags=re.MULTILINE)  # Trim lines
-        
-        return content.strip()
+
 
 
 class LLMManager:
@@ -448,8 +393,7 @@ class LLMManager:
         self.preferred_provider = preferred_provider
         self.llm_model = llm_model
         self.providers = {
-            "ollama": OllamaProvider(model_name=llm_model),
-            "openai": OpenAIProvider()
+            "ollama": OllamaProvider(model_name=llm_model)
         }
         self.active_provider = None
         self._select_provider()
@@ -457,11 +401,9 @@ class LLMManager:
     def _select_provider(self):
         """Select the best available provider."""
         if self.preferred_provider == "auto":
-            # Try Ollama first (local, free)
+            # Try Ollama (local, free)
             if self.providers["ollama"].is_available():
                 self.active_provider = self.providers["ollama"]
-            elif self.providers["openai"].is_available():
-                self.active_provider = self.providers["openai"]
             else:
                 self.active_provider = None
         else:
@@ -471,12 +413,12 @@ class LLMManager:
         """Check if any LLM provider is available."""
         return self.active_provider is not None
     
-    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str) -> str:
+    def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG") -> str:
         """Refine prompt using the active provider."""
         if not self.active_provider:
-            raise Exception("No LLM provider available. Install Ollama or set OPENAI_API_KEY.")
+            raise Exception("No LLM provider available. Install Ollama to use LLM features.")
         
-        return self.active_provider.refine_prompt(prompt_data, model_name, target_model)
+        return self.active_provider.refine_prompt(prompt_data, model_name, target_model, content_rating)
     
     def get_provider_info(self) -> Dict[str, Any]:
         """Get information about the active provider."""
@@ -486,8 +428,7 @@ class LLMManager:
         return {
             "available": True,
             "provider": self.active_provider.__class__.__name__,
-            "ollama_available": self.providers["ollama"].is_available(),
-            "openai_available": self.providers["openai"].is_available()
+            "ollama_available": self.providers["ollama"].is_available()
         }
     
     def update_llm_model(self, model_name: str):

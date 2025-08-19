@@ -93,6 +93,13 @@ Examples:
             help='LLM model to use for refinement (e.g., deepseek-r1:8b, gemma3:4b)'
         )
         
+        parser.add_argument(
+            '--content-rating',
+            choices=['PG', 'NSFW', 'Hentai'],
+            default='PG',
+            help='Content rating for the prompt (default: PG)'
+        )
+        
         # Output options
         parser.add_argument(
             '--json', '-j',
@@ -174,7 +181,7 @@ Examples:
             if parsed_args.preview:
                 output = self.prompt_engine.get_prompt_preview(prompt_data)
             else:
-                output = self.prompt_engine.generate_prompt(parsed_args.model, prompt_data)
+                output = self.prompt_engine.generate_prompt(parsed_args.model, prompt_data, parsed_args.content_rating)
             
             # Format output
             if parsed_args.json:
@@ -217,11 +224,10 @@ Examples:
         if llm_info["available"]:
             print(f"  ✓ LLM Available: {llm_info['provider']}")
             print(f"  ✓ Ollama: {'Available' if llm_info.get('ollama_available') else 'Not available'}")
-            print(f"  ✓ OpenAI: {'Available' if llm_info.get('openai_available') else 'Not available'}")
             print("  ✓ Prompts will be refined using LLM for better quality")
         else:
             print("  ✗ No LLM provider available")
-            print("  ✗ Install Ollama (recommended) or set OPENAI_API_KEY")
+            print("  ✗ Install Ollama to use LLM features")
             print("  ✗ Prompts will use basic adapter formatting")
     
     def _create_prompt_data(self, args) -> PromptData:

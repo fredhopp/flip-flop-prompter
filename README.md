@@ -11,7 +11,8 @@ A Python-based tool for formulating prompts for various text-to-image and text-t
 - **Ollama Server**: Must be running on `localhost:11434` for LLM integration
 - **Local LLM Models**: Uses your local Ollama models (e.g., `deepseek-r1:8b`, `gemma3:4b`)
 - **Fallback Mode**: Works without Ollama using basic prompt formatting
-- **No Cloud Dependencies**: All LLM processing happens locally on your machine
+- **100% Open Source**: No cloud dependencies, all processing happens locally on your machine
+- **Completely Free**: No API costs or subscriptions required
 
 If you don't have Ollama installed or don't want to use local LLMs, the tool will fall back to basic prompt concatenation.
 
@@ -24,6 +25,7 @@ If you don't have Ollama installed or don't want to use local LLMs, the tool wil
 - **Real-time Preview**: See your prompt as you build it
 - **Template System**: Save and reuse prompt templates
 - **Export Options**: Copy to clipboard or export in various formats
+- **100% Open Source**: No cloud dependencies, completely free to use
 - **Local Processing**: All LLM operations happen locally via Ollama
 
 ## Supported Models

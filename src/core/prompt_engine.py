@@ -33,28 +33,29 @@ class PromptEngine:
             'hailuo': HailuoAdapter()
         }
     
-    def generate_prompt(self, model: str, prompt_data: PromptData) -> str:
+    def generate_prompt(self, model: str, prompt_data: PromptData, content_rating: str = "PG") -> str:
         """
         Generate a formatted prompt for the specified model.
-        
+
         Args:
             model: Target model name (seedream, veo, flux, wan, hailuo)
             prompt_data: Prompt components data
-            
+            content_rating: Content rating (PG, NSFW, Hentai)
+
         Returns:
             Formatted prompt string
         """
         if model.lower() not in self.model_adapters:
             raise ValueError(f"Unsupported model: {model}")
-        
+
         # Try LLM refinement first if available
         if self.use_llm and self.llm_manager and self.llm_manager.is_available():
             try:
-                return self.llm_manager.refine_prompt(prompt_data, model, model)
+                return self.llm_manager.refine_prompt(prompt_data, model, model, content_rating)
             except Exception as e:
                 # Fall back to adapter if LLM fails
                 print(f"LLM refinement failed, using adapter: {str(e)}")
-        
+
         # Use model adapter as fallback
         adapter = self.model_adapters[model.lower()]
         return adapter.format_prompt(prompt_data)

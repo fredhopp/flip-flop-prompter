@@ -11,6 +11,7 @@ from ..core.prompt_engine import PromptEngine
 from ..core.data_models import PromptData
 from .field_widgets import TextFieldWidget, TextAreaWidget, DateTimeWidget
 from .preview_panel import PreviewPanel
+from .snippet_widgets import ContentRatingWidget
 
 
 class MainWindow:
@@ -55,8 +56,8 @@ class MainWindow:
             font=("Arial", 16, "bold")
         )
         
-        # Target Model selection
-        self.model_frame = ttk.LabelFrame(self.main_frame, text="Target AI Model", padding="5")
+        # Target Diffusion Model selection
+        self.model_frame = ttk.LabelFrame(self.main_frame, text="Target Diffusion Model", padding="5")
         self.model_var = tk.StringVar(value="seedream")
         self.model_combo = ttk.Combobox(
             self.model_frame,
@@ -64,6 +65,12 @@ class MainWindow:
             values=self.prompt_engine.get_supported_models(),
             state="readonly",
             width=20
+        )
+        
+        # Content Rating selection
+        self.content_rating_widget = ContentRatingWidget(
+            self.model_frame,
+            on_change=self._on_content_rating_changed
         )
         
         # LLM Model selection
@@ -217,9 +224,10 @@ class MainWindow:
         # Title
         self.title_label.pack(pady=(0, 10))
         
-        # Target Model selection
+        # Target Diffusion Model selection
         self.model_frame.pack(fill=tk.X, pady=(0, 10))
         self.model_combo.pack(pady=5)
+        self.content_rating_widget.pack(pady=5)
         
         # Fields frame
         self.fields_frame.pack(fill=tk.X, pady=(0, 10))
@@ -325,7 +333,8 @@ class MainWindow:
             
             # Generate prompt using selected target model
             model = self.model_var.get()
-            final_prompt = self.prompt_engine.generate_prompt(model, prompt_data)
+            content_rating = self.content_rating_widget.get_rating()
+            final_prompt = self.prompt_engine.generate_prompt(model, prompt_data, content_rating)
             
             # Update preview with final prompt
             self.preview_panel.update_preview(final_prompt, is_final=True)
@@ -460,6 +469,72 @@ class MainWindow:
         
         # Update LLM status
         self._update_llm_status()
+    
+    def _on_content_rating_changed(self, rating: str):
+        """Handle content rating change."""
+        # Update LLM model selection based on content rating
+        self._update_llm_models_for_rating(rating)
+        self._update_preview()
+    
+    def _update_llm_models_for_rating(self, rating: str):
+        """Update available LLM models based on content rating."""
+        llm_info = self.prompt_engine.get_llm_info()
+        if llm_info["available"] and llm_info.get("ollama_available"):
+            try:
+                import requests
+                response = requests.get("http://localhost:11434/api/tags")
+                if response.status_code == 200:
+                    models = response.json().get("models", [])
+                    all_models = [model.get("name", "") for model in models if model.get("name")]
+                    
+                    # Filter models based on content rating
+                    if rating == "PG":
+                        # Use general models for PG content
+                        llm_models = [m for m in all_models if any(x in m.lower() for x in ["deepseek", "gemma", "llama", "mistral"])]
+                    elif rating == "NSFW":
+                        # Use models that can handle NSFW content
+                        llm_models = [m for m in all_models if any(x in m.lower() for x in ["deepseek", "llama", "mistral"])]
+                    elif rating == "Hentai":
+                        # Use models that can handle explicit content
+                        llm_models = [m for m in all_models if any(x in m.lower() for x in ["deepseek", "llama"])]
+                    else:
+                        llm_models = all_models
+                    
+                    # Sort models for better UX
+                    llm_models.sort()
+                    
+                    # Update combobox values
+                    self.llm_combo['values'] = llm_models
+                    
+                    # Set default model if current one is not in filtered list
+                    current_model = self.llm_var.get()
+                    if current_model not in llm_models and llm_models:
+                        self.llm_var.set(llm_models[0])
+                        self.prompt_engine.update_llm_model(llm_models[0])
+                else:
+                    # Fallback to default models
+                    if rating == "PG":
+                        llm_models = ["deepseek-r1:8b", "gemma3:4b"]
+                    elif rating == "NSFW":
+                        llm_models = ["deepseek-r1:8b", "llama3.1:8b"]
+                    elif rating == "Hentai":
+                        llm_models = ["deepseek-r1:8b"]
+                    else:
+                        llm_models = ["deepseek-r1:8b", "gemma3:4b"]
+                    
+                    self.llm_combo['values'] = llm_models
+            except:
+                # Fallback to default models
+                if rating == "PG":
+                    llm_models = ["deepseek-r1:8b", "gemma3:4b"]
+                elif rating == "NSFW":
+                    llm_models = ["deepseek-r1:8b", "llama3.1:8b"]
+                elif rating == "Hentai":
+                    llm_models = ["deepseek-r1:8b"]
+                else:
+                    llm_models = ["deepseek-r1:8b", "gemma3:4b"]
+                
+                self.llm_combo['values'] = llm_models
     
     def _load_test_data(self):
         """Load test data for development and testing."""

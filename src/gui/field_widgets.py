@@ -5,6 +5,7 @@ Custom field widgets for the GUI.
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
+from .snippet_widgets import SnippetDropdown, SNIPPET_DATA
 
 
 class FieldWidget:
@@ -50,9 +51,25 @@ class TextFieldWidget(FieldWidget):
         self.label_widget = ttk.Label(self.frame, text=self.label)
         self.label_widget.pack(anchor=tk.W)
         
+        # Input frame for entry and snippet dropdown
+        input_frame = ttk.Frame(self.frame)
+        input_frame.pack(fill=tk.X, pady=(2, 0))
+        
         # Entry field
-        self.entry = ttk.Entry(self.frame, width=width)
-        self.entry.pack(fill=tk.X, pady=(2, 0))
+        self.entry = ttk.Entry(input_frame, width=width)
+        self.entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Add snippet dropdown if snippets are available for this field
+        field_name = self.label.lower().replace(":", "").replace(" ", "_")
+        if field_name in SNIPPET_DATA:
+            self.snippet_dropdown = SnippetDropdown(
+                input_frame,
+                SNIPPET_DATA[field_name],
+                self._on_snippet_select
+            )
+            self.snippet_dropdown.pack(side=tk.RIGHT)
+        else:
+            self.snippet_dropdown = None
         
         # Placeholder functionality
         self.placeholder = placeholder
@@ -68,6 +85,19 @@ class TextFieldWidget(FieldWidget):
         # Bind change events
         self.entry.bind('<KeyRelease>', self._trigger_change)
         self.entry.bind('<FocusOut>', self._trigger_change)
+    
+    def _on_snippet_select(self, snippet: str):
+        """Handle snippet selection."""
+        current_value = self.get_value()
+        if current_value:
+            # Append to existing value
+            new_value = current_value + ", " + snippet
+        else:
+            # Set as new value
+            new_value = snippet
+        
+        self.set_value(new_value)
+        self._trigger_change()
     
     def get_value(self) -> str:
         """Get the current value."""
@@ -114,9 +144,23 @@ class TextAreaWidget(FieldWidget):
         self.label_widget = ttk.Label(self.frame, text=self.label)
         self.label_widget.pack(anchor=tk.W)
         
-        # Text area with scrollbar
+        # Text area with scrollbar and snippet dropdown
         text_frame = ttk.Frame(self.frame)
         text_frame.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
+        
+        # Add snippet dropdown if snippets are available for this field
+        field_name = self.label.lower().replace(":", "").replace(" ", "_")
+        if field_name in SNIPPET_DATA:
+            snippet_frame = ttk.Frame(self.frame)
+            snippet_frame.pack(fill=tk.X, pady=(2, 0))
+            self.snippet_dropdown = SnippetDropdown(
+                snippet_frame,
+                SNIPPET_DATA[field_name],
+                self._on_snippet_select
+            )
+            self.snippet_dropdown.pack(side=tk.RIGHT)
+        else:
+            self.snippet_dropdown = None
         
         self.text_widget = tk.Text(
             text_frame,
@@ -146,6 +190,19 @@ class TextAreaWidget(FieldWidget):
         # Bind change events
         self.text_widget.bind('<KeyRelease>', self._trigger_change)
         self.text_widget.bind('<FocusOut>', self._trigger_change)
+    
+    def _on_snippet_select(self, snippet: str):
+        """Handle snippet selection."""
+        current_value = self.get_value()
+        if current_value:
+            # Append to existing value
+            new_value = current_value + ", " + snippet
+        else:
+            # Set as new value
+            new_value = snippet
+        
+        self.set_value(new_value)
+        self._trigger_change()
     
     def get_value(self) -> str:
         """Get the current value."""
