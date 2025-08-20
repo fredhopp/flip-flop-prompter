@@ -819,30 +819,32 @@ class SnippetPopup(QDialog):
     
     def _apply_styling(self):
         """Apply styling to the dialog."""
-        # Style snippet buttons
-        button_style = """
-            QPushButton {
-                text-align: left;
-                padding: 8px 12px;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                background-color: #f8f9fa;
-                margin: 1px 0px;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-                border-color: #0066cc;
-            }
-            QPushButton:pressed {
-                background-color: #0066cc;
-                color: white;
-            }
-        """
-        
-        # Apply to all buttons except close button
+        # Only style the close button - other buttons have their own specific styling
+        close_button = None
         for button in self.findChildren(QPushButton):
-            if button.text() != "Close":
-                button.setStyleSheet(button_style)
+            if button.text() == "Close":
+                close_button = button
+                break
+        
+        if close_button:
+            close_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #0066cc;
+                    color: white;
+                    border: 2px solid #0066cc;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #0052a3;
+                    border-color: #0052a3;
+                }
+                QPushButton:pressed {
+                    background-color: #003d7a;
+                    border-color: #003d7a;
+                }
+            """)
     
     def show_popup(self):
         """Show the popup dialog."""
