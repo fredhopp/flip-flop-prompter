@@ -252,32 +252,30 @@ class SeedFieldWidget(QWidget):
         
         # Create randomize button
         self.randomize_button = QPushButton("🎲")
+        self.randomize_button.setObjectName("diceButton")  # Give it a unique name
         self.randomize_button.setFixedSize(30, 30)
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
         
-        # Apply styling with important flags to override defaults
+        # Apply styling with specific object name to override global styles
         button_style = """
-            QPushButton {
-                background-color: #f0f0f0 !important;
-                border: 1px solid #ccc !important;
-                border-radius: 4px !important;
-                font-size: 16px !important;
-                color: #333 !important;
+            QPushButton#diceButton {
+                background-color: #f5f5f5;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 18px;
+                color: #333;
+                padding: 0px;
             }
-            QPushButton:hover {
-                background-color: #e0e0e0 !important;
-                border: 2px solid #0066cc !important;
+            QPushButton#diceButton:hover {
+                background-color: #e8e8e8;
+                border: 2px solid #0066cc;
             }
-            QPushButton:pressed {
-                background-color: #d0d0d0 !important;
+            QPushButton#diceButton:pressed {
+                background-color: #ddd;
             }
         """
         self.randomize_button.setStyleSheet(button_style)
-        
-        # Force style refresh
-        self.randomize_button.style().unpolish(self.randomize_button)
-        self.randomize_button.style().polish(self.randomize_button)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)
