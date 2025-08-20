@@ -404,34 +404,33 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # Button styles (exclude dice button)
-        button_style = """
-            QPushButton:not(#diceButton) {
-                background-color: #0066cc;
-                color: white;
-                border: 2px solid #0066cc;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-weight: bold;
-                min-height: 20px;
-            }
-            QPushButton:not(#diceButton):hover {
-                background-color: #0052a3;
-                border-color: #0052a3;
-            }
-            QPushButton:not(#diceButton):pressed {
-                background-color: #003d7a;
-                border-color: #003d7a;
-            }
-            QPushButton:not(#diceButton):disabled {
-                background-color: #cccccc;
-                border-color: #cccccc;
-                color: #666666;
-            }
-        """
-        
+        # Apply blue styling to all buttons except dice button
         for button in self.findChildren(QPushButton):
-            button.setStyleSheet(button_style)
+            if button.objectName() != "diceButton":
+                button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #0066cc;
+                        color: white;
+                        border: 2px solid #0066cc;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-weight: bold;
+                        min-height: 20px;
+                    }
+                    QPushButton:hover {
+                        background-color: #0052a3;
+                        border-color: #0052a3;
+                    }
+                    QPushButton:pressed {
+                        background-color: #003d7a;
+                        border-color: #003d7a;
+                    }
+                    QPushButton:disabled {
+                        background-color: #cccccc;
+                        border-color: #cccccc;
+                        color: #666666;
+                    }
+                """)
     
     # Event handlers
     def _clear_all_fields(self):
@@ -821,22 +820,11 @@ class MainWindow(QMainWindow):
     def _update_snippet_families(self):
         """Update snippet dropdowns based on selected families."""
         # Get selected families
-        selected_families = []
-        for family, action in self.family_actions.items():
-            if action.isChecked():
-                selected_families.append(family)
+        selected_families = self._get_selected_families()
         
-        # Update all snippet widgets
-        # This will be implemented when we add the snippet functionality
+        # Update all snippet widgets - this will refresh when snippet popups are opened
+        # The snippet popups will call _get_selected_families() when they open
         pass
-    
-    def _get_selected_families(self):
-        """Get list of currently selected families."""
-        selected = []
-        for family, action in self.family_actions.items():
-            if action.isChecked():
-                selected.append(family)
-        return selected
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""

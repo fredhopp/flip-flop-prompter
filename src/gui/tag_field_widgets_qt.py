@@ -276,7 +276,6 @@ class SeedFieldWidget(QWidget):
                 background-color: #ebebeb !important;
                 border: 2px solid #0066cc !important;
                 color: #333 !important;
-                transform: scale(1.05) !important;
             }
             QPushButton#diceButton:pressed {
                 background-color: #e0e0e0 !important;
