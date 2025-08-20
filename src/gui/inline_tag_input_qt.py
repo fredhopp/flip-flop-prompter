@@ -32,8 +32,8 @@ class InlineTagWidget(QWidget):
     def _setup_ui(self):
         """Setup the tag UI."""
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(4, 2, 4, 2)
-        self.layout.setSpacing(2)
+        self.layout.setContentsMargins(6, 2, 6, 2)
+        self.layout.setSpacing(4)
         
         # Tag text label
         self.text_label = QLabel(self.tag.text)
@@ -51,45 +51,49 @@ class InlineTagWidget(QWidget):
         # Set minimum size based on content
         font_metrics = QFontMetrics(self.text_label.font())
         text_width = font_metrics.horizontalAdvance(self.tag.text)
-        self.setFixedWidth(text_width + 24)  # 24px for remove button and padding
+        self.setFixedWidth(text_width + 32)  # 32px for remove button, padding, and margins
         self.setFixedHeight(20)  # Consistent height
     
     def _apply_styling(self):
         """Apply styling based on tag type."""
         # Color mapping for tag types
         colors = {
-            TagType.SNIPPET: "#E3F2FD",      # Very light blue
-            TagType.USER_TEXT: "#E8F5E8",    # Very light green
-            TagType.CATEGORY: "#FFF3E0",     # Pale orange
-            TagType.SUBCATEGORY: "#FFFDE7"   # Pale yellow
+            TagType.SNIPPET: QColor("#E3F2FD"),      # Very light blue
+            TagType.USER_TEXT: QColor("#E8F5E8"),    # Very light green
+            TagType.CATEGORY: QColor("#FFF3E0"),     # Pale orange
+            TagType.SUBCATEGORY: QColor("#FFFDE7")   # Pale yellow
         }
         
         border_colors = {
-            TagType.SNIPPET: "#90CAF9",      # Light blue
-            TagType.USER_TEXT: "#A5D6A7",   # Light green
-            TagType.CATEGORY: "#FFB74D",    # Orange
-            TagType.SUBCATEGORY: "#FFF176"  # Yellow
+            TagType.SNIPPET: QColor("#90CAF9"),      # Light blue
+            TagType.USER_TEXT: QColor("#A5D6A7"),   # Light green
+            TagType.CATEGORY: QColor("#FFB74D"),    # Orange
+            TagType.SUBCATEGORY: QColor("#FFF176")  # Yellow
         }
         
-        bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
-        border_color = border_colors.get(self.tag.tag_type, "#D0D0D0")
+        bg_color = colors.get(self.tag.tag_type, QColor("#F5F5F5"))
+        border_color = border_colors.get(self.tag.tag_type, QColor("#D0D0D0"))
         
-        # Tag widget styling - use direct QWidget selector since PySide6 doesn't support class selectors
+        # Set background color directly using QPalette
+        palette = self.palette()
+        palette.setColor(palette.ColorRole.Window, bg_color)
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+        
+        # Apply border styling with CSS
         tag_style = f"""
             QWidget {{
-                background-color: {bg_color} !important;
-                border: 1px solid {border_color} !important;
-                border-radius: 4px !important;
-                margin: 1px !important;
+                border: 1px solid {border_color.name()};
+                border-radius: 4px;
+                margin: 1px;
             }}
             QWidget:hover {{
-                border: 2px solid #0066cc !important;
-                background-color: {bg_color} !important;
+                border: 2px solid #0066cc;
             }}
             QLabel {{
-                background-color: transparent !important;
-                border: none !important;
-                color: #333 !important;
+                background-color: transparent;
+                border: none;
+                color: #333;
             }}
         """
         
