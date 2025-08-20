@@ -26,16 +26,16 @@ class CLIInterface:
             epilog="""
 Examples:
   # Generate a prompt for Seedream
-  python main.py --model seedream --environment "hotel lobby" --subjects "20yo man" --pose "standing"
+  python main_qt.py --model seedream --environment "hotel lobby" --subjects "20yo man" --pose "standing"
 
   # Generate JSON output for ComfyUI
-  python main.py --model veo --json --environment "interior" --weather "sunny" --time "7am"
+  python main_qt.py --model veo --json --environment "interior" --weather "sunny" --time "7am"
 
   # Use a template file
-  python main.py --template my_template.json
+  python main_qt.py --template my_template.json
 
   # List supported models
-  python main.py --list-models
+  python main_qt.py --list-models
             """
         )
         

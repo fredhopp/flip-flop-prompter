@@ -15,14 +15,11 @@
 # Activate virtual environment
 source .venv/Scripts/activate
 
-# Run modern PySide6 GUI (recommended)
+# Run PySide6 GUI (standard)
 python main_qt.py --gui
 
-# Run legacy Tkinter GUI
-python main.py --gui
-
 # Run CLI application
-python main.py --cli
+python main_qt.py --cli
 
 # Install dependencies
 pip install -r requirements.txt
@@ -57,14 +54,16 @@ pip install -r requirements.txt
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
 - **Import errors**: Ensure virtual environment is activated
 - **GUI not updating**: Check that change callbacks are properly connected
-- **Button styling**: Use `tk.Button` with explicit `bg="#0066cc"` and `fg="#ffffff"`
+- **Button styling**: Use PySide6 QPushButton with CSS stylesheets
+- **Tag colors not showing**: Check paintEvent implementation in InlineTagWidget
+- **Snippet popup issues**: Verify families filtering and dynamic updates
 
 ## Development Priorities
 1. **High Priority**: Clean up unnecessary dependencies
-2. **Next**: PySide6 migration (critical for future development)
-3. **Future**: Randomization system, AI service integrations
+2. **Next**: Expand snippet categories and improve randomization
+3. **Future**: AI service integrations and advanced features
 
 ---
 
-**Last Updated**: August 2025
+**Last Updated**: December 2024
 **Purpose**: Serve as persistent memory for development workflow preferences and project context

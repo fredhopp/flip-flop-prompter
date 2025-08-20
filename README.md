@@ -61,11 +61,6 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 python main_qt.py --gui
 ```
 
-**Legacy Tkinter Interface:**
-```bash
-python main.py --gui
-```
-
 ## 📖 Usage
 
 ### **Basic Workflow**
@@ -105,8 +100,7 @@ python main.py --gui
 
 ```
 FlipFlopPrompt/
-├── main.py                    # Legacy Tkinter entry point
-├── main_qt.py                 # Modern PySide6 entry point (recommended)
+├── main_qt.py                 # PySide6 entry point
 ├── requirements.txt           # Python dependencies
 ├── README.md                 # This file
 ├── TODO.md                   # Development tasks
@@ -118,14 +112,13 @@ FlipFlopPrompt/
 │   │   ├── llm_integration.py
 │   │   └── model_adapters.py
 │   ├── gui/                  # User interface
-│   │   ├── main_window.py         # Tkinter GUI (legacy)
-│   │   ├── main_window_qt.py      # PySide6 GUI (modern)
-│   │   ├── field_widgets.py       # Tkinter widgets
+│   │   ├── main_window_qt.py      # PySide6 GUI
 │   │   ├── field_widgets_qt.py    # PySide6 widgets
-│   │   ├── snippet_widgets.py     # Tkinter snippets
 │   │   ├── snippet_widgets_qt.py  # PySide6 snippets  
-│   │   ├── preview_panel.py       # Tkinter preview
-│   │   └── preview_panel_qt.py    # PySide6 preview
+│   │   ├── preview_panel_qt.py    # PySide6 preview
+│   │   ├── tag_widgets_qt.py      # Tag system components
+│   │   ├── inline_tag_input_qt.py # Inline tag input
+│   │   └── tag_field_widgets_qt.py # Tag field widgets
 │   ├── utils/                # Utilities
 │   │   ├── snippet_manager.py
 │   │   └── theme_manager.py
@@ -172,7 +165,7 @@ source .venv/bin/activate
 python main_qt.py --gui
 
 # Run legacy Tkinter version  
-python main.py --gui
+python main_qt.py --gui
 ```
 
 ### **Debug Mode**

@@ -3,29 +3,22 @@
 ## ✅ **Completed Tasks**
 
 ### **Core Functionality**
-- [x] Basic GUI with Tkinter (legacy)
-- [x] **Complete PySide6 GUI implementation** (modern)
+- [x] **Complete PySide6 GUI implementation** (modern Qt-based interface)
 - [x] Prompt generation engine
 - [x] LLM integration with Ollama
 - [x] Model-specific prompt formatting
-- [x] Content rating system → **Enhanced as "Families" system**
+- [x] **Enhanced "Families" system** (replaces content rating)
 - [x] Snippet system with JSON files
 - [x] Template loading/saving system
-- [x] Preferences saving/loading → **Enhanced with family persistence**
+- [x] Preferences saving/loading with family persistence
 - [x] Debug system with file logging
-
-### **GUI Improvements - Tkinter Era**
-- [x] Simplified theming (basic colors only)
-- [x] Repositioned buttons above prompt summary
-- [x] Renamed "environment" to "setting"
-- [x] Removed redundant "Content Rating" label
-- [x] Removed "View" menu, made "Themes" top-level
-- [x] Fixed save prompt functionality
-- [x] Added template system to File menu
+- [x] **Tag-based snippet system** with randomization
+- [x] **Dynamic snippet filtering** based on selected families
 
 ### **PySide6 GUI Implementation (Major Achievement)**
 - [x] **Complete PySide6 migration** - Modern Qt-based interface
 - [x] **Professional light theme** - Blue accent buttons and modern scrollbars
+- [x] **Tag-based input system** - Inline tags with colors and editing
 - [x] **Dynamic snippet popup** - Category blocks rearrange on window resize
 - [x] **Auto-expanding Additional Details** - 1-4 lines with scrollbar
 - [x] **Family preferences persistence** - Saves selections between sessions
@@ -38,6 +31,9 @@
 - [x] **Fixed-height status bar** - Word/character count at bottom
 - [x] **Copy to Clipboard** - Added to main action row
 - [x] **Clear All Fields** - Renamed and repositioned button
+- [x] **Seed-based randomization** - Deterministic random snippet selection
+- [x] **Tag color coding** - Different colors for different tag types
+- [x] **Dynamic snippet updates** - Real-time filtering when families change
 
 ### **Data Management**
 - [x] User data directories setup
@@ -48,16 +44,17 @@
 
 ## 🔄 **In Progress**
 
-### **Camera Choices Expansion**
-- [ ] Add still photography options
-- [ ] Add modern DSLR options  
-- [ ] Add iconic film camera options
-- [ ] Update camera snippets with new choices
+### **Project Cleanup**
+- [x] **Remove legacy Tkinter files** - Cleaned up old GUI implementation
+- [x] **Remove unused main.py** - PySide6 version is now the standard
+- [ ] **Clean up unnecessary dependencies** - Remove unused packages from requirements.txt
+- [ ] **Update documentation** - Ensure TODO.md and DEVELOPMENT.md are current
 
 ## 📋 **Pending Tasks**
 
 ### **High Priority**
 - [x] **Fix prompt preview functionality** - Now updates interactively based on user input
+- [x] **Remove legacy Tkinter files** - Cleaned up old GUI implementation
 - [ ] **Clean up unnecessary dependencies** - Remove unused packages from requirements.txt and .venv
   - [ ] Remove PyYAML (not used in main code)
   - [ ] Remove jsonschema (not used in main code)
@@ -97,7 +94,9 @@
 ## 🚀 **Future Enhancements**
 
 ### **High Priority**
-- [ ] **Migrate to PySide6** - Replace Tkinter with modern Qt-based GUI framework (CRITICAL - affects all future development)
+- [x] **Migrate to PySide6** - Replace Tkinter with modern Qt-based GUI framework (COMPLETED)
+- [ ] **Expand snippet categories** - Add more variety to existing snippet files
+- [ ] **Improve randomization system** - Add more sophisticated random selection algorithms
 - [ ] **Randomization system** - Generate variations with pinned/random fields
   - [ ] **Field pinning** - Allow specific fields to be "pinned" (fixed) while others randomize
   - [ ] **Batch generation** - Generate multiple prompt variations at once
@@ -239,8 +238,8 @@
 ## 📋 **Project Context & Technical Decisions**
 
 ### **Current Architecture**
-- **GUI Framework**: **PySide6 (modern, recommended)** + Tkinter (legacy support)
-- **Dual GUI Support**: Both `main_qt.py` (PySide6) and `main.py` (Tkinter) available
+- **GUI Framework**: **PySide6 (modern Qt-based interface)**
+- **Modern PySide6 GUI**: Qt-based interface with professional styling
 - **Virtual Environment**: `.venv` (not `venv`)
 - **User Data**: Stored in user's home directory via `theme_manager.user_data_dir`
 - **Snippets**: JSON files in `data/snippets/` with family/content rating system
