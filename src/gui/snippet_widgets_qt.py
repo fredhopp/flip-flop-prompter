@@ -579,20 +579,36 @@ class SnippetPopup(QDialog):
         self.selected_families = selected_families
         self.on_select = on_select
         
-        # Get snippets for all selected families
+        # Get snippets for each selected family separately
         self.snippets = {}
-        self.family_snippets = {}  # Track which family each snippet comes from
+        self.family_snippets = {}  # Track which family each category belongs to
         
+        # Process families in priority order (PG first, then NSFW, then Hentai)
+        family_priority = ["PG", "NSFW", "Hentai"]
+        sorted_families = []
+        
+        # Add families in priority order if they're selected
+        for priority_family in family_priority:
+            if priority_family in selected_families:
+                sorted_families.append(priority_family)
+        
+        # Add any remaining selected families not in the priority list
         for family in selected_families:
+            if family not in sorted_families:
+                sorted_families.append(family)
+        
+        for family in sorted_families:
             family_snippets = snippet_manager.get_snippets_for_field(field_name, family)
             if family_snippets:
                 # Store snippets with family info
                 for category, items in family_snippets.items():
                     if category not in self.snippets:
+                        # First time seeing this category - assign it to this family
                         self.snippets[category] = items
                         self.family_snippets[category] = family
                     else:
-                        # Merge items from different families
+                        # Category already exists - merge items but keep the original family assignment
+                        # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
                         if isinstance(items, list):
                             if isinstance(self.snippets[category], list):
                                 self.snippets[category].extend(items)
@@ -870,20 +886,36 @@ class SnippetPopup(QDialog):
         """Refresh snippets based on new family selection."""
         self.selected_families = selected_families
         
-        # Rebuild snippets with new family selection
+        # Rebuild snippets with new family selection using priority order
         self.snippets = {}
         self.family_snippets = {}
         
+        # Process families in priority order (PG first, then NSFW, then Hentai)
+        family_priority = ["PG", "NSFW", "Hentai"]
+        sorted_families = []
+        
+        # Add families in priority order if they're selected
+        for priority_family in family_priority:
+            if priority_family in selected_families:
+                sorted_families.append(priority_family)
+        
+        # Add any remaining selected families not in the priority list
         for family in selected_families:
+            if family not in sorted_families:
+                sorted_families.append(family)
+        
+        for family in sorted_families:
             family_snippets = snippet_manager.get_snippets_for_field(self.field_name, family)
             if family_snippets:
                 # Store snippets with family info
                 for category, items in family_snippets.items():
                     if category not in self.snippets:
+                        # First time seeing this category - assign it to this family
                         self.snippets[category] = items
                         self.family_snippets[category] = family
                     else:
-                        # Merge items from different families
+                        # Category already exists - merge items but keep the original family assignment
+                        # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
                         if isinstance(items, list):
                             if isinstance(self.snippets[category], list):
                                 self.snippets[category].extend(items)
