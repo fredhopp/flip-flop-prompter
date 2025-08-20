@@ -89,13 +89,25 @@ class TagFieldWidget(QWidget):
     def _show_snippets(self):
         """Show the snippet popup with category/subcategory buttons."""
         # Get selected families from main window
-        selected_families = ["PG"]  # Default, will be updated by main window
-        if hasattr(self.parent(), '_get_selected_families'):
-            selected_families = self.parent()._get_selected_families()
+        selected_families = ["PG"]  # Default fallback
+        
+        # Try to find the main window to get selected families
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, '_get_selected_families'):
+            selected_families = main_window._get_selected_families()
         
         # Create and show snippet popup
         popup = SnippetPopup(self, self.field_name, selected_families, self._on_snippet_selected)
         popup.show()
+    
+    def _find_main_window(self):
+        """Find the main window by traversing up the widget hierarchy."""
+        current = self
+        while current:
+            if hasattr(current, '_get_selected_families'):
+                return current
+            current = current.parent()
+        return None
     
     def _on_snippet_selected(self, snippet_text: str, category_path: List[str] = None):
         """Handle snippet selection from popup - toggle if exists."""
@@ -140,8 +152,11 @@ class TagFieldWidget(QWidget):
         """Get the randomized value based on current seed."""
         # Get selected families from main window
         selected_families = ["PG"]  # Default fallback
-        if hasattr(self.parent(), '_get_selected_families'):
-            selected_families = self.parent()._get_selected_families()
+        
+        # Try to find the main window to get selected families
+        main_window = self._find_main_window()
+        if main_window and hasattr(main_window, '_get_selected_families'):
+            selected_families = main_window._get_selected_families()
         
         return self.tag_input.generate_random_text(seed, snippet_manager, selected_families)
     
@@ -253,23 +268,23 @@ class SeedFieldWidget(QWidget):
         # Create randomize button
         self.randomize_button = QPushButton("🎲")
         self.randomize_button.setObjectName("diceButton")  # Give it a unique name
-        self.randomize_button.setFixedSize(35, 35)  # Slightly larger button
+        self.randomize_button.setFixedSize(30, 30)  # 25% smaller (from 35x35)
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
         
-        # Apply styling with proper button frame and larger icon
+        # Apply styling with proper button frame and smaller icon
         button_style = """
             QPushButton#diceButton {
                 background-color: #f8f8f8 !important;
                 border: 2px solid #bbb !important;
                 border-radius: 6px !important;
-                font-size: 24px !important;
+                font-size: 18px !important;
                 color: #333 !important;
                 padding: 2px !important;
-                min-height: 31px !important;
-                max-height: 31px !important;
-                min-width: 31px !important;
-                max-width: 31px !important;
+                min-height: 26px !important;
+                max-height: 26px !important;
+                min-width: 26px !important;
+                max-width: 26px !important;
                 font-weight: normal !important;
             }
             QPushButton#diceButton:hover {
