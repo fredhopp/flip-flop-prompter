@@ -10,8 +10,6 @@ import requests
 from .data_models import PromptData
 from datetime import datetime
 from pathlib import Path
-
-from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
 
 
@@ -51,6 +49,17 @@ class OllamaProvider(LLMProvider):
             return False
         except:
             return False
+    
+    def get_available_models(self) -> List[str]:
+        """Get list of available models from Ollama."""
+        try:
+            response = self.session.get(f"{self.base_url}/api/tags")
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                return [model.get("name", "") for model in models if model.get("name")]
+            return []
+        except:
+            return []
     
     def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt using Ollama."""
@@ -518,5 +527,11 @@ class LLMManager:
     def update_llm_model(self, model_name: str):
         """Update the LLM model being used."""
         self.llm_model = model_name
-        if self.active_provider and hasattr(self.active_provider, 'model_name'):
-            self.active_provider.model_name = model_name
+        self.providers["ollama"].model_name = model_name
+        self._select_provider()
+    
+    def get_available_models(self) -> List[str]:
+        """Get available models from the active provider."""
+        if self.providers["ollama"]:
+            return self.providers["ollama"].get_available_models()
+        return []

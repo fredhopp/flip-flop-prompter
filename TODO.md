@@ -41,6 +41,12 @@
 
 ### **High Priority**
 - [x] **Fix prompt preview functionality** - Now updates interactively based on user input
+- [ ] **Clean up unnecessary dependencies** - Remove unused packages from requirements.txt and .venv
+  - [ ] Remove PyYAML (not used in main code)
+  - [ ] Remove jsonschema (not used in main code)
+  - [ ] Remove openai (not used in main code)
+  - [ ] Update requirements.txt to only include actually used packages
+  - [ ] Verify all imports are either standard Python or in requirements.txt
 - [ ] **Expand camera choices** - Add more camera types to snippets
 - [ ] **Improve LLM prompt quality** - Better prompts when fields are empty
 - [ ] **Test all functionality** - Ensure everything works after changes
@@ -167,6 +173,7 @@
 4. ✅ Update field names
 5. ✅ Fix GUI and snippet issues
 6. ✅ Fix prompt preview
+7. **Clean up unnecessary dependencies** - Remove unused packages and update requirements.txt
 
 ### **Sprint 2 (PySide6 Migration)**
 1. **Migrate to PySide6** - Critical foundation for all future development
@@ -209,6 +216,52 @@
 3. Create generation history and result management
 4. Add progress indicators and error handling
 5. Implement quality settings and style presets
+
+---
+
+## 📋 **Project Context & Technical Decisions**
+
+### **Current Architecture**
+- **GUI Framework**: Tkinter (planned migration to PySide6)
+- **Virtual Environment**: `.venv` (not `venv`)
+- **User Data**: Stored in user's home directory via `theme_manager.user_data_dir`
+- **Snippets**: JSON files in `data/snippets/` with content rating system
+- **Templates**: JSON format, saved in user data directory
+- **Dependencies**: Only `requests` is actually used in main code
+
+### **Key Technical Decisions Made**
+- **Snippet Organization**: Fixed redundant categories (removed "Standing", renamed "Camera Type" to "Digital Cameras", etc.)
+- **GUI Styling**: Blue buttons (`#0066cc`) with white text, consistent across all buttons
+- **Preview Behavior**: Grey placeholder text when empty, black text when content present
+- **Field Names**: "environment" renamed to "setting" throughout the codebase
+- **Content Rating**: Affects available LLM models (filters out `gemma:2b` for NSFW content)
+
+### **File Structure**
+```
+src/
+├── core/           # Core prompt generation logic
+├── gui/            # Tkinter GUI components
+├── utils/          # Utilities (snippet manager, theme manager)
+└── cli/            # Command line interface
+data/
+└── snippets/       # JSON snippet files by content rating
+```
+
+### **Important Implementation Details**
+- **Interactive Preview**: All field widgets have `change_callback=self._update_preview`
+- **LLM Integration**: Uses Ollama with models like `deepseek-coder:6.7b`
+- **Error Handling**: JSON parsing errors handled gracefully
+- **Theme System**: Simplified to basic colors only
+- **Debug System**: Creates timestamped folders with debug files
+
+### **Known Working Features**
+- ✅ Interactive prompt preview updates
+- ✅ Snippet system with pretty names (no underscores in UI)
+- ✅ Template loading/saving
+- ✅ Content rating system
+- ✅ Blue button styling consistency
+- ✅ Placeholder text behavior
+- ✅ File operations (save prompt, load template)
 
 ---
 
