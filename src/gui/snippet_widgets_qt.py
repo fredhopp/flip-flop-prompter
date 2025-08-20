@@ -706,7 +706,7 @@ class SnippetPopup(QDialog):
             
             # Category title as clickable button with family info
             family_name = self.family_snippets.get(category, "Unknown")
-            category_button = QPushButton(f"{category.title()} <i>({family_name})</i>")
+            category_button = QPushButton(f"{category.title()} ({family_name})")
             category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
             category_button.setStyleSheet("""
                 QPushButton {
@@ -902,15 +902,41 @@ class SnippetPopup(QDialog):
                             else:
                                 self.snippets[category] = items
         
-        # Rebuild the UI
-        self._rebuild_widgets()
+        # Rebuild the UI by clearing and recreating the scroll area content
+        self._rebuild_scroll_content()
+    
+    def _rebuild_scroll_content(self):
+        """Rebuild only the scroll area content with updated snippets."""
+        # Find the scroll area and its content widget
+        scroll_area = None
+        for child in self.findChildren(QScrollArea):
+            scroll_area = child
+            break
+        
+        if scroll_area and scroll_area.widget():
+            # Get the scroll content widget
+            scroll_widget = scroll_area.widget()
+            
+            # Clear the scroll widget's layout
+            scroll_layout = scroll_widget.layout()
+            if scroll_layout:
+                while scroll_layout.count():
+                    item = scroll_layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+                
+                # Rebuild snippet buttons in the scroll area
+                self._build_snippet_buttons(scroll_layout)
     
     def _rebuild_widgets(self):
         """Rebuild the widget content with updated snippets."""
-        # Clear existing content
-        for child in self.findChildren(QWidget):
-            if child != self and child.parent() == self:
-                child.deleteLater()
+        # Clear existing content by removing all items from the main layout
+        layout = self.layout()
+        if layout:
+            while layout.count():
+                item = layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
         
         # Recreate widgets
         self._create_widgets()
