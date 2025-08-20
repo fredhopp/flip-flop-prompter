@@ -106,15 +106,15 @@ class TagWidget(QWidget):
         
         bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
         
-        # Tag widget styling
+        # Apply styling directly to the widget
         tag_style = f"""
-            TagWidget {{
+            QWidget {{
                 background-color: {bg_color};
                 border: 1px solid #D0D0D0;
                 border-radius: 8px;
                 margin: 1px;
             }}
-            TagWidget:hover {{
+            QWidget:hover {{
                 background-color: {self._darken_color(bg_color)};
             }}
         """
