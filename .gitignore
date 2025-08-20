@@ -143,6 +143,7 @@ themes/
 snippets/
 prompts/
 templates/
+tests/
 
 # Windows crash dumps
 *.stackdump

@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, Signal, QRect, QSize
 from PySide6.QtGui import QFont
 from typing import Callable, Optional, List, Dict
 from ..utils.snippet_manager import snippet_manager
+from ..utils.theme_manager import theme_manager
 
 
 class FlowLayout(QLayout):
@@ -351,7 +352,7 @@ class ModelSelectionWidget(QWidget):
         super().__init__()
         
         self.change_callback = change_callback
-        self.current_model = "seedream"
+        self.current_model = theme_manager.get_preference("target_model", "seedream")
         
         # Create widgets
         self._create_widgets()
@@ -380,7 +381,16 @@ class ModelSelectionWidget(QWidget):
             "Stability AI Flux",
             "Other"
         ])
-        self.model_combo.setCurrentText("Seedream")
+        
+        # Set current model from preferences
+        model_map = {
+            "seedream": "Seedream",
+            "veo": "Google Veo",
+            "flux": "Stability AI Flux",
+            "other": "Other"
+        }
+        display_name = model_map.get(self.current_model, "Seedream")
+        self.model_combo.setCurrentText(display_name)
         self.model_combo.currentTextChanged.connect(self._on_model_changed)
         
         layout.addWidget(self.model_combo)
@@ -417,6 +427,8 @@ class ModelSelectionWidget(QWidget):
         }
         
         self.current_model = model_map.get(model_name, "seedream")
+        # Save preference
+        theme_manager.set_preference("target_model", self.current_model)
         self.model_changed.emit(self.current_model)
     
     def get_value(self) -> str:
@@ -448,7 +460,7 @@ class LLMSelectionWidget(QWidget):
         super().__init__()
         
         self.change_callback = change_callback
-        self.current_llm = "deepseek-r1:8b"
+        self.current_llm = theme_manager.get_preference("llm_model", "gemma3:4b")
         self.ollama_available = False
         self.available_models = []
         
@@ -459,8 +471,9 @@ class LLMSelectionWidget(QWidget):
         if self.change_callback:
             self.llm_changed.connect(self.change_callback)
         
-        # Check Ollama connection on startup
-        self._check_ollama_connection()
+        # Defer Ollama connection check to avoid blocking startup
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(200, self._check_ollama_connection)
     
     def _create_widgets(self):
         """Create the LLM selection widgets."""
@@ -474,8 +487,10 @@ class LLMSelectionWidget(QWidget):
         self.label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
         layout.addWidget(self.label)
         
-        # Create combobox (will be replaced with error label if needed)
+        # Create combobox with default models (will be updated after connection check)
         self.llm_combo = QComboBox()
+        self.llm_combo.addItems(["gemma3:4b", "huihui_ai/dolphin3-abliterated:8b", "deepseek-r1:8b", "qwen3:8b"])
+        self.llm_combo.setCurrentText(self.current_llm)
         self.llm_combo.currentTextChanged.connect(self._on_llm_changed)
         layout.addWidget(self.llm_combo)
         
@@ -552,6 +567,8 @@ class LLMSelectionWidget(QWidget):
         """Handle LLM changes."""
         if self.ollama_available:
             self.current_llm = llm_name
+            # Save preference
+            theme_manager.set_preference("llm_model", llm_name)
             self.llm_changed.emit(llm_name)
     
     def get_value(self) -> str:
@@ -788,27 +805,61 @@ class SnippetPopup(QDialog):
                         category_layout.addWidget(sub_button)
                         
                         # Items in this subcategory
-                        for item in subitems:
-                            btn = QPushButton(item)
-                            btn.setMinimumHeight(25)
-                            btn.setMaximumHeight(35)
-                            btn.setStyleSheet("""
-                                QPushButton {
-                                    background-color: #E3F2FD;
-                                    border: 1px solid #90CAF9;
-                                    border-radius: 3px;
-                                    padding: 4px 8px;
-                                    text-align: left;
-                                    margin: 1px 0px;
-                                    margin-left: 10px;
-                                }
-                                QPushButton:hover {
-                                    background-color: #BBDEFB;
-                                    border: 2px solid #2196F3;
-                                }
-                            """)
-                            btn.clicked.connect(lambda checked, i=item: self._select_item(i))
-                            category_layout.addWidget(btn)
+                        if isinstance(subitems, list):
+                            # Traditional list format
+                            for item in subitems:
+                                btn = QPushButton(item)
+                                btn.setMinimumHeight(25)
+                                btn.setMaximumHeight(35)
+                                btn.setStyleSheet("""
+                                    QPushButton {
+                                        background-color: #E3F2FD;
+                                        border: 1px solid #90CAF9;
+                                        border-radius: 3px;
+                                        padding: 4px 8px;
+                                        text-align: left;
+                                        margin: 1px 0px;
+                                        margin-left: 10px;
+                                    }
+                                    QPushButton:hover {
+                                        background-color: #BBDEFB;
+                                        border: 2px solid #2196F3;
+                                    }
+                                """)
+                                btn.clicked.connect(lambda checked, i=item: self._select_item(i))
+                                category_layout.addWidget(btn)
+                                
+                        elif isinstance(subitems, dict):
+                            # New instruction format with content/description
+                            for item_name, item_data in subitems.items():
+                                btn = QPushButton(item_name)
+                                btn.setMinimumHeight(25)
+                                btn.setMaximumHeight(35)
+                                btn.setStyleSheet("""
+                                    QPushButton {
+                                        background-color: #E8F5E8;
+                                        border: 1px solid #4CAF50;
+                                        border-radius: 3px;
+                                        padding: 4px 8px;
+                                        text-align: left;
+                                        margin: 1px 0px;
+                                        margin-left: 10px;
+                                    }
+                                    QPushButton:hover {
+                                        background-color: #C8E6C9;
+                                        border: 2px solid #4CAF50;
+                                    }
+                                """)
+                                
+                                # Set tooltip with description
+                                if isinstance(item_data, dict) and 'description' in item_data:
+                                    btn.setToolTip(item_data['description'])
+                                    # Enable tooltips explicitly
+                                    btn.setToolTipDuration(5000)  # Show for 5 seconds
+                                
+                                # Connect to select instruction (pass the item_name for display, content for LLM)
+                                btn.clicked.connect(lambda checked, name=item_name, data=item_data: self._select_instruction(name, data))
+                                category_layout.addWidget(btn)
             
             # Add stretch to push content to top
             category_layout.addStretch()
@@ -851,6 +902,19 @@ class SnippetPopup(QDialog):
         else:
             # Fallback for old signature
             self.on_select(f"[SUBCATEGORY: {category}/{subcategory}]")
+        # Don't close popup - let user select multiple items
+    
+    def _select_instruction(self, name: str, data: dict):
+        """Handle instruction selection."""
+        # For instructions, pass the name (for display) but store the content for LLM use
+        # We'll store both in a special format that the field widget can parse
+        if isinstance(data, dict) and 'content' in data:
+            # Create a special instruction tag format: name|content
+            instruction_tag = f"{name}|{data['content']}"
+            self.on_select(instruction_tag, None)
+        else:
+            # Fallback to just the name
+            self.on_select(name, None)
         # Don't close popup - let user select multiple items
     
     def _apply_styling(self):

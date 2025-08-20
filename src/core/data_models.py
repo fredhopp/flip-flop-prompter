@@ -19,6 +19,7 @@ class PromptData:
     framing_action: str = ""
     grading: str = ""
     details: str = ""
+    llm_instructions: str = ""
     
     def to_dict(self) -> Dict[str, str]:
         """Convert to dictionary."""
@@ -32,7 +33,8 @@ class PromptData:
             'camera': self.camera,
             'framing_action': self.framing_action,
             'grading': self.grading,
-            'details': self.details
+            'details': self.details,
+            'llm_instructions': self.llm_instructions
         }
     
     @classmethod
@@ -48,5 +50,6 @@ class PromptData:
             camera=data.get('camera', ''),
             framing_action=data.get('framing_action', ''),
             grading=data.get('grading', ''),
-            details=data.get('details', '')
+            details=data.get('details', ''),
+            llm_instructions=data.get('llm_instructions', '')
         )

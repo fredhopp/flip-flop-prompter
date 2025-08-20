@@ -30,7 +30,7 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama local LLM provider."""
     
-    def __init__(self, model_name: str = "deepseek-r1:8b", base_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = "gemma3:4b", base_url: str = "http://localhost:11434"):
         self.model_name = model_name
         self.base_url = base_url
         self.session = requests.Session()
@@ -71,8 +71,43 @@ class OllamaProvider(LLMProvider):
             debug_folder = self.debug_dir / timestamp
             debug_folder.mkdir(exist_ok=True)
         
-        # Create the system prompt
-        system_prompt = self._create_system_prompt(target_model, content_rating)
+        # Check if custom LLM instructions are provided
+        if prompt_data.llm_instructions.strip():
+            # Parse custom instruction (check for special format: name|content)
+            if '|' in prompt_data.llm_instructions:
+                # Extract content from instruction tag format
+                instruction_content = prompt_data.llm_instructions.split('|', 1)[1]
+            else:
+                # Use as-is if not in special format
+                instruction_content = prompt_data.llm_instructions
+            
+            # Replace placeholders in the instruction with actual data
+            custom_instruction = instruction_content.format(
+                setting=prompt_data.setting,
+                weather=prompt_data.weather,
+                date_time=prompt_data.date_time,
+                subjects=prompt_data.subjects,
+                pose_action=prompt_data.pose_action,
+                camera=prompt_data.camera,
+                framing_action=prompt_data.framing_action,
+                grading=prompt_data.grading,
+                style=prompt_data.style,
+                details=prompt_data.details
+            )
+            
+            # Add content rating information to custom instruction
+            content_rating_note = ""
+            if content_rating == "NSFW":
+                content_rating_note = "\n\nCONTENT RATING: NSFW - This prompt may contain adult content, nudity, or mature themes."
+            elif content_rating == "Hentai":
+                content_rating_note = "\n\nCONTENT RATING: HENTAI - This prompt is for explicit adult content and hentai-style art."
+            else:
+                content_rating_note = "\n\nCONTENT RATING: PG - Keep content family-friendly and appropriate for all audiences."
+            
+            system_prompt = custom_instruction + content_rating_note
+        else:
+            # Use default system prompt
+            system_prompt = self._create_system_prompt(target_model, content_rating)
         
         # Create the user prompt
         user_prompt = self._create_user_prompt(prompt_data, target_model)
@@ -482,7 +517,7 @@ Make it sound natural and professional, not like a list of components.
 class LLMManager:
     """Manager for LLM providers."""
     
-    def __init__(self, preferred_provider: str = "auto", llm_model: str = "deepseek-r1:8b"):
+    def __init__(self, preferred_provider: str = "auto", llm_model: str = "gemma3:4b"):
         self.preferred_provider = preferred_provider
         self.llm_model = llm_model
         self.providers = {

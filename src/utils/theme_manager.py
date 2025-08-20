@@ -16,6 +16,10 @@ class ThemeManager:
         self.themes_dir = self.user_data_dir / "themes"
         self.themes_dir.mkdir(parents=True, exist_ok=True)
         
+        # Preferences file
+        self.preferences_file = self.user_data_dir / "preferences.json"
+        self.preferences = self._load_preferences()
+        
         # Basic color scheme for clear readability
         self.basic_colors = {
             "bg": "#f0f0f0",              # Light gray background
@@ -61,6 +65,43 @@ class ThemeManager:
     def reload_themes(self):
         """Reload themes (no-op for basic theme)."""
         pass
+    
+    def _load_preferences(self) -> Dict:
+        """Load user preferences from file."""
+        try:
+            if self.preferences_file.exists():
+                with open(self.preferences_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load preferences: {e}")
+        
+        # Return default preferences
+        return {
+            "llm_model": "gemma3:4b",
+            "target_model": "seedream",
+            "content_rating": "PG"
+        }
+    
+    def save_preferences(self, preferences: Dict):
+        """Save user preferences to file."""
+        try:
+            # Update current preferences
+            self.preferences.update(preferences)
+            
+            # Save to file
+            with open(self.preferences_file, 'w', encoding='utf-8') as f:
+                json.dump(self.preferences, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Warning: Could not save preferences: {e}")
+    
+    def get_preference(self, key: str, default=None):
+        """Get a preference value."""
+        return self.preferences.get(key, default)
+    
+    def set_preference(self, key: str, value):
+        """Set a preference value and save."""
+        self.preferences[key] = value
+        self.save_preferences({})
 
 
 # Global instance

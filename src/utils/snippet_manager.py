@@ -133,16 +133,24 @@ class SnippetManager:
                     self.all_snippets[field_key]["categories"][category_name] = {}
                 
                 for subcategory_name, subcategory_items in category_items.items():
-                    if not isinstance(subcategory_items, list):
-                        continue  # Skip if not a list
+                    # Handle both list format (traditional) and dict format (new instruction format)
+                    if isinstance(subcategory_items, list):
+                        # Traditional list format
+                        if subcategory_name not in self.all_snippets[field_key]["categories"][category_name]:
+                            self.all_snippets[field_key]["categories"][category_name][subcategory_name] = []
                         
-                    if subcategory_name not in self.all_snippets[field_key]["categories"][category_name]:
-                        self.all_snippets[field_key]["categories"][category_name][subcategory_name] = []
-                    
-                    existing_subitems = set(self.all_snippets[field_key]["categories"][category_name][subcategory_name])
-                    for item in subcategory_items:
-                        if item not in existing_subitems:
-                            self.all_snippets[field_key]["categories"][category_name][subcategory_name].append(item)
+                        existing_subitems = set(self.all_snippets[field_key]["categories"][category_name][subcategory_name])
+                        for item in subcategory_items:
+                            if item not in existing_subitems:
+                                self.all_snippets[field_key]["categories"][category_name][subcategory_name].append(item)
+                                
+                    elif isinstance(subcategory_items, dict):
+                        # New instruction format with content/description
+                        if subcategory_name not in self.all_snippets[field_key]["categories"][category_name]:
+                            self.all_snippets[field_key]["categories"][category_name][subcategory_name] = {}
+                        
+                        # Store the entire object with content and description
+                        self.all_snippets[field_key]["categories"][category_name][subcategory_name] = subcategory_items
     
     def get_available_ratings(self) -> List[str]:
         """Get all available ratings from loaded snippets."""
@@ -184,16 +192,23 @@ class SnippetManager:
                                 matching_snippets[category_name] = {"General": existing_items}
                             
                             for subcategory_name, subcategory_items in category_items.items():
-                                if not isinstance(subcategory_items, list):
-                                    continue
-                                
-                                if subcategory_name not in matching_snippets[category_name]:
-                                    matching_snippets[category_name][subcategory_name] = []
-                                
-                                existing_subitems = set(matching_snippets[category_name][subcategory_name])
-                                for item in subcategory_items:
-                                    if item not in existing_subitems:
-                                        matching_snippets[category_name][subcategory_name].append(item)
+                                if isinstance(subcategory_items, list):
+                                    # Traditional list format
+                                    if subcategory_name not in matching_snippets[category_name]:
+                                        matching_snippets[category_name][subcategory_name] = []
+                                    
+                                    existing_subitems = set(matching_snippets[category_name][subcategory_name])
+                                    for item in subcategory_items:
+                                        if item not in existing_subitems:
+                                            matching_snippets[category_name][subcategory_name].append(item)
+                                            
+                                elif isinstance(subcategory_items, dict):
+                                    # New instruction format with content/description
+                                    if subcategory_name not in matching_snippets[category_name]:
+                                        matching_snippets[category_name][subcategory_name] = {}
+                                    
+                                    # Merge instruction objects
+                                    matching_snippets[category_name][subcategory_name].update(subcategory_items)
         
         return matching_snippets if matching_snippets else None
     
