@@ -147,3 +147,6 @@ templates/
 # Windows crash dumps
 *.stackdump
 bash.exe.stackdump
+
+# user convenience files
+launch_FlipFlopPrompt.bat
