@@ -13,10 +13,12 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 - **Real-time Preview**: See your prompt as you build it
 
 ### **User Interface**
-- **Clean Design**: Simple, readable interface with clear contrast
-- **Intuitive Layout**: Logical field organization and workflow
-- **Responsive**: Adapts to different window sizes
-- **Accessible**: High contrast colors for readability
+- **Modern PySide6 GUI**: Professional Qt-based interface with native look and feel
+- **Legacy Tkinter Support**: Backward compatibility for older systems  
+- **Clean Design**: Light theme with blue accent buttons and modern scrollbars
+- **Responsive Layout**: Dynamic snippet categories and proper window resizing
+- **Auto-expanding Fields**: Additional Details field grows from 1-4 lines automatically
+- **Professional Spacing**: Optimized button layout and field positioning
 
 ### **Data Management**
 - **User Data Folders**: Automatic organization of snippets, templates, and preferences
@@ -54,6 +56,12 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
    ```
 
 ### **Running the Application**
+**Modern PySide6 Interface (Recommended):**
+```bash
+python main_qt.py --gui
+```
+
+**Legacy Tkinter Interface:**
 ```bash
 python main.py --gui
 ```
@@ -97,27 +105,33 @@ python main.py --gui
 
 ```
 FlipFlopPrompt/
-├── main.py                 # Application entry point
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
-├── TODO.md                # Development tasks
-├── .gitignore             # Git ignore rules
-├── src/                   # Source code
-│   ├── core/              # Core functionality
+├── main.py                    # Legacy Tkinter entry point
+├── main_qt.py                 # Modern PySide6 entry point (recommended)
+├── requirements.txt           # Python dependencies
+├── README.md                 # This file
+├── TODO.md                   # Development tasks
+├── .gitignore                # Git ignore rules
+├── src/                      # Source code
+│   ├── core/                 # Core functionality
 │   │   ├── data_models.py
 │   │   ├── prompt_engine.py
 │   │   ├── llm_integration.py
 │   │   └── model_adapters.py
-│   ├── gui/               # User interface
-│   │   ├── main_window.py
-│   │   ├── field_widgets.py
-│   │   └── snippet_widgets.py
-│   ├── utils/             # Utilities
+│   ├── gui/                  # User interface
+│   │   ├── main_window.py         # Tkinter GUI (legacy)
+│   │   ├── main_window_qt.py      # PySide6 GUI (modern)
+│   │   ├── field_widgets.py       # Tkinter widgets
+│   │   ├── field_widgets_qt.py    # PySide6 widgets
+│   │   ├── snippet_widgets.py     # Tkinter snippets
+│   │   ├── snippet_widgets_qt.py  # PySide6 snippets  
+│   │   ├── preview_panel.py       # Tkinter preview
+│   │   └── preview_panel_qt.py    # PySide6 preview
+│   ├── utils/                # Utilities
 │   │   ├── snippet_manager.py
 │   │   └── theme_manager.py
-│   └── cli/               # Command line interface
-└── data/                  # Application data
-    └── snippets/          # Default snippet files
+│   └── cli/                  # Command line interface
+└── data/                     # Application data
+    └── snippets/             # Default snippet files
 ```
 
 ## ⚙️ Configuration
@@ -154,7 +168,10 @@ The application supports various Ollama models:
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run with debug mode
+# Run modern PySide6 version
+python main_qt.py --gui
+
+# Run legacy Tkinter version  
 python main.py --gui
 ```
 
@@ -192,7 +209,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Built with Python and Tkinter
+- Built with Python, PySide6 (Qt), and legacy Tkinter support
+- Modern GUI powered by Qt framework via PySide6
 - LLM integration powered by Ollama
 - Inspired by the need for better AI prompt tools
 - Community feedback and contributions

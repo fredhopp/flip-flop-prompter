@@ -3,17 +3,18 @@
 ## ✅ **Completed Tasks**
 
 ### **Core Functionality**
-- [x] Basic GUI with Tkinter
+- [x] Basic GUI with Tkinter (legacy)
+- [x] **Complete PySide6 GUI implementation** (modern)
 - [x] Prompt generation engine
 - [x] LLM integration with Ollama
 - [x] Model-specific prompt formatting
-- [x] Content rating system
+- [x] Content rating system → **Enhanced as "Families" system**
 - [x] Snippet system with JSON files
 - [x] Template loading/saving system
-- [x] Preferences saving/loading
+- [x] Preferences saving/loading → **Enhanced with family persistence**
 - [x] Debug system with file logging
 
-### **GUI Improvements**
+### **GUI Improvements - Tkinter Era**
 - [x] Simplified theming (basic colors only)
 - [x] Repositioned buttons above prompt summary
 - [x] Renamed "environment" to "setting"
@@ -21,6 +22,22 @@
 - [x] Removed "View" menu, made "Themes" top-level
 - [x] Fixed save prompt functionality
 - [x] Added template system to File menu
+
+### **PySide6 GUI Implementation (Major Achievement)**
+- [x] **Complete PySide6 migration** - Modern Qt-based interface
+- [x] **Professional light theme** - Blue accent buttons and modern scrollbars
+- [x] **Dynamic snippet popup** - Category blocks rearrange on window resize
+- [x] **Auto-expanding Additional Details** - 1-4 lines with scrollbar
+- [x] **Family preferences persistence** - Saves selections between sessions
+- [x] **Real-time Ollama integration** - Dynamic model population and connection testing
+- [x] **Proper window resize behavior** - Only preview panel expands
+- [x] **Professional button layout** - 2px spacing with equal distribution
+- [x] **Fixed text clipping issues** - Snippet buttons and input fields
+- [x] **Hierarchical snippet categories** - Gender/Age/Profession properly displayed
+- [x] **Side-by-side model selection** - Target Diffusion + LLM models
+- [x] **Fixed-height status bar** - Word/character count at bottom
+- [x] **Copy to Clipboard** - Added to main action row
+- [x] **Clear All Fields** - Renamed and repositioned button
 
 ### **Data Management**
 - [x] User data directories setup
@@ -222,12 +239,14 @@
 ## 📋 **Project Context & Technical Decisions**
 
 ### **Current Architecture**
-- **GUI Framework**: Tkinter (planned migration to PySide6)
+- **GUI Framework**: **PySide6 (modern, recommended)** + Tkinter (legacy support)
+- **Dual GUI Support**: Both `main_qt.py` (PySide6) and `main.py` (Tkinter) available
 - **Virtual Environment**: `.venv` (not `venv`)
 - **User Data**: Stored in user's home directory via `theme_manager.user_data_dir`
-- **Snippets**: JSON files in `data/snippets/` with content rating system
+- **Snippets**: JSON files in `data/snippets/` with family/content rating system
 - **Templates**: JSON format, saved in user data directory
-- **Dependencies**: Only `requests` is actually used in main code
+- **Preferences**: Family selections and model preferences persist between sessions
+- **Dependencies**: PySide6, requests, and development tools
 
 ### **Key Technical Decisions Made**
 - **Snippet Organization**: Fixed redundant categories (removed "Standing", renamed "Camera Type" to "Digital Cameras", etc.)
@@ -240,11 +259,13 @@
 ```
 src/
 ├── core/           # Core prompt generation logic
-├── gui/            # Tkinter GUI components
+├── gui/            # Dual GUI support (Tkinter + PySide6)
+│   ├── *_qt.py     # PySide6 components (modern)
+│   └── *.py        # Tkinter components (legacy)
 ├── utils/          # Utilities (snippet manager, theme manager)
 └── cli/            # Command line interface
 data/
-└── snippets/       # JSON snippet files by content rating
+└── snippets/       # JSON snippet files by family/content rating
 ```
 
 ### **Important Implementation Details**

@@ -15,7 +15,10 @@
 # Activate virtual environment
 source .venv/Scripts/activate
 
-# Run GUI application
+# Run modern PySide6 GUI (recommended)
+python main_qt.py --gui
+
+# Run legacy Tkinter GUI
 python main.py --gui
 
 # Run CLI application

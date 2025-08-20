@@ -148,5 +148,9 @@ templates/
 *.stackdump
 bash.exe.stackdump
 
+# Temporary test files
+data/prompt_*.txt
+nul
+
 # user convenience files
 launch_FlipFlopPrompt.bat
