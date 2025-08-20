@@ -641,10 +641,7 @@ class SnippetPopup(QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
         
-        # Title
-        title_label = QLabel(f"Select snippets for {self.field_name.title()}")
-        title_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-        layout.addWidget(title_label)
+        # Title removed - window title already provides this information
         
         # Scroll area for snippets
         scroll_area = QScrollArea()
