@@ -233,8 +233,9 @@ class InlineTagInputWidget(QWidget):
         text = self.text_input.text().strip()
         if text:
             if self.editing_tag:
-                # Update existing tag
+                # Update existing tag and add it back
                 self.editing_tag.text = text
+                self.add_tag(self.editing_tag)
                 self.editing_tag = None
             else:
                 # Create new tag
