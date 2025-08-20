@@ -90,21 +90,26 @@ class SnippetManager:
     def _process_snippet_data(self, snippet_data: Dict[str, Any], source: str):
         """Process a single snippet data entry."""
         field = snippet_data.get("field")
-        rating = snippet_data.get("rating", "PG")
+        
+        # Handle both old "rating" field and new "family" field for backward compatibility
+        family = snippet_data.get("family", snippet_data.get("rating", "PG"))
+        llm_rating = snippet_data.get("LLM_rating", snippet_data.get("rating", "PG"))
+        
         categories = snippet_data.get("categories", {})
         
         if not field or not categories:
             return
         
-        # Add rating to available ratings
-        self.available_ratings.add(rating)
+        # Add family to available ratings (for backward compatibility, we still call it ratings)
+        self.available_ratings.add(family)
         
-        # Store snippets by field and rating
-        field_key = f"{field}_{rating}"
+        # Store snippets by field and family
+        field_key = f"{field}_{family}"
         if field_key not in self.all_snippets:
             self.all_snippets[field_key] = {
                 "field": field,
-                "rating": rating,
+                "family": family,
+                "LLM_rating": llm_rating,
                 "categories": {},
                 "source": source
             }
@@ -150,10 +155,10 @@ class SnippetManager:
         
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_rating = snippet_data.get("rating", "PG")
+                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                # Check if this snippet's rating is appropriate for the requested content rating
-                if self._is_rating_appropriate(snippet_rating, content_rating):
+                # Check if this snippet's family is appropriate for the requested content rating
+                if self._is_rating_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     # Merge categories
@@ -287,9 +292,9 @@ class SnippetManager:
         # Find snippets for this field and rating
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_rating = snippet_data.get("rating", "PG")
+                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                if self._is_rating_appropriate(snippet_rating, content_rating):
+                if self._is_rating_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:
@@ -321,9 +326,9 @@ class SnippetManager:
         # Find snippets for this field and rating
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_rating = snippet_data.get("rating", "PG")
+                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                if self._is_rating_appropriate(snippet_rating, content_rating):
+                if self._is_rating_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:

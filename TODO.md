@@ -50,6 +50,23 @@
 - [ ] **Clean up unnecessary dependencies** - Remove unused packages from requirements.txt
 - [ ] **Update documentation** - Ensure TODO.md and DEVELOPMENT.md are current
 
+### **Snippet System Enhancement**
+- [ ] **Expand snippet subcategories** - Add 2-3 subcategories to every snippet JSON file
+  - [ ] Review existing snippet files and identify logical subcategory groupings
+  - [ ] Create subcategories with at least 3 items each for relevance
+  - [ ] Add missing items to subcategories that have fewer than 3 items
+  - [ ] Ensure subcategories make logical sense for the field they belong to
+  - [ ] Test subcategory display and filtering in the GUI
+
+### **Preview Panel Enhancement**
+- [ ] **Add prompt history navigation** - Keep history of generated final prompts
+  - [ ] Store generated prompts in memory during session
+  - [ ] Add navigation arrows at bottom of preview frame: `<- 1/5 ->`
+  - [ ] Allow browsing through previously generated prompts
+  - [ ] Show current position in history (e.g., "1/5" for first of five prompts)
+  - [ ] Limit history to reasonable number (e.g., 10-20 prompts)
+  - [ ] Clear history when starting new session or clearing fields
+
 ## 📋 **Pending Tasks**
 
 ### **High Priority**
@@ -61,6 +78,19 @@
   - [ ] Remove openai (not used in main code)
   - [ ] Update requirements.txt to only include actually used packages
   - [ ] Verify all imports are either standard Python or in requirements.txt
+- [ ] **Expand snippet subcategories** - Add 2-3 subcategories to every snippet JSON file
+  - [ ] Review existing snippet files and identify logical subcategory groupings
+  - [ ] Create subcategories with at least 3 items each for relevance
+  - [ ] Add missing items to subcategories that have fewer than 3 items
+  - [ ] Ensure subcategories make logical sense for the field they belong to
+  - [ ] Test subcategory display and filtering in the GUI
+- [ ] **Add prompt history navigation** - Keep history of generated final prompts
+  - [ ] Store generated prompts in memory during session
+  - [ ] Add navigation arrows at bottom of preview frame: `<- 1/5 ->`
+  - [ ] Allow browsing through previously generated prompts
+  - [ ] Show current position in history (e.g., "1/5" for first of five prompts)
+  - [ ] Limit history to reasonable number (e.g., 10-20 prompts)
+  - [ ] Clear history when starting new session or clearing fields
 - [ ] **Expand camera choices** - Add more camera types to snippets
 - [ ] **Improve LLM prompt quality** - Better prompts when fields are empty
 - [ ] **Test all functionality** - Ensure everything works after changes
