@@ -31,7 +31,7 @@ class InlineTagWidget(QWidget):
     def _setup_ui(self):
         """Setup the tag UI."""
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(2, 2, 2, 2)
+        self.layout.setContentsMargins(4, 2, 4, 2)
         self.layout.setSpacing(2)
         
         # Tag text label
@@ -40,17 +40,18 @@ class InlineTagWidget(QWidget):
         
         # Remove button (X)
         self.remove_button = QPushButton("×")
-        self.remove_button.setFixedSize(16, 16)
+        self.remove_button.setFixedSize(14, 14)
         self.remove_button.setFont(QFont("Arial", 8, QFont.Weight.Bold))
         self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self.tag))
         
         self.layout.addWidget(self.text_label)
         self.layout.addWidget(self.remove_button)
         
-        # Set fixed height based on content
+        # Set minimum size based on content
         font_metrics = QFontMetrics(self.text_label.font())
         text_width = font_metrics.horizontalAdvance(self.tag.text)
-        self.setFixedSize(text_width + 30, 22)  # 30px for remove button and padding
+        self.setFixedWidth(text_width + 24)  # 24px for remove button and padding
+        self.setFixedHeight(20)  # Consistent height
     
     def _apply_styling(self):
         """Apply styling based on tag type."""
@@ -62,33 +63,48 @@ class InlineTagWidget(QWidget):
             TagType.SUBCATEGORY: "#FFFDE7"   # Pale yellow
         }
         
+        border_colors = {
+            TagType.SNIPPET: "#90CAF9",      # Light blue
+            TagType.USER_TEXT: "#A5D6A7",   # Light green
+            TagType.CATEGORY: "#FFB74D",    # Orange
+            TagType.SUBCATEGORY: "#FFF176"  # Yellow
+        }
+        
         bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
+        border_color = border_colors.get(self.tag.tag_type, "#D0D0D0")
         
         # Tag widget styling
         tag_style = f"""
             InlineTagWidget {{
                 background-color: {bg_color};
-                border: 1px solid #D0D0D0;
-                border-radius: 6px;
-                margin: 1px 2px;
+                border: 1px solid {border_color};
+                border-radius: 4px;
+                margin: 1px;
             }}
             InlineTagWidget:hover {{
                 border: 2px solid #0066cc;
+                background-color: {bg_color};
+            }}
+            QLabel {{
+                background-color: transparent;
+                border: none;
+                color: #333;
             }}
         """
         
         # Remove button styling
         button_style = """
             QPushButton {
-                background-color: transparent;
-                border: none;
+                background-color: rgba(255, 255, 255, 0.7);
+                border: 1px solid #ccc;
                 color: #666666;
                 font-weight: bold;
-                border-radius: 8px;
+                border-radius: 7px;
             }
             QPushButton:hover {
                 background-color: #FF6B6B;
                 color: white;
+                border: 1px solid #FF6B6B;
             }
         """
         
@@ -138,11 +154,12 @@ class InlineTagInputWidget(QWidget):
         self.content_layout = QHBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(4, 2, 4, 2)
         self.content_layout.setSpacing(2)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
-        # Text input (initially visible)
+        # Text input (always visible)
         self.text_input = QLineEdit()
         self.text_input.setPlaceholderText(self.placeholder)
-        self.text_input.setStyleSheet("QLineEdit { border: none; background: transparent; }")
+        self.text_input.setStyleSheet("QLineEdit { border: none; background: transparent; min-width: 100px; }")
         self.text_input.returnPressed.connect(self._create_tag_from_input)
         self.text_input.textChanged.connect(self._on_text_changed)
         
@@ -154,6 +171,10 @@ class InlineTagInputWidget(QWidget):
         
         self.scroll_area.setWidget(self.content_widget)
         self.main_layout.addWidget(self.scroll_area)
+        
+        # Install event filter for double-click on empty space
+        self.scroll_area.installEventFilter(self)
+        self.content_widget.installEventFilter(self)
         
         # Timer for delayed tag creation on focus loss
         self.focus_timer = QTimer()
@@ -175,7 +196,7 @@ class InlineTagInputWidget(QWidget):
         self.setStyleSheet(style)
     
     def eventFilter(self, obj, event):
-        """Filter events for focus management."""
+        """Filter events for focus management and double-click handling."""
         if obj == self.text_input:
             if event.type() == QEvent.Type.FocusOut:
                 # Start timer for delayed tag creation
@@ -184,6 +205,11 @@ class InlineTagInputWidget(QWidget):
             elif event.type() == QEvent.Type.FocusIn:
                 # Cancel timer if focus returns
                 self.focus_timer.stop()
+        elif obj in [self.scroll_area, self.content_widget]:
+            if event.type() == QEvent.Type.MouseButtonDblClick:
+                # Double-click on empty space - focus text input
+                self.text_input.setFocus()
+                return True
         
         return super().eventFilter(obj, event)
     
@@ -227,32 +253,62 @@ class InlineTagInputWidget(QWidget):
     
     def edit_tag(self, tag: Tag):
         """Start editing a tag (convert back to text)."""
-        if tag in self.tags and tag.tag_type == TagType.USER_TEXT:
-            self.text_input.setText(tag.text)
-            self.text_input.setFocus()
-            self.text_input.selectAll()
-            self.editing_tag = tag
-            self.tags.remove(tag)
-            self._refresh_layout()
+        try:
+            if tag in self.tags and tag.tag_type == TagType.USER_TEXT:
+                # Store the tag being edited
+                self.editing_tag = tag
+                
+                # Set text and focus
+                self.text_input.setText(tag.text)
+                self.text_input.setFocus()
+                self.text_input.selectAll()
+                
+                # Remove from tags list
+                self.tags.remove(tag)
+                
+                # Refresh layout
+                self._refresh_layout()
+                
+                # Emit signals
+                self.tags_changed.emit()
+                self.value_changed.emit()
+        except Exception as e:
+            print(f"Error editing tag: {e}")
+            # Reset state on error
+            self.editing_tag = None
     
     def _refresh_layout(self):
         """Refresh the layout with current tags and text input."""
-        # Clear current layout (except stretch)
-        while self.content_layout.count() > 0:
-            child = self.content_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        # Store text input to prevent deletion
+        text_input_was_in_layout = self.text_input.parent() is not None
+        if text_input_was_in_layout:
+            self.content_layout.removeWidget(self.text_input)
+        
+        # Clear current tag widgets only
+        widgets_to_delete = []
+        for i in range(self.content_layout.count() - 1, -1, -1):
+            child = self.content_layout.itemAt(i)
+            if child and child.widget() and isinstance(child.widget(), InlineTagWidget):
+                widget = self.content_layout.takeAt(i).widget()
+                widgets_to_delete.append(widget)
+        
+        # Delete old tag widgets safely
+        for widget in widgets_to_delete:
+            widget.setParent(None)
+            widget.deleteLater()
         
         # Add tag widgets
         for tag in self.tags:
             tag_widget = InlineTagWidget(tag)
             tag_widget.remove_requested.connect(self.remove_tag)
             tag_widget.edit_requested.connect(self.edit_tag)
-            self.content_layout.addWidget(tag_widget)
+            self.content_layout.insertWidget(self.content_layout.count() - 1, tag_widget)
         
-        # Add text input
-        self.content_layout.addWidget(self.text_input)
-        self.content_layout.addStretch()
+        # Ensure text input is at the end
+        if not text_input_was_in_layout:
+            self.content_layout.insertWidget(self.content_layout.count() - 1, self.text_input)
+        else:
+            self.content_layout.insertWidget(self.content_layout.count() - 1, self.text_input)
         
         # Update scroll area
         self.content_widget.adjustSize()

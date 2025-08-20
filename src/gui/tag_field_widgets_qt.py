@@ -4,7 +4,7 @@ These replace the traditional text input widgets with tag-based input systems.
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSpinBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -98,7 +98,7 @@ class TagFieldWidget(QWidget):
         popup.show()
     
     def _on_snippet_selected(self, snippet_text: str, category_path: List[str] = None):
-        """Handle snippet selection from popup."""
+        """Handle snippet selection from popup - toggle if exists."""
         if category_path:
             # This is a category or subcategory selection
             if len(category_path) == 1:
@@ -110,12 +110,23 @@ class TagFieldWidget(QWidget):
                 tag_type = TagType.SUBCATEGORY
                 tag_text = category_path[-1]  # Use the subcategory name
             
-            tag = Tag(tag_text, tag_type, category_path)
+            new_tag = Tag(tag_text, tag_type, category_path)
         else:
             # Regular snippet selection
-            tag = Tag(snippet_text, TagType.SNIPPET)
+            new_tag = Tag(snippet_text, TagType.SNIPPET)
         
-        self.tag_input.add_tag(tag)
+        # Check if tag already exists
+        existing_tags = self.tag_input.get_tags()
+        for existing_tag in existing_tags:
+            if (existing_tag.text == new_tag.text and 
+                existing_tag.tag_type == new_tag.tag_type and
+                existing_tag.category_path == new_tag.category_path):
+                # Tag exists - remove it (toggle off)
+                self.tag_input.remove_tag(existing_tag)
+                return
+        
+        # Tag doesn't exist - add it
+        self.tag_input.add_tag(new_tag)
     
     def _on_tags_changed(self):
         """Handle tag container changes."""
@@ -232,7 +243,6 @@ class SeedFieldWidget(QWidget):
         self.label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
         
         # Create seed input
-        from PySide6.QtWidgets import QSpinBox
         self.seed_input = QSpinBox()
         self.seed_input.setMinimum(0)
         self.seed_input.setMaximum(999999)
@@ -245,21 +255,29 @@ class SeedFieldWidget(QWidget):
         self.randomize_button.setFixedSize(30, 30)
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
-        self.randomize_button.setStyleSheet("""
+        
+        # Apply styling with important flags to override defaults
+        button_style = """
             QPushButton {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                font-size: 14px;
+                background-color: #f0f0f0 !important;
+                border: 1px solid #ccc !important;
+                border-radius: 4px !important;
+                font-size: 16px !important;
+                color: #333 !important;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
-                border: 2px solid #0066cc;
+                background-color: #e0e0e0 !important;
+                border: 2px solid #0066cc !important;
             }
             QPushButton:pressed {
-                background-color: #d0d0d0;
+                background-color: #d0d0d0 !important;
             }
-        """)
+        """
+        self.randomize_button.setStyleSheet(button_style)
+        
+        # Force style refresh
+        self.randomize_button.style().unpolish(self.randomize_button)
+        self.randomize_button.style().polish(self.randomize_button)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)
