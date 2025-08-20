@@ -1,3 +1,10 @@
+## íº¨ CRITICAL WORKFLOW RULE - NEVER BREAK THIS íº¨
+- **NEVER push to git without explicit user confirmation first**
+- **ALWAYS ask: "Ready to commit and push these changes?" before any git push**
+- **This rule is ABSOLUTE and cannot be violated**
+- **If you forget this rule, you have failed the workflow**
+
+
 # Development Workflow & Preferences
 
 ## Development Workflow Preferences
@@ -40,10 +47,24 @@ taskkill //F //IM python.exe
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 
 ## Git Workflow
+## íº¨ GIT PUSH CONFIRMATION RULE íº¨
+**BEFORE ANY git push command, you MUST ask:**
+
+```
+"Ready to commit and push these changes?
+
+Changes include:
+- [list of changes]
+
+Should I proceed with the commit and push?"
+```
+
+**This is a MANDATORY step that cannot be skipped.**
+
 - Always stage changes with `git add .`
 - Use descriptive commit messages
 - Push to `origin main` branch
-- Ask for confirmation before any git push operations
+- **íº¨ MANDATORY: Ask for confirmation before any git push operations**
 - Clean up temporary files before committing
 
 ## Code Style & Standards
