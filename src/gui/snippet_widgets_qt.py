@@ -581,10 +581,32 @@ class SnippetPopup(QDialog):
         
         # Get snippets for all selected families
         self.snippets = {}
+        self.family_snippets = {}  # Track which family each snippet comes from
+        
         for family in selected_families:
             family_snippets = snippet_manager.get_snippets_for_field(field_name, family)
             if family_snippets:
-                self.snippets.update(family_snippets)
+                # Store snippets with family info
+                for category, items in family_snippets.items():
+                    if category not in self.snippets:
+                        self.snippets[category] = items
+                        self.family_snippets[category] = family
+                    else:
+                        # Merge items from different families
+                        if isinstance(items, list):
+                            if isinstance(self.snippets[category], list):
+                                self.snippets[category].extend(items)
+                            else:
+                                self.snippets[category] = items
+                        elif isinstance(items, dict):
+                            if isinstance(self.snippets[category], dict):
+                                for subcat, subitems in items.items():
+                                    if subcat not in self.snippets[category]:
+                                        self.snippets[category][subcat] = subitems
+                                    else:
+                                        self.snippets[category][subcat].extend(subitems)
+                            else:
+                                self.snippets[category] = items
         
         self._setup_dialog()
         self._create_widgets()
@@ -682,8 +704,9 @@ class SnippetPopup(QDialog):
             category_layout.setContentsMargins(8, 8, 8, 8)
             category_layout.setSpacing(5)
             
-            # Category title as clickable button
-            category_button = QPushButton(category.title())
+            # Category title as clickable button with family info
+            family_name = self.family_snippets.get(category, "Unknown")
+            category_button = QPushButton(f"{category.title()} <i>({family_name})</i>")
             category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
             category_button.setStyleSheet("""
                 QPushButton {
@@ -845,6 +868,52 @@ class SnippetPopup(QDialog):
                     border-color: #666;
                 }
             """)
+    
+    def refresh_snippets(self, selected_families: List[str]):
+        """Refresh snippets based on new family selection."""
+        self.selected_families = selected_families
+        
+        # Rebuild snippets with new family selection
+        self.snippets = {}
+        self.family_snippets = {}
+        
+        for family in selected_families:
+            family_snippets = snippet_manager.get_snippets_for_field(self.field_name, family)
+            if family_snippets:
+                # Store snippets with family info
+                for category, items in family_snippets.items():
+                    if category not in self.snippets:
+                        self.snippets[category] = items
+                        self.family_snippets[category] = family
+                    else:
+                        # Merge items from different families
+                        if isinstance(items, list):
+                            if isinstance(self.snippets[category], list):
+                                self.snippets[category].extend(items)
+                            else:
+                                self.snippets[category] = items
+                        elif isinstance(items, dict):
+                            if isinstance(self.snippets[category], dict):
+                                for subcat, subitems in items.items():
+                                    if subcat not in self.snippets[category]:
+                                        self.snippets[category][subcat] = subitems
+                                    else:
+                                        self.snippets[category][subcat].extend(subitems)
+                            else:
+                                self.snippets[category] = items
+        
+        # Rebuild the UI
+        self._rebuild_widgets()
+    
+    def _rebuild_widgets(self):
+        """Rebuild the widget content with updated snippets."""
+        # Clear existing content
+        for child in self.findChildren(QWidget):
+            if child != self and child.parent() == self:
+                child.deleteLater()
+        
+        # Recreate widgets
+        self._create_widgets()
     
     def show_popup(self):
         """Show the popup dialog."""

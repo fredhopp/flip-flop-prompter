@@ -40,6 +40,9 @@ class MainWindow(QMainWindow):
         # Debug settings
         self.debug_enabled = False
         
+        # Track open snippet popups for dynamic updates
+        self.open_snippet_popups = []
+        
         # User data directories
         self.user_data_dir = theme_manager.user_data_dir
         self.templates_dir = self.user_data_dir / "templates"
@@ -783,7 +786,7 @@ class MainWindow(QMainWindow):
         for family, action in self.family_actions.items():
             if action.isChecked():
                 selected.append(family)
-        return selected if selected else ["PG"]  # Default to PG if none selected
+        return selected  # Return empty list if none selected - no default fallback
     
     def _on_seed_changed(self):
         """Handle seed value changes."""
@@ -797,6 +800,9 @@ class MainWindow(QMainWindow):
         """Handle family selection changes."""
         # Update snippet dropdowns with new family selection
         self._update_snippet_families()
+        
+        # Refresh all open snippet popups
+        self._refresh_open_snippet_popups()
         
         # Update preview
         self._update_preview()
@@ -828,6 +834,17 @@ class MainWindow(QMainWindow):
         # Update all snippet widgets - this will refresh when snippet popups are opened
         # The snippet popups will call _get_selected_families() when they open
         pass
+    
+    def _refresh_open_snippet_popups(self):
+        """Refresh all currently open snippet popups."""
+        selected_families = self._get_selected_families()
+        
+        # Remove closed popups from the list
+        self.open_snippet_popups = [popup for popup in self.open_snippet_popups if popup.isVisible()]
+        
+        # Refresh each open popup
+        for popup in self.open_snippet_popups:
+            popup.refresh_snippets(selected_families)
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""

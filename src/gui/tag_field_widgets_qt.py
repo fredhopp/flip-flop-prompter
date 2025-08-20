@@ -98,6 +98,13 @@ class TagFieldWidget(QWidget):
         
         # Create and show snippet popup
         popup = SnippetPopup(self, self.field_name, selected_families, self._on_snippet_selected)
+        
+        # Track the popup in the main window
+        if main_window and hasattr(main_window, 'open_snippet_popups'):
+            main_window.open_snippet_popups.append(popup)
+            # Connect popup close signal to remove from tracking
+            popup.finished.connect(lambda: main_window.open_snippet_popups.remove(popup) if popup in main_window.open_snippet_popups else None)
+        
         popup.show()
     
     def _find_main_window(self):
