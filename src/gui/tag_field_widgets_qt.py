@@ -253,32 +253,34 @@ class SeedFieldWidget(QWidget):
         # Create randomize button
         self.randomize_button = QPushButton("🎲")
         self.randomize_button.setObjectName("diceButton")  # Give it a unique name
-        self.randomize_button.setFixedSize(30, 30)
+        self.randomize_button.setFixedSize(35, 35)  # Slightly larger button
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
         
-        # Apply styling with maximum specificity and important flags
+        # Apply styling with proper button frame and larger icon
         button_style = """
             QPushButton#diceButton {
-                background-color: #f5f5f5 !important;
-                border: 1px solid #ccc !important;
-                border-radius: 4px !important;
-                font-size: 18px !important;
+                background-color: #f8f8f8 !important;
+                border: 2px solid #bbb !important;
+                border-radius: 6px !important;
+                font-size: 24px !important;
                 color: #333 !important;
-                padding: 0px !important;
-                min-height: 28px !important;
-                max-height: 28px !important;
-                min-width: 28px !important;
-                max-width: 28px !important;
+                padding: 2px !important;
+                min-height: 31px !important;
+                max-height: 31px !important;
+                min-width: 31px !important;
+                max-width: 31px !important;
                 font-weight: normal !important;
             }
             QPushButton#diceButton:hover {
-                background-color: #e8e8e8 !important;
+                background-color: #ebebeb !important;
                 border: 2px solid #0066cc !important;
                 color: #333 !important;
+                transform: scale(1.05) !important;
             }
             QPushButton#diceButton:pressed {
-                background-color: #ddd !important;
+                background-color: #e0e0e0 !important;
+                border: 2px solid #004499 !important;
                 color: #333 !important;
             }
         """
