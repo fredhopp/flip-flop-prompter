@@ -689,13 +689,14 @@ class SnippetPopup(QDialog):
                 QPushButton {
                     color: #333; 
                     margin-bottom: 5px; 
-                    border: 2px solid #FF9800;
+                    border: 1px solid #FF9800;
                     border-radius: 5px;
                     background-color: #FFF3E0;
                     padding: 6px;
                 }
                 QPushButton:hover {
                     background-color: #FFE0B2;
+                    border: 2px solid #FF9800;
                 }
             """)
             category_button.clicked.connect(lambda checked, cat=category: self._select_category(cat))
@@ -707,6 +708,20 @@ class SnippetPopup(QDialog):
                     btn = QPushButton(item)
                     btn.setMinimumHeight(25)
                     btn.setMaximumHeight(35)
+                    btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #E3F2FD;
+                            border: 1px solid #90CAF9;
+                            border-radius: 3px;
+                            padding: 4px 8px;
+                            text-align: left;
+                            margin: 1px 0px;
+                        }
+                        QPushButton:hover {
+                            background-color: #BBDEFB;
+                            border: 2px solid #2196F3;
+                        }
+                    """)
                     btn.clicked.connect(lambda checked, i=item: self._select_item(i))
                     category_layout.addWidget(btn)
                     
@@ -722,7 +737,7 @@ class SnippetPopup(QDialog):
                                 color: #555; 
                                 margin-top: 8px; 
                                 margin-bottom: 3px; 
-                                border: 2px solid #FFC107;
+                                border: 1px solid #FFC107;
                                 border-radius: 4px;
                                 background-color: #FFFDE7;
                                 padding: 4px;
@@ -730,6 +745,7 @@ class SnippetPopup(QDialog):
                             }
                             QPushButton:hover {
                                 background-color: #FFF9C4;
+                                border: 2px solid #FFC107;
                             }
                         """)
                         sub_button.clicked.connect(lambda checked, cat=category, sub=subcategory: self._select_subcategory(cat, sub))
@@ -740,7 +756,21 @@ class SnippetPopup(QDialog):
                             btn = QPushButton(item)
                             btn.setMinimumHeight(25)
                             btn.setMaximumHeight(35)
-                            btn.setStyleSheet("margin-left: 10px;")  # Indent subcategory items
+                            btn.setStyleSheet("""
+                                QPushButton {
+                                    background-color: #E3F2FD;
+                                    border: 1px solid #90CAF9;
+                                    border-radius: 3px;
+                                    padding: 4px 8px;
+                                    text-align: left;
+                                    margin: 1px 0px;
+                                    margin-left: 10px;
+                                }
+                                QPushButton:hover {
+                                    background-color: #BBDEFB;
+                                    border: 2px solid #2196F3;
+                                }
+                            """)
                             btn.clicked.connect(lambda checked, i=item: self._select_item(i))
                             category_layout.addWidget(btn)
             

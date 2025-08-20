@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from typing import Callable, Optional, List
-from .tag_widgets_qt import TagContainer, Tag, TagType
+from .tag_widgets_qt import Tag, TagType
+from .inline_tag_input_qt import InlineTagInputWidget
 from .snippet_widgets_qt import SnippetPopup
 from ..utils.snippet_manager import snippet_manager
 
@@ -52,20 +53,20 @@ class TagFieldWidget(QWidget):
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(5)
         
-        # Create tag container
-        self.tag_container = TagContainer()
-        self.tag_container.text_input.setPlaceholderText(self.placeholder)
-        self.tag_container.tags_changed.connect(self._on_tags_changed)
+        # Create inline tag input
+        self.tag_input = InlineTagInputWidget(self.placeholder)
+        self.tag_input.tags_changed.connect(self._on_tags_changed)
+        self.tag_input.value_changed.connect(self._on_tags_changed)
         
         # Set field name for randomization
-        self.tag_container._field_name = self.field_name
+        self.tag_input._field_name = self.field_name
         
         # Create snippet button
         self.snippet_button = QPushButton("Snippets")
         self.snippet_button.setMinimumWidth(90)
         self.snippet_button.clicked.connect(self._show_snippets)
         
-        input_layout.addWidget(self.tag_container, 1)  # Give most space to tag container
+        input_layout.addWidget(self.tag_input, 1)  # Give most space to tag input
         input_layout.addWidget(self.snippet_button)
         
         self.layout.addLayout(input_layout)
@@ -114,7 +115,7 @@ class TagFieldWidget(QWidget):
             # Regular snippet selection
             tag = Tag(snippet_text, TagType.SNIPPET)
         
-        self.tag_container.add_tag(tag)
+        self.tag_input.add_tag(tag)
     
     def _on_tags_changed(self):
         """Handle tag container changes."""
@@ -122,7 +123,7 @@ class TagFieldWidget(QWidget):
     
     def get_value(self) -> str:
         """Get the current field value for display."""
-        return self.tag_container.get_display_text()
+        return self.tag_input.get_display_text()
     
     def get_randomized_value(self, seed: int) -> str:
         """Get the randomized value based on current seed."""
@@ -131,31 +132,31 @@ class TagFieldWidget(QWidget):
         if hasattr(self.parent(), '_get_selected_families'):
             selected_families = self.parent()._get_selected_families()
         
-        return self.tag_container.generate_random_text(seed, snippet_manager, selected_families)
+        return self.tag_input.generate_random_text(seed, snippet_manager, selected_families)
     
     def set_value(self, value: str):
         """Set the field value (for backwards compatibility with plain text)."""
         # For now, just clear tags and add as user text if not empty
-        self.tag_container.clear_tags()
+        self.tag_input.clear_tags()
         if value.strip():
             # Split by common separators and create tags
             parts = [part.strip() for part in value.replace(',', '|').replace('.', '|').split('|')]
             for part in parts:
                 if part:
                     tag = Tag(part, TagType.USER_TEXT)
-                    self.tag_container.add_tag(tag)
+                    self.tag_input.add_tag(tag)
     
     def clear(self):
         """Clear the field value."""
-        self.tag_container.clear_tags()
+        self.tag_input.clear_tags()
     
     def get_tags(self) -> List[Tag]:
         """Get all current tags."""
-        return self.tag_container.get_tags()
+        return self.tag_input.get_tags()
     
     def set_tags(self, tags: List[Tag]):
         """Set tags (for template loading)."""
-        self.tag_container.set_tags(tags)
+        self.tag_input.set_tags(tags)
 
 
 class TagTextFieldWidget(TagFieldWidget):
@@ -178,20 +179,23 @@ class TagTextAreaWidget(TagFieldWidget):
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(5)
         
-        # Create tag container with larger minimum height for text area
-        self.tag_container = TagContainer()
-        self.tag_container.text_input.setPlaceholderText(self.placeholder)
-        self.tag_container.tags_changed.connect(self._on_tags_changed)
+        # Create inline tag input with larger minimum height for text area
+        self.tag_input = InlineTagInputWidget(self.placeholder)
+        self.tag_input.tags_changed.connect(self._on_tags_changed)
+        self.tag_input.value_changed.connect(self._on_tags_changed)
+        
+        # Set field name for randomization
+        self.tag_input._field_name = self.field_name
         
         # Set minimum height for multi-line appearance
-        self.tag_container.setMinimumHeight(80)
+        self.tag_input.setMinimumHeight(80)
         
         # Create snippet button
         self.snippet_button = QPushButton("Snippets")
         self.snippet_button.setMinimumWidth(90)
         self.snippet_button.clicked.connect(self._show_snippets)
         
-        input_layout.addWidget(self.tag_container, 1)
+        input_layout.addWidget(self.tag_input, 1)
         input_layout.addWidget(self.snippet_button)
         
         self.layout.addLayout(input_layout)
@@ -240,7 +244,22 @@ class SeedFieldWidget(QWidget):
         self.randomize_button = QPushButton("🎲")
         self.randomize_button.setFixedSize(30, 30)
         self.randomize_button.clicked.connect(self._randomize_seed)
-        self.randomize_button.setToolTip("Generate random seed")
+        self.randomize_button.setToolTip("Roll the dice - Generate random seed")
+        self.randomize_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+                border: 2px solid #0066cc;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
+            }
+        """)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)
