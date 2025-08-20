@@ -111,9 +111,10 @@ class TagWidget(QWidget):
         tag_style = f"""
             QWidget#tagWidget {{
                 background-color: {bg_color} !important;
-                border: 1px solid #D0D0D0;
-                border-radius: 8px;
-                margin: 1px;
+                border: 1px solid #D0D0D0 !important;
+                border-radius: 8px !important;
+                margin: 1px !important;
+                color: #333333 !important;
             }}
             QWidget#tagWidget:hover {{
                 background-color: {self._darken_color(bg_color)} !important;

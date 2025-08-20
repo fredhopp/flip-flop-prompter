@@ -25,6 +25,7 @@ class InlineTagWidget(QWidget):
         super().__init__(parent)
         self.tag = tag
         self.is_editing = False
+        self.setObjectName("InlineTagWidget")  # Give it a unique name
         self._setup_ui()
         self._apply_styling()
     
@@ -73,22 +74,22 @@ class InlineTagWidget(QWidget):
         bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
         border_color = border_colors.get(self.tag.tag_type, "#D0D0D0")
         
-        # Tag widget styling
+        # Tag widget styling - use direct QWidget selector since PySide6 doesn't support class selectors
         tag_style = f"""
-            InlineTagWidget {{
-                background-color: {bg_color};
-                border: 1px solid {border_color};
-                border-radius: 4px;
-                margin: 1px;
+            QWidget {{
+                background-color: {bg_color} !important;
+                border: 1px solid {border_color} !important;
+                border-radius: 4px !important;
+                margin: 1px !important;
             }}
-            InlineTagWidget:hover {{
-                border: 2px solid #0066cc;
-                background-color: {bg_color};
+            QWidget:hover {{
+                border: 2px solid #0066cc !important;
+                background-color: {bg_color} !important;
             }}
             QLabel {{
-                background-color: transparent;
-                border: none;
-                color: #333;
+                background-color: transparent !important;
+                border: none !important;
+                color: #333 !important;
             }}
         """
         
