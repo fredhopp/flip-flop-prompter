@@ -108,13 +108,13 @@ class TagWidget(QWidget):
         
         # Tag widget styling
         tag_style = f"""
-            InlineTagWidget {{
+            TagWidget {{
                 background-color: {bg_color};
                 border: 1px solid #D0D0D0;
                 border-radius: 8px;
                 margin: 1px;
             }}
-            InlineTagWidget:hover {{
+            TagWidget:hover {{
                 background-color: {self._darken_color(bg_color)};
             }}
         """
