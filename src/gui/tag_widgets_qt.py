@@ -68,6 +68,7 @@ class TagWidget(QWidget):
     def __init__(self, tag: Tag, parent=None):
         super().__init__(parent)
         self.tag = tag
+        self.setObjectName("tagWidget")  # Give it a unique name to exclude from global styling
         self._setup_ui()
         self._apply_styling()
     
@@ -106,18 +107,16 @@ class TagWidget(QWidget):
         
         bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
         
-        # Set background color directly using QPalette
-        palette = self.palette()
-        palette.setColor(palette.ColorRole.Window, QColor(bg_color))
-        self.setPalette(palette)
-        self.setAutoFillBackground(True)
-        
-        # Apply border styling
+        # Apply comprehensive styling with background color
         tag_style = f"""
-            QWidget {{
+            QWidget#tagWidget {{
+                background-color: {bg_color} !important;
                 border: 1px solid #D0D0D0;
                 border-radius: 8px;
                 margin: 1px;
+            }}
+            QWidget#tagWidget:hover {{
+                background-color: {self._darken_color(bg_color)} !important;
             }}
         """
         

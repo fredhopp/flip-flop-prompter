@@ -404,9 +404,9 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # Apply blue styling to all buttons except dice button
+        # Apply blue styling to all buttons except dice button and tag widgets
         for button in self.findChildren(QPushButton):
-            if button.objectName() != "diceButton":
+            if button.objectName() not in ["diceButton", "tagWidget"]:
                 button.setStyleSheet("""
                     QPushButton {
                         background-color: #0066cc;
