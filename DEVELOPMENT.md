@@ -4,11 +4,14 @@
 - **Always ask for confirmation before pushing to git**
 - **Execute commands directly rather than just suggest them**
 - **Prefer bash commands over manual instructions**
+- **Clean up test processes** - Don't leave hanging Python processes when testing
 
 ## Project Setup
-- **Virtual Environment**: `.venv` (not `venv`)
+- **Virtual Environment**: `.venv` (not `venv`)**
 - **Shell**: Git Bash on Windows
 - **Working Directory**: `Z:/Dev/FlipFlopPrompt`
+- **GUI Framework**: PySide6 (Qt-based) - Tkinter has been completely removed
+- **Entry Point**: `main_qt.py` (legacy `main.py` removed)
 
 ## Development Commands
 ```bash
@@ -23,32 +26,55 @@ python main_qt.py --cli
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Clean up hanging processes (if needed)
+taskkill //F //IM python.exe
 ```
+
+## Current Architecture
+- **GUI**: Modern PySide6 with tag-based input system
+- **Snippets**: JSON files with family/content rating system (PG/NSFW/Hentai)
+- **Tag System**: Inline tags with colors (blue=snippets, green=user text, orange=categories, yellow=subcategories)
+- **Randomization**: Seed-based deterministic random snippet selection
+- **Families**: Dynamic filtering system with real-time snippet updates
+- **LLM Integration**: Ollama with dynamic model population and connection testing
 
 ## Git Workflow
 - Always stage changes with `git add .`
 - Use descriptive commit messages
 - Push to `origin main` branch
 - Ask for confirmation before any git push operations
+- Clean up temporary files before committing
 
 ## Code Style & Standards
 - Follow existing code structure and patterns
 - Use descriptive variable and function names
 - Add comments for complex logic
 - Maintain consistent indentation (4 spaces)
+- Use "family" terminology instead of "rating" for content filtering
 
 ## Testing & Validation
 - Test GUI changes by running the application
 - Verify snippet functionality after changes
 - Check that all buttons and interactions work
 - Validate JSON syntax in snippet files
+- Test family filtering and dynamic snippet updates
+- Verify tag colors and editing functionality
 
 ## File Organization
-- Keep GUI components in `src/gui/`
-- Core logic in `src/core/`
-- Utilities in `src/utils/`
-- Snippets in `data/snippets/`
-- User data in home directory via `theme_manager.user_data_dir`
+- **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
+- **Core Logic**: `src/core/` (prompt engine, data models, LLM integration)
+- **Utilities**: `src/utils/` (snippet manager, theme manager)
+- **Snippets**: `data/snippets/` (JSON files with family/LLM_rating fields)
+- **User Data**: Home directory via `theme_manager.user_data_dir`
+- **Templates**: JSON format, saved in user data directory
+
+## Key Technical Decisions
+- **Snippet Structure**: `family` field for filtering, `LLM_rating` for AI context
+- **Tag Colors**: Cold colors for static (blue/green), hot colors for random (orange/yellow)
+- **Family Filtering**: Strict matching (no hierarchy) - PG only shows PG content
+- **GUI Styling**: Blue accent buttons (`#0066cc`) with modern scrollbars
+- **Window Behavior**: Only preview panel expands on resize, status bar fixed height
 
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
@@ -57,11 +83,27 @@ pip install -r requirements.txt
 - **Button styling**: Use PySide6 QPushButton with CSS stylesheets
 - **Tag colors not showing**: Check paintEvent implementation in InlineTagWidget
 - **Snippet popup issues**: Verify families filtering and dynamic updates
+- **Startup performance**: MainWindow creation takes ~4.8s (snippet loading bottleneck)
+- **Process cleanup**: Use `taskkill //F //IM python.exe` to clean hanging processes
+
+## Performance Considerations
+- **Startup Time**: Currently 4-5 seconds, target is 1-2 seconds
+- **Bottleneck**: MainWindow creation (4.8s) due to snippet loading during initialization
+- **Optimization Opportunities**: Lazy loading, async initialization, caching
 
 ## Development Priorities
-1. **High Priority**: Clean up unnecessary dependencies
-2. **Next**: Expand snippet categories and improve randomization
-3. **Future**: AI service integrations and advanced features
+1. **High Priority**: Optimize startup time (4-5s → 1-2s)
+2. **High Priority**: Implement batch processing system
+3. **High Priority**: Clean up unnecessary dependencies
+4. **Next**: Expand snippet subcategories and add prompt history navigation
+5. **Future**: AI service integrations and advanced features
+
+## Recent Major Changes
+- **PySide6 Migration**: Complete migration from Tkinter to modern Qt-based GUI
+- **Tag System**: Implemented inline tag-based input with colors and editing
+- **Family System**: Replaced content rating with family filtering (PG/NSFW/Hentai)
+- **Randomization**: Added seed-based deterministic random snippet selection
+- **Project Cleanup**: Removed all legacy Tkinter files and unused dependencies
 
 ---
 

@@ -72,6 +72,27 @@
 ### **High Priority**
 - [x] **Fix prompt preview functionality** - Now updates interactively based on user input
 - [x] **Remove legacy Tkinter files** - Cleaned up old GUI implementation
+- [ ] **Optimize application startup time** - Reduce from 4-5 seconds to 1-2 seconds
+  - [ ] Profile startup performance to identify bottlenecks
+  - [ ] Optimize snippet loading (consider lazy loading or caching)
+  - [ ] Optimize GUI initialization (reduce widget creation overhead)
+  - [ ] Consider async loading for non-critical components
+  - [ ] Profile and optimize import times
+- [ ] **Implement batch processing system** - Handle multiple prompts efficiently
+  - [ ] Design batch processing interface
+  - [ ] Implement batch prompt generation
+  - [ ] Add batch export functionality
+  - [ ] Consider progress tracking for large batches
+- [ ] **Fix tag field height expansion** - Fields need to expand height to fit tags
+  - [ ] Implement dynamic height adjustment for tag fields
+  - [ ] Ensure all tags are visible without requiring wide window resize
+  - [ ] Add minimum height constraints for tag fields
+  - [ ] Test tag wrapping and overflow behavior
+- [ ] **Improve LLM prompt refinement** - Remove "Okay..." and other non-instructional text
+  - [ ] Update LLM prompts to be more specific about output format
+  - [ ] Filter out conversational responses and keep only instructional prose
+  - [ ] Add post-processing to clean up LLM responses
+  - [ ] Test with various LLM models to ensure consistent output
 - [ ] **Clean up unnecessary dependencies** - Remove unused packages from requirements.txt and .venv
   - [ ] Remove PyYAML (not used in main code)
   - [ ] Remove jsonschema (not used in main code)
