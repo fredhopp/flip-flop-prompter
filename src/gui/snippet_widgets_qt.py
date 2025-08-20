@@ -593,7 +593,7 @@ class SnippetPopup(QDialog):
         """Setup dialog properties."""
         self.setWindowTitle(f"Snippets for {self.field_name.title()}")
         self.setModal(False)  # Allow interaction with main window
-        self.resize(400, 600)
+        self.resize(600, 650)
         
         # Position to the right of the parent snippet button
         if self.parent():
