@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSpinBox
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from typing import Callable, Optional, List
 from .tag_widgets_qt import Tag, TagType
 from .inline_tag_input_qt import InlineTagInputWidget
@@ -257,25 +257,39 @@ class SeedFieldWidget(QWidget):
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
         
-        # Apply styling with specific object name to override global styles
+        # Apply styling with maximum specificity and important flags
         button_style = """
             QPushButton#diceButton {
-                background-color: #f5f5f5;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                font-size: 18px;
-                color: #333;
-                padding: 0px;
+                background-color: #f5f5f5 !important;
+                border: 1px solid #ccc !important;
+                border-radius: 4px !important;
+                font-size: 18px !important;
+                color: #333 !important;
+                padding: 0px !important;
+                min-height: 28px !important;
+                max-height: 28px !important;
+                min-width: 28px !important;
+                max-width: 28px !important;
+                font-weight: normal !important;
             }
             QPushButton#diceButton:hover {
-                background-color: #e8e8e8;
-                border: 2px solid #0066cc;
+                background-color: #e8e8e8 !important;
+                border: 2px solid #0066cc !important;
+                color: #333 !important;
             }
             QPushButton#diceButton:pressed {
-                background-color: #ddd;
+                background-color: #ddd !important;
+                color: #333 !important;
             }
         """
         self.randomize_button.setStyleSheet(button_style)
+        
+        # Force the button to use the new style immediately
+        self.randomize_button.setAutoFillBackground(True)
+        palette = self.randomize_button.palette()
+        palette.setColor(palette.ColorRole.Button, QColor("#f5f5f5"))
+        palette.setColor(palette.ColorRole.ButtonText, QColor("#333"))
+        self.randomize_button.setPalette(palette)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)

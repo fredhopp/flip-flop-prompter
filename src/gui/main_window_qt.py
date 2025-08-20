@@ -404,9 +404,9 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # Button styles
+        # Button styles (exclude dice button)
         button_style = """
-            QPushButton {
+            QPushButton:not(#diceButton) {
                 background-color: #0066cc;
                 color: white;
                 border: 2px solid #0066cc;
@@ -415,15 +415,15 @@ class MainWindow(QMainWindow):
                 font-weight: bold;
                 min-height: 20px;
             }
-            QPushButton:hover {
+            QPushButton:not(#diceButton):hover {
                 background-color: #0052a3;
                 border-color: #0052a3;
             }
-            QPushButton:pressed {
+            QPushButton:not(#diceButton):pressed {
                 background-color: #003d7a;
                 border-color: #003d7a;
             }
-            QPushButton:disabled {
+            QPushButton:not(#diceButton):disabled {
                 background-color: #cccccc;
                 border-color: #cccccc;
                 color: #666666;
