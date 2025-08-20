@@ -826,25 +826,25 @@ class SnippetPopup(QDialog):
                 close_button = button
                 break
         
-        if close_button:
-            close_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #0066cc;
-                    color: white;
-                    border: 2px solid #0066cc;
-                    border-radius: 4px;
-                    padding: 8px 16px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #0052a3;
-                    border-color: #0052a3;
-                }
-                QPushButton:pressed {
-                    background-color: #003d7a;
-                    border-color: #003d7a;
-                }
-            """)
+                 if close_button:
+             close_button.setStyleSheet("""
+                 QPushButton {
+                     background-color: white;
+                     color: #333;
+                     border: 2px solid #ccc;
+                     border-radius: 4px;
+                     padding: 8px 16px;
+                     font-weight: bold;
+                 }
+                 QPushButton:hover {
+                     background-color: #f8f8f8;
+                     border-color: #999;
+                 }
+                 QPushButton:pressed {
+                     background-color: #e8e8e8;
+                     border-color: #666;
+                 }
+             """)
     
     def show_popup(self):
         """Show the popup dialog."""
