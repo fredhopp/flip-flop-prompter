@@ -1,0 +1,427 @@
+"""
+Tag system widgets for the FlipFlopPrompt application using PySide6.
+Implements visual tag blocks with removal functionality.
+"""
+
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, 
+    QFrame, QLineEdit, QScrollArea, QSizePolicy, QLayout
+)
+from PySide6.QtCore import Qt, Signal, QSize, QRect
+from PySide6.QtGui import QFont, QPalette, QPixmap, QPainter, QIcon
+from typing import List, Callable, Optional, Dict
+from enum import Enum
+import random
+
+
+class TagType(Enum):
+    """Types of tags with their associated colors."""
+    SNIPPET = "snippet"          # Very light blue (static content)
+    USER_TEXT = "user_text"      # Very light green (typed text)
+    CATEGORY = "category"        # Pale orange (random from category)
+    SUBCATEGORY = "subcategory"  # Pale yellow (random from subcategory)
+
+
+class Tag:
+    """Data model for a tag."""
+    
+    def __init__(self, text: str, tag_type: TagType, category_path: Optional[List[str]] = None):
+        self.text = text
+        self.tag_type = tag_type
+        self.category_path = category_path or []  # For category/subcategory tags: ["Human", "Gender"]
+        self.id = f"{tag_type.value}_{text}_{hash(str(category_path))}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Tag):
+            return False
+        return (self.text == other.text and 
+                self.tag_type == other.tag_type and 
+                self.category_path == other.category_path)
+    
+    def __hash__(self):
+        return hash(self.id)
+    
+    def to_dict(self) -> Dict:
+        """Convert tag to dictionary for template persistence."""
+        return {
+            "text": self.text,
+            "type": self.tag_type.value,
+            "category_path": self.category_path
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'Tag':
+        """Create tag from dictionary for template loading."""
+        return cls(
+            text=data["text"],
+            tag_type=TagType(data["type"]),
+            category_path=data.get("category_path", [])
+        )
+
+
+class TagWidget(QWidget):
+    """Visual representation of a single tag with removal button."""
+    
+    # Signal emitted when tag should be removed
+    remove_requested = Signal(object)  # Emits the Tag object
+    
+    def __init__(self, tag: Tag, parent=None):
+        super().__init__(parent)
+        self.tag = tag
+        self._setup_ui()
+        self._apply_styling()
+    
+    def _setup_ui(self):
+        """Setup the tag UI."""
+        self.setFixedHeight(24)  # Small height for tags
+        
+        # Main layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 2, 6, 2)
+        layout.setSpacing(4)
+        
+        # Tag text label
+        self.text_label = QLabel(self.tag.text)
+        self.text_label.setFont(QFont("Arial", 8))
+        self.text_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        
+        # Remove button (X)
+        self.remove_button = QPushButton("×")
+        self.remove_button.setFixedSize(16, 16)
+        self.remove_button.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self.tag))
+        
+        layout.addWidget(self.text_label)
+        layout.addWidget(self.remove_button)
+    
+    def _apply_styling(self):
+        """Apply styling based on tag type."""
+        # Color mapping for tag types
+        colors = {
+            TagType.SNIPPET: "#E3F2FD",      # Very light blue
+            TagType.USER_TEXT: "#E8F5E8",    # Very light green
+            TagType.CATEGORY: "#FFF3E0",     # Pale orange
+            TagType.SUBCATEGORY: "#FFFDE7"   # Pale yellow
+        }
+        
+        bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
+        
+        # Tag widget styling
+        tag_style = f"""
+            TagWidget {{
+                background-color: {bg_color};
+                border: 1px solid #D0D0D0;
+                border-radius: 8px;
+                margin: 1px;
+            }}
+            TagWidget:hover {{
+                background-color: {self._darken_color(bg_color)};
+            }}
+        """
+        
+        # Remove button styling
+        button_style = """
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: #666666;
+                font-weight: bold;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #FF6B6B;
+                color: white;
+            }
+        """
+        
+        self.setStyleSheet(tag_style)
+        self.remove_button.setStyleSheet(button_style)
+    
+    def _darken_color(self, hex_color: str) -> str:
+        """Darken a hex color slightly for hover effect."""
+        # Simple darkening by reducing each RGB component
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        r = max(0, r - 15)
+        g = max(0, g - 15)
+        b = max(0, b - 15)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class FlowLayout(QLayout):
+    """Layout that arranges widgets in rows, wrapping when necessary."""
+    
+    def __init__(self, parent=None, margin=0, spacing=-1):
+        super().__init__(parent)
+        
+        if parent is not None:
+            self.setContentsMargins(margin, margin, margin, margin)
+        
+        self.setSpacing(spacing if spacing >= 0 else 5)
+        self.item_list = []
+    
+    def __del__(self):
+        item = self.takeAt(0)
+        while item:
+            item = self.takeAt(0)
+    
+    def addItem(self, item):
+        self.item_list.append(item)
+    
+    def count(self):
+        return len(self.item_list)
+    
+    def itemAt(self, index):
+        if 0 <= index < len(self.item_list):
+            return self.item_list[index]
+        return None
+    
+    def takeAt(self, index):
+        if 0 <= index < len(self.item_list):
+            return self.item_list.pop(index)
+        return None
+    
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+    
+    def hasHeightForWidth(self):
+        return True
+    
+    def heightForWidth(self, width):
+        height = self._do_layout(QRect(0, 0, width, 0), True)
+        return height
+    
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do_layout(rect, False)
+    
+    def sizeHint(self):
+        return self.minimumSize()
+    
+    def minimumSize(self):
+        size = QSize()
+        for item in self.item_list:
+            size = size.expandedTo(item.minimumSize())
+        margin = self.contentsMargins()
+        size += QSize(margin.left() + margin.right(), margin.top() + margin.bottom())
+        return size
+    
+    def _do_layout(self, rect, test_only):
+        x = rect.x()
+        y = rect.y()
+        line_height = 0
+        spacing = self.spacing()
+        
+        for item in self.item_list:
+            widget = item.widget()
+            space_x = spacing + widget.style().layoutSpacing(
+                QSizePolicy.ControlType.PushButton, 
+                QSizePolicy.ControlType.PushButton, 
+                Qt.Orientation.Horizontal
+            )
+            space_y = spacing + widget.style().layoutSpacing(
+                QSizePolicy.ControlType.PushButton, 
+                QSizePolicy.ControlType.PushButton, 
+                Qt.Orientation.Vertical
+            )
+            
+            next_x = x + item.sizeHint().width() + space_x
+            if next_x - space_x > rect.right() and line_height > 0:
+                x = rect.x()
+                y = y + line_height + space_y
+                next_x = x + item.sizeHint().width() + space_x
+                line_height = 0
+            
+            if not test_only:
+                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
+            
+            x = next_x
+            line_height = max(line_height, item.sizeHint().height())
+        
+        return y + line_height - rect.y()
+
+
+class TagContainer(QWidget):
+    """Container for displaying tags with text input capability."""
+    
+    # Signal emitted when tags change
+    tags_changed = Signal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.tags: List[Tag] = []
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Setup the container UI."""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(2, 2, 2, 2)
+        main_layout.setSpacing(2)
+        
+        # Tag display area with flow layout
+        self.tag_frame = QFrame()
+        self.tag_frame.setFrameStyle(QFrame.Shape.Box)
+        self.tag_frame.setLineWidth(1)
+        self.tag_frame.setMinimumHeight(30)
+        
+        self.tag_layout = FlowLayout(self.tag_frame, margin=4, spacing=4)
+        
+        # Text input for typing
+        self.text_input = QLineEdit()
+        self.text_input.setPlaceholderText("Type and end with , or . to create tags")
+        self.text_input.textChanged.connect(self._on_text_changed)
+        self.text_input.returnPressed.connect(self._on_return_pressed)
+        
+        main_layout.addWidget(self.tag_frame)
+        main_layout.addWidget(self.text_input)
+        
+        # Apply styling
+        self._apply_styling()
+    
+    def _apply_styling(self):
+        """Apply styling to the container."""
+        style = """
+            QFrame {
+                background-color: white;
+                border: 1px solid #D0D0D0;
+                border-radius: 4px;
+            }
+            QLineEdit {
+                border: 1px solid #D0D0D0;
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 11px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #0066cc;
+            }
+        """
+        self.setStyleSheet(style)
+    
+    def add_tag(self, tag: Tag):
+        """Add a tag to the container."""
+        if tag not in self.tags:
+            self.tags.append(tag)
+            self._refresh_display()
+            self.tags_changed.emit()
+    
+    def remove_tag(self, tag: Tag):
+        """Remove a tag from the container."""
+        if tag in self.tags:
+            self.tags.remove(tag)
+            self._refresh_display()
+            self.tags_changed.emit()
+    
+    def clear_tags(self):
+        """Remove all tags."""
+        self.tags.clear()
+        self._refresh_display()
+        self.tags_changed.emit()
+    
+    def get_tags(self) -> List[Tag]:
+        """Get all current tags."""
+        return self.tags.copy()
+    
+    def set_tags(self, tags: List[Tag]):
+        """Set tags (for loading from templates)."""
+        self.tags = tags.copy()
+        self._refresh_display()
+        self.tags_changed.emit()
+    
+    def get_display_text(self) -> str:
+        """Get text representation of all tags for preview."""
+        tag_texts = []
+        for tag in self.tags:
+            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+                # For random tags, show placeholder text
+                tag_texts.append(f"[RANDOM {tag.text.upper()}]")
+            else:
+                tag_texts.append(tag.text)
+        
+        # Add any typed text
+        typed_text = self.text_input.text().strip()
+        if typed_text:
+            tag_texts.append(typed_text)
+        
+        return ", ".join(tag_texts)
+    
+    def generate_random_text(self, seed: int, snippet_manager, selected_families: List[str] = None) -> str:
+        """Generate randomized text based on tags and seed."""
+        random.seed(seed)
+        result_texts = []
+        
+        for tag in self.tags:
+            if tag.tag_type == TagType.CATEGORY:
+                # Get random item from category
+                if len(tag.category_path) >= 1:
+                    # Need to determine field name - get from parent widget if possible
+                    field_name = getattr(self, '_field_name', 'subjects')  # Default fallback
+                    families = selected_families or ["PG"]
+                    category_items = []
+                    for family in families:
+                        items = snippet_manager.get_category_items(field_name, tag.category_path[0], family)
+                        category_items.extend(items)
+                    if category_items:
+                        result_texts.append(random.choice(category_items))
+            elif tag.tag_type == TagType.SUBCATEGORY:
+                # Get random item from subcategory
+                if len(tag.category_path) >= 2:
+                    # Need to determine field name - get from parent widget if possible
+                    field_name = getattr(self, '_field_name', 'subjects')  # Default fallback
+                    families = selected_families or ["PG"]
+                    subcategory_items = []
+                    for family in families:
+                        items = snippet_manager.get_subcategory_items(
+                            field_name, tag.category_path[0], tag.category_path[1], family
+                        )
+                        subcategory_items.extend(items)
+                    if subcategory_items:
+                        result_texts.append(random.choice(subcategory_items))
+            else:
+                # Static tag or user text
+                result_texts.append(tag.text)
+        
+        # Add any typed text
+        typed_text = self.text_input.text().strip()
+        if typed_text:
+            result_texts.append(typed_text)
+        
+        return ", ".join(result_texts)
+    
+    def _refresh_display(self):
+        """Refresh the tag display."""
+        # Clear existing tag widgets
+        while self.tag_layout.count():
+            child = self.tag_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+        
+        # Add tag widgets
+        for tag in self.tags:
+            tag_widget = TagWidget(tag)
+            tag_widget.remove_requested.connect(self.remove_tag)
+            self.tag_layout.addWidget(tag_widget)
+        
+        self.tag_frame.update()
+    
+    def _on_text_changed(self, text: str):
+        """Handle text input changes for auto-tagging."""
+        # Check for auto-tagging triggers (ending with , or .)
+        if text.endswith(',') or text.endswith('.'):
+            # Extract the text without the separator
+            tag_text = text[:-1].strip()
+            if tag_text:
+                # Create user text tag
+                tag = Tag(tag_text, TagType.USER_TEXT)
+                self.add_tag(tag)
+                self.text_input.clear()
+    
+    def _on_return_pressed(self):
+        """Handle return key press."""
+        text = self.text_input.text().strip()
+        if text:
+            # Create user text tag
+            tag = Tag(text, TagType.USER_TEXT)
+            self.add_tag(tag)
+            self.text_input.clear()

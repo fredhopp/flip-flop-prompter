@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QFont
 
-from .field_widgets_qt import TextFieldWidget, TextAreaWidget
+from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFieldWidget
 from .snippet_widgets_qt import ContentRatingWidget, ModelSelectionWidget, LLMSelectionWidget
 from .preview_panel_qt import PreviewPanel
 from ..core.prompt_engine import PromptEngine
@@ -166,77 +166,83 @@ class MainWindow(QMainWindow):
     def _create_input_fields(self):
         """Create input field widgets."""
         # Style
-        self.style_widget = TextFieldWidget(
+        self.style_widget = TagTextFieldWidget(
             "Style:", placeholder="Select art style...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.style_widget)
         
         # Setting (renamed from environment)
-        self.setting_widget = TextFieldWidget(
+        self.setting_widget = TagTextFieldWidget(
             "Setting:", placeholder="Describe the setting...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.setting_widget)
         
         # Weather
-        self.weather_widget = TextFieldWidget(
+        self.weather_widget = TagTextFieldWidget(
             "Weather:", placeholder="Describe the weather...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.weather_widget)
         
         # Date and Time
-        self.datetime_widget = TextFieldWidget(
+        self.datetime_widget = TagTextFieldWidget(
             "Date and Time:", placeholder="Select season and time of day...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.datetime_widget)
         
         # Subjects
-        self.subjects_widget = TextFieldWidget(
+        self.subjects_widget = TagTextFieldWidget(
             "Subjects:", placeholder="Describe the subjects...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.subjects_widget)
         
         # Subjects Pose and Action
-        self.pose_widget = TextFieldWidget(
+        self.pose_widget = TagTextFieldWidget(
             "Subjects Pose and Action:", placeholder="Describe poses and actions...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.pose_widget)
         
         # Camera (expanded choices)
-        self.camera_widget = TextFieldWidget(
+        self.camera_widget = TagTextFieldWidget(
             "Camera:", placeholder="Select camera type...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.camera_widget)
         
         # Camera Framing and Action
-        self.framing_widget = TextFieldWidget(
+        self.framing_widget = TagTextFieldWidget(
             "Camera Framing and Action:", placeholder="Describe framing and movement...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.framing_widget)
         
         # Color Grading & Mood
-        self.grading_widget = TextFieldWidget(
+        self.grading_widget = TagTextFieldWidget(
             "Color Grading & Mood:", placeholder="Describe color grading and mood...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.grading_widget)
         
         # Additional Details
-        self.details_widget = TextAreaWidget(
+        self.details_widget = TagTextAreaWidget(
             "Additional Details:", placeholder="Any additional details...", 
             change_callback=None  # Will be set later
         )
         self.main_layout.addWidget(self.details_widget)
     
     def _create_model_selection_row(self):
-        """Create model selection widgets side by side."""
+        """Create seed field and model selection widgets."""
+        # Add seed field first
+        self.seed_widget = SeedFieldWidget(
+            change_callback=self._on_seed_changed
+        )
+        self.main_layout.addWidget(self.seed_widget)
+        
         # Create horizontal layout for model widgets
         model_row = QWidget()
         model_layout = QHBoxLayout(model_row)
@@ -496,15 +502,21 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to save prompt: {str(e)}")
     
     def _save_template(self):
-        """Save current settings as a template."""
-        # Collect current field values
+        """Save current settings as a template with tag support."""
+        # Collect current field tags and values
         template_data = {
-            "style": self.style_widget.get_value() if hasattr(self, 'style_widget') else "",
-            "setting": self.setting_widget.get_value() if hasattr(self, 'setting_widget') else "",
-            "weather": self.weather_widget.get_value() if hasattr(self, 'weather_widget') else "",
-            "datetime": self.datetime_widget.get_value() if hasattr(self, 'datetime_widget') else "",
-            "subjects": self.subjects_widget.get_value() if hasattr(self, 'subjects_widget') else "",
-            "pose": self.pose_widget.get_value() if hasattr(self, 'pose_widget') else "",
+            "format_version": "2.0",  # New format with tag support
+            "style_tags": [tag.to_dict() for tag in self.style_widget.get_tags()] if hasattr(self, 'style_widget') else [],
+            "setting_tags": [tag.to_dict() for tag in self.setting_widget.get_tags()] if hasattr(self, 'setting_widget') else [],
+            "weather_tags": [tag.to_dict() for tag in self.weather_widget.get_tags()] if hasattr(self, 'weather_widget') else [],
+            "datetime_tags": [tag.to_dict() for tag in self.datetime_widget.get_tags()] if hasattr(self, 'datetime_widget') else [],
+            "subjects_tags": [tag.to_dict() for tag in self.subjects_widget.get_tags()] if hasattr(self, 'subjects_widget') else [],
+            "pose_tags": [tag.to_dict() for tag in self.pose_widget.get_tags()] if hasattr(self, 'pose_widget') else [],
+            "camera_tags": [tag.to_dict() for tag in self.camera_widget.get_tags()] if hasattr(self, 'camera_widget') else [],
+            "framing_tags": [tag.to_dict() for tag in self.framing_widget.get_tags()] if hasattr(self, 'framing_widget') else [],
+            "grading_tags": [tag.to_dict() for tag in self.grading_widget.get_tags()] if hasattr(self, 'grading_widget') else [],
+            "details_tags": [tag.to_dict() for tag in self.details_widget.get_tags()] if hasattr(self, 'details_widget') else [],
+            "seed": self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0,
             "families": self._get_selected_families(),
             "model": self.model_widget.get_value() if hasattr(self, 'model_widget') else "seedream",
             "llm": self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-r1:8b",
@@ -528,7 +540,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to save template: {str(e)}")
     
     def _load_template(self):
-        """Load a template file."""
+        """Load a template file with backward compatibility."""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Load Template", 
             str(self.templates_dir),
@@ -540,19 +552,62 @@ class MainWindow(QMainWindow):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     template_data = json.load(f)
                 
-                # Load field values
-                if hasattr(self, 'style_widget') and "style" in template_data:
-                    self.style_widget.set_value(template_data["style"])
-                if hasattr(self, 'setting_widget') and "setting" in template_data:
-                    self.setting_widget.set_value(template_data["setting"])
-                if hasattr(self, 'weather_widget') and "weather" in template_data:
-                    self.weather_widget.set_value(template_data["weather"])
-                if hasattr(self, 'datetime_widget') and "datetime" in template_data:
-                    self.datetime_widget.set_value(template_data["datetime"])
-                if hasattr(self, 'subjects_widget') and "subjects" in template_data:
-                    self.subjects_widget.set_value(template_data["subjects"])
-                if hasattr(self, 'pose_widget') and "pose" in template_data:
-                    self.pose_widget.set_value(template_data["pose"])
+                # Import Tag class for loading
+                from .tag_widgets_qt import Tag
+                
+                # Check format version
+                format_version = template_data.get("format_version", "1.0")
+                
+                if format_version == "2.0":
+                    # New tag-based format
+                    if hasattr(self, 'style_widget') and "style_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["style_tags"]]
+                        self.style_widget.set_tags(tags)
+                    if hasattr(self, 'setting_widget') and "setting_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["setting_tags"]]
+                        self.setting_widget.set_tags(tags)
+                    if hasattr(self, 'weather_widget') and "weather_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["weather_tags"]]
+                        self.weather_widget.set_tags(tags)
+                    if hasattr(self, 'datetime_widget') and "datetime_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["datetime_tags"]]
+                        self.datetime_widget.set_tags(tags)
+                    if hasattr(self, 'subjects_widget') and "subjects_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["subjects_tags"]]
+                        self.subjects_widget.set_tags(tags)
+                    if hasattr(self, 'pose_widget') and "pose_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["pose_tags"]]
+                        self.pose_widget.set_tags(tags)
+                    if hasattr(self, 'camera_widget') and "camera_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["camera_tags"]]
+                        self.camera_widget.set_tags(tags)
+                    if hasattr(self, 'framing_widget') and "framing_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["framing_tags"]]
+                        self.framing_widget.set_tags(tags)
+                    if hasattr(self, 'grading_widget') and "grading_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["grading_tags"]]
+                        self.grading_widget.set_tags(tags)
+                    if hasattr(self, 'details_widget') and "details_tags" in template_data:
+                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["details_tags"]]
+                        self.details_widget.set_tags(tags)
+                    if hasattr(self, 'seed_widget') and "seed" in template_data:
+                        self.seed_widget.set_value(template_data["seed"])
+                else:
+                    # Legacy format - convert to tags
+                    if hasattr(self, 'style_widget') and "style" in template_data:
+                        self.style_widget.set_value(template_data["style"])
+                    if hasattr(self, 'setting_widget') and "setting" in template_data:
+                        self.setting_widget.set_value(template_data["setting"])
+                    if hasattr(self, 'weather_widget') and "weather" in template_data:
+                        self.weather_widget.set_value(template_data["weather"])
+                    if hasattr(self, 'datetime_widget') and "datetime" in template_data:
+                        self.datetime_widget.set_value(template_data["datetime"])
+                    if hasattr(self, 'subjects_widget') and "subjects" in template_data:
+                        self.subjects_widget.set_value(template_data["subjects"])
+                    if hasattr(self, 'pose_widget') and "pose" in template_data:
+                        self.pose_widget.set_value(template_data["pose"])
+                
+                # Common settings (both formats)
                 if "families" in template_data:
                     # Reset all families first
                     for family, action in self.family_actions.items():
@@ -635,27 +690,30 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Debug Folder", "No debug folder found.")
     
     def _update_preview(self):
-        """Update the prompt preview."""
+        """Update the prompt preview with randomization support."""
         # Don't update if preview panel doesn't exist yet
         if not hasattr(self, 'preview_panel'):
             return
             
         try:
-            # Collect current field values
+            # Get current seed for randomization
+            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+            
+            # Collect randomized field values
             field_values = {
-                "Style": self.style_widget.get_value() if hasattr(self, 'style_widget') else "",
-                "Setting": self.setting_widget.get_value() if hasattr(self, 'setting_widget') else "",
-                "Weather": self.weather_widget.get_value() if hasattr(self, 'weather_widget') else "",
-                "Date/Time": self.datetime_widget.get_value() if hasattr(self, 'datetime_widget') else "",
-                "Subjects": self.subjects_widget.get_value() if hasattr(self, 'subjects_widget') else "",
-                "Pose/Action": self.pose_widget.get_value() if hasattr(self, 'pose_widget') else "",
-                "Camera": self.camera_widget.get_value() if hasattr(self, 'camera_widget') else "",
-                "Framing/Action": self.framing_widget.get_value() if hasattr(self, 'framing_widget') else "",
-                "Color/Mood": self.grading_widget.get_value() if hasattr(self, 'grading_widget') else "",
-                "Details": self.details_widget.get_value() if hasattr(self, 'details_widget') else "",
+                "Style": self.style_widget.get_randomized_value(seed) if hasattr(self, 'style_widget') else "",
+                "Setting": self.setting_widget.get_randomized_value(seed) if hasattr(self, 'setting_widget') else "",
+                "Weather": self.weather_widget.get_randomized_value(seed) if hasattr(self, 'weather_widget') else "",
+                "Date/Time": self.datetime_widget.get_randomized_value(seed) if hasattr(self, 'datetime_widget') else "",
+                "Subjects": self.subjects_widget.get_randomized_value(seed) if hasattr(self, 'subjects_widget') else "",
+                "Pose/Action": self.pose_widget.get_randomized_value(seed) if hasattr(self, 'pose_widget') else "",
+                "Camera": self.camera_widget.get_randomized_value(seed) if hasattr(self, 'camera_widget') else "",
+                "Framing/Action": self.framing_widget.get_randomized_value(seed) if hasattr(self, 'framing_widget') else "",
+                "Color/Mood": self.grading_widget.get_randomized_value(seed) if hasattr(self, 'grading_widget') else "",
+                "Details": self.details_widget.get_randomized_value(seed) if hasattr(self, 'details_widget') else "",
             }
             
-            # Build preview text - only include fields with values (same logic as Tkinter version)
+            # Build preview text - only include fields with values
             preview_lines = []
             for field, value in field_values.items():
                 if value.strip():  # Only include non-empty fields
@@ -717,6 +775,22 @@ class MainWindow(QMainWindow):
         # Update preview
         self._update_preview()
     
+    def _get_selected_families(self):
+        """Get list of currently selected families."""
+        selected = []
+        for family, action in self.family_actions.items():
+            if action.isChecked():
+                selected.append(family)
+        return selected if selected else ["PG"]  # Default to PG if none selected
+    
+    def _on_seed_changed(self):
+        """Handle seed value changes."""
+        # Update preview with new randomization
+        self._update_preview()
+        
+        # Save seed in preferences if needed
+        self._save_preferences()
+    
     def _on_family_changed(self, family_name, checked):
         """Handle family selection changes."""
         # Update snippet dropdowns with new family selection
@@ -766,27 +840,29 @@ class MainWindow(QMainWindow):
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""
-        # Set up field widget callbacks
+        # Set up field widget callbacks using signals
         if hasattr(self, 'style_widget'):
-            self.style_widget.change_callback = self._update_preview
+            self.style_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'setting_widget'):
-            self.setting_widget.change_callback = self._update_preview
+            self.setting_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'weather_widget'):
-            self.weather_widget.change_callback = self._update_preview
+            self.weather_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'datetime_widget'):
-            self.datetime_widget.change_callback = self._update_preview
+            self.datetime_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'subjects_widget'):
-            self.subjects_widget.change_callback = self._update_preview
+            self.subjects_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'pose_widget'):
-            self.pose_widget.change_callback = self._update_preview
+            self.pose_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'camera_widget'):
-            self.camera_widget.change_callback = self._update_preview
+            self.camera_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'framing_widget'):
-            self.framing_widget.change_callback = self._update_preview
+            self.framing_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'grading_widget'):
-            self.grading_widget.change_callback = self._update_preview
+            self.grading_widget.value_changed.connect(self._update_preview)
         if hasattr(self, 'details_widget'):
-            self.details_widget.change_callback = self._update_preview
+            self.details_widget.value_changed.connect(self._update_preview)
+        if hasattr(self, 'seed_widget'):
+            self.seed_widget.value_changed.connect(self._update_preview)
         
         # Initial preview update
         self._update_preview()

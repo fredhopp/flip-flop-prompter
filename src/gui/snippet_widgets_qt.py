@@ -682,12 +682,24 @@ class SnippetPopup(QDialog):
             category_layout.setContentsMargins(8, 8, 8, 8)
             category_layout.setSpacing(5)
             
-            # Category title
-            category_label = QLabel(category.title())
-            category_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            category_label.setStyleSheet("color: #333; margin-bottom: 5px; border: none;")
-            category_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            category_layout.addWidget(category_label)
+            # Category title as clickable button
+            category_button = QPushButton(category.title())
+            category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            category_button.setStyleSheet("""
+                QPushButton {
+                    color: #333; 
+                    margin-bottom: 5px; 
+                    border: 2px solid #FF9800;
+                    border-radius: 5px;
+                    background-color: #FFF3E0;
+                    padding: 6px;
+                }
+                QPushButton:hover {
+                    background-color: #FFE0B2;
+                }
+            """)
+            category_button.clicked.connect(lambda checked, cat=category: self._select_category(cat))
+            category_layout.addWidget(category_button)
             
             if isinstance(items, list):
                 # Simple category with list of items
@@ -702,11 +714,26 @@ class SnippetPopup(QDialog):
                 # Nested category structure - show subcategories properly
                 for subcategory, subitems in items.items():
                     if isinstance(subitems, list):
-                        # Subcategory label
-                        sub_label = QLabel(subcategory)
-                        sub_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
-                        sub_label.setStyleSheet("color: #555; margin-top: 8px; margin-bottom: 3px; border: none;")
-                        category_layout.addWidget(sub_label)
+                        # Subcategory as clickable button
+                        sub_button = QPushButton(subcategory)
+                        sub_button.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+                        sub_button.setStyleSheet("""
+                            QPushButton {
+                                color: #555; 
+                                margin-top: 8px; 
+                                margin-bottom: 3px; 
+                                border: 2px solid #FFC107;
+                                border-radius: 4px;
+                                background-color: #FFFDE7;
+                                padding: 4px;
+                                text-align: left;
+                            }
+                            QPushButton:hover {
+                                background-color: #FFF9C4;
+                            }
+                        """)
+                        sub_button.clicked.connect(lambda checked, cat=category, sub=subcategory: self._select_subcategory(cat, sub))
+                        category_layout.addWidget(sub_button)
                         
                         # Items in this subcategory
                         for item in subitems:
@@ -731,7 +758,33 @@ class SnippetPopup(QDialog):
     
     def _select_item(self, item: str):
         """Handle item selection."""
-        self.on_select(item)
+        # For regular snippets, call with just the item text
+        if hasattr(self.on_select, '__code__') and self.on_select.__code__.co_argcount > 2:
+            # New signature that accepts category_path
+            self.on_select(item, None)
+        else:
+            # Old signature for backwards compatibility
+            self.on_select(item)
+        # Don't close popup - let user select multiple items
+    
+    def _select_category(self, category: str):
+        """Handle category selection."""
+        # Pass category path to the callback
+        if hasattr(self.on_select, '__code__') and self.on_select.__code__.co_argcount > 2:
+            self.on_select(category, [category])
+        else:
+            # Fallback for old signature
+            self.on_select(f"[CATEGORY: {category}]")
+        # Don't close popup - let user select multiple items
+    
+    def _select_subcategory(self, category: str, subcategory: str):
+        """Handle subcategory selection."""
+        # Pass subcategory path to the callback
+        if hasattr(self.on_select, '__code__') and self.on_select.__code__.co_argcount > 2:
+            self.on_select(subcategory, [category, subcategory])
+        else:
+            # Fallback for old signature
+            self.on_select(f"[SUBCATEGORY: {category}/{subcategory}]")
         # Don't close popup - let user select multiple items
     
     def _apply_styling(self):

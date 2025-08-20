@@ -280,6 +280,70 @@ class SnippetManager:
         except Exception as e:
             print(f"Error importing snippets: {e}")
     
+    def get_category_items(self, field_name: str, category_name: str, content_rating: str = "PG") -> List[str]:
+        """Get all items from a specific category in a field."""
+        items = []
+        
+        # Find snippets for this field and rating
+        for key, snippet_data in self.all_snippets.items():
+            if snippet_data.get("field") == field_name:
+                snippet_rating = snippet_data.get("rating", "PG")
+                
+                if self._is_rating_appropriate(snippet_rating, content_rating):
+                    categories = snippet_data.get("categories", {})
+                    
+                    if category_name in categories:
+                        category_data = categories[category_name]
+                        
+                        if isinstance(category_data, list):
+                            # Flat list of items
+                            items.extend(category_data)
+                        elif isinstance(category_data, dict):
+                            # Nested structure - collect all items from all subcategories
+                            for subcategory_items in category_data.values():
+                                if isinstance(subcategory_items, list):
+                                    items.extend(subcategory_items)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_items = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                unique_items.append(item)
+        
+        return unique_items
+    
+    def get_subcategory_items(self, field_name: str, category_name: str, subcategory_name: str, content_rating: str = "PG") -> List[str]:
+        """Get all items from a specific subcategory in a field."""
+        items = []
+        
+        # Find snippets for this field and rating
+        for key, snippet_data in self.all_snippets.items():
+            if snippet_data.get("field") == field_name:
+                snippet_rating = snippet_data.get("rating", "PG")
+                
+                if self._is_rating_appropriate(snippet_rating, content_rating):
+                    categories = snippet_data.get("categories", {})
+                    
+                    if category_name in categories:
+                        category_data = categories[category_name]
+                        
+                        if isinstance(category_data, dict) and subcategory_name in category_data:
+                            subcategory_items = category_data[subcategory_name]
+                            if isinstance(subcategory_items, list):
+                                items.extend(subcategory_items)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_items = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                unique_items.append(item)
+        
+        return unique_items
+
     def create_snippet_dropdown(self, parent, field_name: str, on_select: Callable[[str], None], content_rating: str = "PG"):
         """Create a snippet dropdown widget."""
         from ..gui.snippet_widgets import SnippetDropdown
