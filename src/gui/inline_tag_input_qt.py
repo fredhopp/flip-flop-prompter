@@ -32,8 +32,8 @@ class InlineTagWidget(QWidget):
     def _setup_ui(self):
         """Setup the tag UI."""
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(6, 2, 6, 2)
-        self.layout.setSpacing(4)
+        self.layout.setContentsMargins(8, 2, 8, 2)
+        self.layout.setSpacing(6)
         
         # Tag text label
         self.text_label = QLabel(self.tag.text)
@@ -51,39 +51,33 @@ class InlineTagWidget(QWidget):
         # Set minimum size based on content
         font_metrics = QFontMetrics(self.text_label.font())
         text_width = font_metrics.horizontalAdvance(self.tag.text)
-        self.setFixedWidth(text_width + 32)  # 32px for remove button, padding, and margins
+        self.setFixedWidth(text_width + 40)  # 40px for remove button, padding, and margins
         self.setFixedHeight(20)  # Consistent height
     
     def _apply_styling(self):
         """Apply styling based on tag type."""
         # Color mapping for tag types
-        colors = {
+        self.colors = {
             TagType.SNIPPET: QColor("#E3F2FD"),      # Very light blue
             TagType.USER_TEXT: QColor("#E8F5E8"),    # Very light green
             TagType.CATEGORY: QColor("#FFF3E0"),     # Pale orange
             TagType.SUBCATEGORY: QColor("#FFFDE7")   # Pale yellow
         }
         
-        border_colors = {
+        self.border_colors = {
             TagType.SNIPPET: QColor("#90CAF9"),      # Light blue
             TagType.USER_TEXT: QColor("#A5D6A7"),   # Light green
             TagType.CATEGORY: QColor("#FFB74D"),    # Orange
             TagType.SUBCATEGORY: QColor("#FFF176")  # Yellow
         }
         
-        bg_color = colors.get(self.tag.tag_type, QColor("#F5F5F5"))
-        border_color = border_colors.get(self.tag.tag_type, QColor("#D0D0D0"))
-        
-        # Set background color directly using QPalette
-        palette = self.palette()
-        palette.setColor(palette.ColorRole.Window, bg_color)
-        self.setPalette(palette)
-        self.setAutoFillBackground(True)
+        self.bg_color = self.colors.get(self.tag.tag_type, QColor("#F5F5F5"))
+        self.border_color = self.border_colors.get(self.tag.tag_type, QColor("#D0D0D0"))
         
         # Apply border styling with CSS
         tag_style = f"""
             QWidget {{
-                border: 1px solid {border_color.name()};
+                border: 1px solid {self.border_color.name()};
                 border-radius: 4px;
                 margin: 1px;
             }}
@@ -115,6 +109,17 @@ class InlineTagWidget(QWidget):
         
         self.setStyleSheet(tag_style)
         self.remove_button.setStyleSheet(button_style)
+    
+    def paintEvent(self, event):
+        """Custom paint event to draw background color."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw background
+        painter.fillRect(self.rect(), self.bg_color)
+        
+        # Call parent paint event for other elements
+        super().paintEvent(event)
     
     def mouseDoubleClickEvent(self, event):
         """Handle double-click for editing user text tags."""
