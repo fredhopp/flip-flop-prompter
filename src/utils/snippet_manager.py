@@ -157,8 +157,8 @@ class SnippetManager:
             if snippet_data.get("field") == field_name:
                 snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                # Check if this snippet's family is appropriate for the requested content rating
-                if self._is_rating_appropriate(snippet_family, content_rating):
+                # Check if this snippet's family is appropriate for the requested family filter
+                if self._is_family_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     # Merge categories
@@ -197,24 +197,15 @@ class SnippetManager:
         
         return matching_snippets if matching_snippets else None
     
-    def _is_rating_appropriate(self, snippet_rating: str, content_rating: str) -> bool:
-        """Check if a snippet's rating is appropriate for the requested content rating."""
-        # Normalize ratings to lowercase for comparison
-        snippet_lower = snippet_rating.lower()
-        content_lower = content_rating.lower()
+    def _is_family_appropriate(self, snippet_family: str, requested_family: str) -> bool:
+        """Check if a snippet's family is appropriate for the requested family filter."""
+        # Normalize families to lowercase for comparison
+        snippet_lower = snippet_family.lower()
+        requested_lower = requested_family.lower()
         
-        # Define rating hierarchy
-        rating_hierarchy = {
-            "pg": ["pg"],
-            "nsfw": ["pg", "nsfw"],
-            "hentai": ["pg", "nsfw", "hentai"]
-        }
-        
-        # Get allowed ratings for the requested content rating
-        allowed_ratings = rating_hierarchy.get(content_lower, ["pg"])
-        
-        # Check if snippet rating is in allowed ratings
-        return snippet_lower in allowed_ratings
+        # Families should only show content from their own family
+        # This is a filter, not a hierarchy - each family is independent
+        return snippet_lower == requested_lower
     
     def reload_snippets(self):
         """Reload all snippets from files."""
@@ -289,12 +280,12 @@ class SnippetManager:
         """Get all items from a specific category in a field."""
         items = []
         
-        # Find snippets for this field and rating
+        # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
                 snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                if self._is_rating_appropriate(snippet_family, content_rating):
+                if self._is_family_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:
@@ -323,12 +314,12 @@ class SnippetManager:
         """Get all items from a specific subcategory in a field."""
         items = []
         
-        # Find snippets for this field and rating
+        # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
                 snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
                 
-                if self._is_rating_appropriate(snippet_family, content_rating):
+                if self._is_family_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:
