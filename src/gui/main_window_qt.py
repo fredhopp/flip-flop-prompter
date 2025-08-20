@@ -531,7 +531,7 @@ class MainWindow(QMainWindow):
         # Get save location
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save Template", 
-            str(self.templates_dir / "template.json"),
+            str(self.templates_dir / f"template_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json"),
             "JSON Files (*.json);;All Files (*)"
         )
         

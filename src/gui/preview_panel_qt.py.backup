@@ -1,10 +1,10 @@
 """
-Preview panel for displaying generated prompts using PySide6 with tabbed interface.
+Preview panel for displaying generated prompts using PySide6.
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
-    QFrame, QScrollArea, QGroupBox, QTabWidget
+    QFrame, QScrollArea, QGroupBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPalette, QColor
@@ -12,7 +12,7 @@ from typing import Optional
 
 
 class PreviewPanel(QWidget):
-    """Panel for displaying prompt preview and final output using PySide6 with tabs."""
+    """Panel for displaying prompt preview and final output using PySide6."""
     
     def __init__(self):
         super().__init__()
@@ -31,33 +31,24 @@ class PreviewPanel(QWidget):
         layout.setSpacing(5)
         
         # Create group box with title
-        self.frame = QGroupBox("Preview")
+        self.frame = QGroupBox("Prompt Summary")
         
         # Frame layout
         frame_layout = QVBoxLayout(self.frame)
         frame_layout.setContentsMargins(10, 10, 10, 10)
         frame_layout.setSpacing(8)
         
-        # Create tab widget
-        self.tab_widget = QTabWidget()
+        # No title label inside frame - will be shown as frame title
         
-        # Create Prompt Summary tab
-        self.summary_text = QTextEdit()
-        self.summary_text.setMinimumHeight(200)
-        self.summary_text.setMaximumHeight(300)
-        self.summary_text.setReadOnly(True)
-        self.summary_text.setFont(QFont("Consolas", 10))
-        self.tab_widget.addTab(self.summary_text, "Prompt Summary")
+        # Text display area
+        self.text_widget = QTextEdit()
+        self.text_widget.setMinimumHeight(200)
+        self.text_widget.setMaximumHeight(300)
+        self.text_widget.setReadOnly(True)
+        self.text_widget.setFont(QFont("Consolas", 10))
+        frame_layout.addWidget(self.text_widget)
         
-        # Create Final Prompt tab
-        self.final_text = QTextEdit()
-        self.final_text.setMinimumHeight(200)
-        self.final_text.setMaximumHeight(300)
-        self.final_text.setReadOnly(True)
-        self.final_text.setFont(QFont("Consolas", 10))
-        self.tab_widget.addTab(self.final_text, "Final Prompt")
-        
-        frame_layout.addWidget(self.tab_widget)
+        # No status label inside frame - will be handled by main window
         
         # Add frame to main layout
         layout.addWidget(self.frame)
@@ -66,8 +57,7 @@ class PreviewPanel(QWidget):
         self._apply_styling()
         
         # Set initial text
-        self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
-        self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+        self.text_widget.setPlainText("Enter your prompt components above to see a preview here...")
         self._set_placeholder_style()
     
     def _apply_styling(self):
@@ -81,27 +71,8 @@ class PreviewPanel(QWidget):
             }
         """)
         
-        # Style the tab widget
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                background-color: #f8f9fa;
-            }
-            QTabBar::tab {
-                background-color: #e9ecef;
-                border: 1px solid #ddd;
-                padding: 8px 16px;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #f8f9fa;
-                border-bottom: 1px solid #f8f9fa;
-            }
-        """)
-        
-        # Style the text widgets for normal state
-        text_style = """
+        # Style the text widget for normal state
+        self.text_widget.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #ddd;
                 border-radius: 3px;
@@ -109,13 +80,11 @@ class PreviewPanel(QWidget):
                 color: #212529;
                 padding: 10px;
             }
-        """
-        self.summary_text.setStyleSheet(text_style)
-        self.final_text.setStyleSheet(text_style)
+        """)
     
     def _set_placeholder_style(self):
         """Set placeholder text styling."""
-        placeholder_style = """
+        self.text_widget.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #ddd;
                 border-radius: 3px;
@@ -124,13 +93,11 @@ class PreviewPanel(QWidget):
                 padding: 10px;
                 font-style: italic;
             }
-        """
-        self.summary_text.setStyleSheet(placeholder_style)
-        self.final_text.setStyleSheet(placeholder_style)
+        """)
     
     def _set_preview_style(self):
         """Set preview text styling."""
-        preview_style = """
+        self.text_widget.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #ddd;
                 border-radius: 3px;
@@ -138,12 +105,11 @@ class PreviewPanel(QWidget):
                 color: #212529;
                 padding: 10px;
             }
-        """
-        self.summary_text.setStyleSheet(preview_style)
+        """)
     
     def _set_final_style(self):
         """Set final prompt styling."""
-        final_style = """
+        self.text_widget.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #28a745;
                 border-radius: 3px;
@@ -152,8 +118,7 @@ class PreviewPanel(QWidget):
                 padding: 10px;
                 font-weight: bold;
             }
-        """
-        self.final_text.setStyleSheet(final_style)
+        """)
     
     def update_preview(self, text: str, is_final: bool = False):
         """
@@ -166,37 +131,41 @@ class PreviewPanel(QWidget):
         self.current_text = text
         self.is_final = is_final
         
+        # Update frame title based on state
         if is_final:
-            # Update Final Prompt tab
-            self.final_text.setPlainText(text)
-            self.tab_widget.setCurrentIndex(1)  # Switch to Final Prompt tab
-            self._set_final_style()
+            self.frame.setTitle("Final Prompt")
         else:
-            # Update Prompt Summary tab
-            self.summary_text.setPlainText(text)
-            self.tab_widget.setCurrentIndex(0)  # Switch to Prompt Summary tab
-            if text.strip():
-                self._set_preview_style()
-            else:
-                self._set_placeholder_style()
+            self.frame.setTitle("Prompt Summary")
         
-        # Count words and characters
-        word_count = len(text.split()) if text.strip() else 0
-        char_count = len(text)
+        if text:
+            # Update text content
+            self.text_widget.setPlainText(text)
+            
+            # Apply appropriate styling
+            if is_final:
+                self._set_final_style()
+            else:
+                self._set_preview_style()
+                
+            # Count words and characters
+            word_count = len(text.split()) if text.strip() else 0
+            char_count = len(text)
+            
+        else:
+            # Show placeholder text
+            self.text_widget.setPlainText("Enter your prompt components above to see a preview here...")
+            self._set_placeholder_style()
+            word_count = 0
+            char_count = 0
         
         # Store counts for external access
         self.word_count = word_count
         self.char_count = char_count
         
         # Scroll to top
-        if is_final:
-            cursor = self.final_text.textCursor()
-            cursor.movePosition(cursor.MoveOperation.Start)
-            self.final_text.setTextCursor(cursor)
-        else:
-            cursor = self.summary_text.textCursor()
-            cursor.movePosition(cursor.MoveOperation.Start)
-            self.summary_text.setTextCursor(cursor)
+        cursor = self.text_widget.textCursor()
+        cursor.movePosition(cursor.MoveOperation.Start)
+        self.text_widget.setTextCursor(cursor)
     
     def update_model_info(self, model_name: str):
         """
@@ -226,10 +195,7 @@ class PreviewPanel(QWidget):
     
     def clear_preview(self):
         """Clear the preview and reset to initial state."""
-        self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
-        self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
-        self._set_placeholder_style()
-        self.tab_widget.setCurrentIndex(0)
+        self.update_preview("")
     
     def highlight_syntax(self, text: str) -> str:
         """
@@ -265,14 +231,12 @@ class PreviewPanel(QWidget):
     
     def set_font_size(self, size: int):
         """Set the font size for the text display."""
-        font = self.summary_text.font()
+        font = self.text_widget.font()
         font.setPointSize(size)
-        self.summary_text.setFont(font)
-        self.final_text.setFont(font)
+        self.text_widget.setFont(font)
     
     def set_font_family(self, family: str):
         """Set the font family for the text display."""
-        font = self.summary_text.font()
+        font = self.text_widget.font()
         font.setFamily(family)
-        self.summary_text.setFont(font)
-        self.final_text.setFont(font)
+        self.text_widget.setFont(font)

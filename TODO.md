@@ -83,12 +83,26 @@
   - [ ] Implement batch prompt generation
   - [ ] Add batch export functionality
   - [ ] Consider progress tracking for large batches
-- [ ] **Fix tag field height expansion** - Fields need to expand height to fit tags
+- [x] **Fix tag field height expansion** - Fields need to expand height to fit tags
   - [ ] Implement dynamic height adjustment for tag fields
   - [ ] Ensure all tags are visible without requiring wide window resize
   - [ ] Add minimum height constraints for tag fields
   - [ ] Test tag wrapping and overflow behavior
-- [ ] **Improve LLM prompt refinement** - Remove "Okay..." and other non-instructional text
+- [x] **Improve LLM prompt refinement** - Remove "Okay..." and other non-instructional text
+- [x] **Implement tabbed preview panel** - Add tabs for "Prompt Summary" and "Final Prompt"
+- [x] **Fix template default name** - Include date and time in default template filename
+  - [x] Update template save dialog to use datetime format
+  - [x] Default names now include YYYYMMDD_HHMMSS format
+  - [x] Maintain backward compatibility with existing templates
+  - [x] Create QTabWidget with two tabs
+  - [x] Separate display for input preview and LLM output
+  - [x] Auto-switch to appropriate tab based on content type
+  - [x] Maintain styling consistency with existing design
+- [ ] **Test new LLM instruction** - Test "The output should be strictly a very detailed instructional prompt, leave out any conversational wording"
+  - [ ] Test with deepseek-r1:8b model
+  - [ ] Test with llama3.1-8b-uncensored-v2-q4.gguf model
+  - [ ] Compare results with current instruction
+  - [ ] Update system prompts if effective
   - [ ] Update LLM prompts to be more specific about output format
   - [ ] Filter out conversational responses and keep only instructional prose
   - [ ] Add post-processing to clean up LLM responses
