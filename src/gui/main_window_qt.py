@@ -22,6 +22,7 @@ from .preview_panel_qt import PreviewPanel
 from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
 from ..utils.logger import get_logger
+from ..utils.history_manager import HistoryManager
 
 
 class MainWindow(QMainWindow):
@@ -43,6 +44,9 @@ class MainWindow(QMainWindow):
         
         # Track open snippet popups for dynamic updates
         self.open_snippet_popups = []
+        
+        # Initialize history manager
+        self.history_manager = HistoryManager()
         
         # User data directories
         self.user_data_dir = theme_manager.user_data_dir
@@ -957,6 +961,10 @@ class MainWindow(QMainWindow):
             # Update preview with final prompt
             self.preview_panel.update_preview(final_prompt, is_final=True)
             
+            # Save to history
+            summary_prompt = self.preview_panel.get_summary_text()
+            self._save_to_history(summary_prompt, final_prompt)
+            
             # Update status bar
             self._update_status_bar()
             
@@ -1266,6 +1274,13 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'seed_widget'):
             self.seed_widget.value_changed.connect(self._update_preview)
         
+        # Connect preview panel history signals
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.history_back_requested.connect(self._navigate_history_back)
+            self.preview_panel.history_forward_requested.connect(self._navigate_history_forward)
+            self.preview_panel.history_delete_requested.connect(self._delete_history_entry)
+            self.preview_panel.history_clear_requested.connect(self._clear_history)
+        
         # Initial preview update - delay to ensure window is ready
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self._update_preview)
@@ -1337,3 +1352,104 @@ class MainWindow(QMainWindow):
         theme_manager.save_preferences(theme_manager.preferences)
         
         event.accept()
+    
+    def _navigate_history_back(self):
+        """Navigate to previous history entry."""
+        if self.history_manager.navigate_back():
+            self._restore_from_history_entry()
+            self._update_history_navigation()
+    
+    def _navigate_history_forward(self):
+        """Navigate to next history entry."""
+        if self.history_manager.navigate_forward():
+            self._restore_from_history_entry()
+            self._update_history_navigation()
+    
+    def _delete_history_entry(self):
+        """Delete current history entry."""
+        if self.history_manager.delete_current_entry():
+            self._restore_from_history_entry()
+            self._update_history_navigation()
+    
+    def _clear_history(self):
+        """Clear all history entries."""
+        self.history_manager.clear_history()
+        self._update_history_navigation()
+    
+    def _restore_from_history_entry(self):
+        """Restore fields from current history entry."""
+        entry = self.history_manager.get_current_entry()
+        if entry:
+            # Restore field data
+            for field_name, value in entry.field_data.items():
+                if hasattr(self, f'{field_name}_widget'):
+                    widget = getattr(self, f'{field_name}_widget')
+                    widget.set_value(value)
+            
+            # Restore families
+            for family in entry.families:
+                if family in self.family_actions:
+                    self.family_actions[family].setChecked(True)
+            
+            # Restore seed
+            if hasattr(self, 'seed_widget'):
+                self.seed_widget.set_value(entry.seed)
+            
+            # Restore LLM model
+            if hasattr(self, 'llm_widget'):
+                self.llm_widget.set_value(entry.llm_model)
+            
+            # Update preview
+            self._update_preview()
+    
+    def _update_history_navigation(self):
+        """Update navigation controls state."""
+        if hasattr(self, 'preview_panel'):
+            can_go_back = self.history_manager.can_go_back()
+            can_go_forward = self.history_manager.can_go_forward()
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            has_history = self.history_manager.has_history()
+            
+            self.preview_panel.update_navigation_controls(
+                can_go_back, can_go_forward, current_pos, total_count, has_history
+            )
+    
+    def _save_to_history(self, summary_prompt: str, final_prompt: str):
+        """Save current state to history."""
+        # Get current field data
+        field_data = {}
+        field_widgets = [
+            'style', 'setting', 'weather', 'datetime', 'subjects', 
+            'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions'
+        ]
+        
+        for field in field_widgets:
+            if hasattr(self, f'{field}_widget'):
+                widget = getattr(self, f'{field}_widget')
+                field_data[field] = widget.get_value()
+        
+        # Get selected families
+        selected_families = []
+        for family, action in self.family_actions.items():
+            if action.isChecked():
+                selected_families.append(family)
+        
+        # Get current seed
+        seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+        
+        # Get LLM model
+        llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-coder:6.7b"
+        
+        # Add to history
+        self.history_manager.add_entry(
+            summary_prompt=summary_prompt,
+            final_prompt=final_prompt,
+            field_data=field_data,
+            seed=seed,
+            families=selected_families,
+            llm_model=llm_model,
+            target_model="seedream"  # Hardcoded as per current implementation
+        )
+        
+        # Update navigation controls
+        self._update_history_navigation()

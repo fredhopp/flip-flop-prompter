@@ -302,6 +302,10 @@ class PreviewPanel(QWidget):
         """Get the current character count."""
         return getattr(self, 'char_count', 0)
     
+    def get_summary_text(self) -> str:
+        """Get the current summary text."""
+        return self.summary_text.toPlainText()
+    
     def clear_preview(self):
         """Clear the preview and reset to initial state."""
         self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
