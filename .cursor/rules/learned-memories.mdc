@@ -1,11 +1,27 @@
-## ��� CRITICAL WORKFLOW RULE - NEVER BREAK THIS ���
+# FlipFlopPrompt - Learned Memories & Context
+
+## 🚨 CRITICAL WORKFLOW RULES - NEVER BREAK THESE 🚨
+
+### Git Push Confirmation Rule
 - **NEVER push to git without explicit user confirmation first**
 - **ALWAYS ask: "Ready to commit and push these changes?" before any git push**
 - **This rule is ABSOLUTE and cannot be violated**
 - **If you forget this rule, you have failed the workflow**
 
+**MANDATORY GIT WORKFLOW:**
+```
+"Ready to commit and push these changes?
 
-# Development Workflow & Preferences
+Changes include:
+- [list of changes]
+
+Should I proceed with the commit and push?"
+```
+
+### Process Management Rule
+- **KILL any process launched by an agent for testing**
+- **Clean up test processes** - Don't leave hanging Python processes when testing
+- **Use `taskkill //F //IM python.exe` to clean hanging processes**
 
 ## Development Workflow Preferences
 - **Always ask for confirmation before pushing to git**
@@ -13,8 +29,8 @@
 - **Prefer bash commands over manual instructions**
 - **Clean up test processes** - Don't leave hanging Python processes when testing
 
-## Project Setup
-- **Virtual Environment**: `.venv` (not `venv`)**
+## Project Setup & Environment
+- **Virtual Environment**: `.venv` (not `venv`)
 - **Shell**: Git Bash on Windows
 - **Working Directory**: `Z:/Dev/FlipFlopPrompt`
 - **GUI Framework**: PySide6 (Qt-based) - Tkinter has been completely removed
@@ -26,10 +42,10 @@
 source .venv/Scripts/activate
 
 # Run PySide6 GUI (standard)
-python main_qt.py --gui
+python main_qt.py
 
-# Run CLI application
-python main_qt.py --cli
+# Run with debug logging
+python main_qt.py --debug
 
 # Install dependencies
 pip install -r requirements.txt
@@ -38,36 +54,35 @@ pip install -r requirements.txt
 taskkill //F //IM python.exe
 ```
 
-## Current Architecture
+## Current Architecture (August 2025)
 - **GUI**: Modern PySide6 with tag-based input system
 - **Snippets**: JSON files with unified key-value structure (name/content/description)
-- **Tag System**: Inline tags with colors (blue=snippets, green=user text, orange=categories, yellow=subcategories)
-- **Randomization**: Seed-based deterministic random snippet selection
+- **Tag System**: Inline tags with colors (blue=snippets, purple=user text, orange=categories, yellow=subcategories)
+- **Randomization**: Seed-based deterministic random snippet selection with preview/realization consistency
 - **Families**: Dynamic filtering system with real-time snippet updates
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 - **Logging**: Comprehensive GUI interaction logging with debug mode integration
 - **Theme System**: JSON-based light/dark themes with external file customization
+- **Realize Functionality**: Convert random category/subcategory tags to specific snippet items
 
-## Git Workflow
-## ��� GIT PUSH CONFIRMATION RULE ���
-**BEFORE ANY git push command, you MUST ask:**
+## Key Technical Decisions
+- **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
+- **Tag Colors**: Cold colors for static (blue/purple), hot colors for random (orange/yellow)
+- **Family Filtering**: Strict matching (no hierarchy) - PG only shows PG content
+- **GUI Styling**: Blue accent buttons (`#0066cc`) with modern scrollbars
+- **Window Behavior**: Only preview panel expands on resize, status bar fixed height
+- **Theme Management**: JSON-based theme files with hot-reload capability
+- **LLM Instructions**: Full content displayed in tooltips, clean button names
+- **Theme System**: JSON-based light/dark themes with 21 color definitions each, persistent preferences
 
-```
-"Ready to commit and push these changes?
-
-Changes include:
-- [list of changes]
-
-Should I proceed with the commit and push?"
-```
-
-**This is a MANDATORY step that cannot be skipped.**
-
-- Always stage changes with `git add .`
-- Use descriptive commit messages
-- Push to `origin main` branch
-- **��� MANDATORY: Ask for confirmation before any git push operations**
-- Clean up temporary files before committing
+## File Organization
+- **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
+- **Core Logic**: `src/core/` (prompt engine, data models, LLM integration)
+- **Utilities**: `src/utils/` (snippet manager, theme manager, logger)
+- **Snippets**: `data/snippets/` (JSON files with family/LLM_rating fields)
+- **Themes**: `data/themes/` (JSON files with color definitions)
+- **User Data**: Home directory via `theme_manager.user_data_dir`
+- **Templates**: JSON format, saved in user data directory
 
 ## Code Style & Standards
 - Follow existing code structure and patterns
@@ -84,25 +99,6 @@ Should I proceed with the commit and push?"
 - Test family filtering and dynamic snippet updates
 - Verify tag colors and editing functionality
 
-## File Organization
-- **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
-- **Core Logic**: `src/core/` (prompt engine, data models, LLM integration)
-- **Utilities**: `src/utils/` (snippet manager, theme manager)
-- **Snippets**: `data/snippets/` (JSON files with family/LLM_rating fields)
-- **Themes**: `data/themes/` (JSON files with color definitions)
-- **User Data**: Home directory via `theme_manager.user_data_dir`
-- **Templates**: JSON format, saved in user data directory
-
-## Key Technical Decisions
-- **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
-- **Tag Colors**: Cold colors for static (blue/green), hot colors for random (orange/yellow)
-- **Family Filtering**: Strict matching (no hierarchy) - PG only shows PG content
-- **GUI Styling**: Blue accent buttons (`#0066cc`) with modern scrollbars
-- **Window Behavior**: Only preview panel expands on resize, status bar fixed height
-- **Theme Management**: JSON-based theme files with hot-reload capability
-- **LLM Instructions**: Full content displayed in tooltips, clean button names
-- **Theme System**: JSON-based light/dark themes with 21 color definitions each, persistent preferences
-
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
 - **Import errors**: Ensure virtual environment is activated
@@ -110,7 +106,7 @@ Should I proceed with the commit and push?"
 - **Button styling**: Use PySide6 QPushButton with CSS stylesheets
 - **Tag colors not showing**: Check paintEvent implementation in InlineTagWidget
 - **Snippet popup issues**: Verify families filtering and dynamic updates
-- **Startup performance**: MainWindow creation takes ~4.8s (snippet loading bottleneck)
+- **Startup performance**: MainWindow creation optimized to ~1.2s
 - **Process cleanup**: Use `taskkill //F //IM python.exe` to clean hanging processes
 
 ## Performance Considerations
@@ -118,14 +114,9 @@ Should I proceed with the commit and push?"
 - **Bottleneck**: MainWindow creation (was 4.8s, now optimized with lazy loading)
 - **Optimization Implemented**: Lazy loading for PromptEngine, LLM components, and snippet manager
 
-## Development Priorities
-1. **High Priority**: ✅ **COMPLETED** - Optimize startup time (4-5s → 1.209s)
-2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
-3. **High Priority**: Implement batch processing system
-4. **Next**: Expand snippet subcategories and add prompt history navigation
-5. **Future**: AI service integrations and advanced features
-
-## Recent Major Changes
+## Recent Major Changes (August 2025)
+- **Realize Functionality**: Convert random category/subcategory tags to specific snippet items with deterministic consistency
+- **Randomization Consistency**: Fixed preview and realization to produce identical results using same seed logic
 - **Dark Theme Implementation**: Complete light/dark theme system with persistence and keyboard shortcuts (Ctrl+T)
 - **JSON Theme System**: Converted from hardcoded themes to external JSON files for easy customization
 - **JSON Structure Refactoring**: Unified all snippet files to key-value format with proper tooltips
@@ -136,7 +127,27 @@ Should I proceed with the commit and push?"
 - **Randomization**: Added seed-based deterministic random snippet selection
 - **Project Cleanup**: Removed all legacy Tkinter files and unused dependencies
 
+## Development Priorities
+1. **High Priority**: ✅ **COMPLETED** - Optimize startup time (4-5s → 1.209s)
+2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
+3. **High Priority**: Implement batch processing system
+4. **Next**: Expand snippet subcategories and add prompt history navigation
+5. **Future**: AI service integrations and advanced features
+
+## User Preferences & Context
+- **Prefer bash commands over manual instructions**
+- **Always execute commands directly rather than just suggest them**
+- **Clean up test processes** - Don't leave hanging Python processes when testing
+- **Ask for confirmation before pushing to git** - This is a MANDATORY step
+- **Use descriptive commit messages**
+- **Clean up temporary files before committing**
+
 ---
 
-**Last Updated**: December 2024
+**Last Updated**: August 2025
 **Purpose**: Serve as persistent memory for development workflow preferences and project context
+**Status**: Active Development - All major features implemented and working
+description:
+globs:
+alwaysApply: false
+---

@@ -6,8 +6,9 @@ These replace the traditional text input widgets with tag-based input systems.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QSpinBox
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtGui import QFont, QColor, QIcon
+from pathlib import Path
 from typing import Callable, Optional, List
 from .tag_widgets_qt import Tag, TagType
 from .inline_tag_input_qt import InlineTagInputWidget
@@ -198,6 +199,10 @@ class TagFieldWidget(QWidget):
         
         return self.tag_input.generate_random_text(seed, snippet_manager, selected_families)
     
+    def get_display_value(self) -> str:
+        """Get the current display value (non-randomized)."""
+        return self.tag_input.get_display_text()
+    
     def set_value(self, value: str):
         """Set the field value (for backwards compatibility with plain text)."""
         # For now, just clear tags and add as user text if not empty
@@ -221,6 +226,78 @@ class TagFieldWidget(QWidget):
     def set_tags(self, tags: List[Tag]):
         """Set tags (for template loading)."""
         self.tag_input.set_tags(tags)
+    
+    def realize_category_tags(self, seed: int, selected_families: List[str]):
+        """Realize category and subcategory tags to actual snippet items."""
+        current_tags = self.tag_input.get_tags()
+        new_tags = []
+        
+        for tag in current_tags:
+            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+                # Generate a random snippet item for this category/subcategory
+                realized_item = self._generate_realized_item(tag, seed, selected_families)
+                if realized_item:
+                    # Replace category/subcategory tag with realized snippet
+                    new_tags.append(Tag(realized_item, TagType.SNIPPET))
+                # Don't add the original category/subcategory tag (it's replaced)
+            else:
+                # Keep non-category/subcategory tags as they are
+                new_tags.append(tag)
+        
+        # Update the tag input with realized tags
+        self.tag_input.set_tags(new_tags)
+    
+    def _generate_realized_item(self, category_tag: Tag, seed: int, selected_families: List[str]) -> str:
+        """Generate a realized snippet item for a category or subcategory tag."""
+        import random
+        
+        # Create a deterministic seed based on field name and tag text
+        # This ensures the same tag in the same field always gets the same result
+        field_hash = hash(self.field_name)
+        tag_hash = hash(category_tag.text)
+        deterministic_seed = seed + field_hash + tag_hash
+        random.seed(deterministic_seed)
+        
+        try:
+            if category_tag.tag_type == TagType.CATEGORY:
+                # Use the SAME logic as preview system: tag.category_path[0]
+                if len(category_tag.category_path) >= 1:
+                    category_items = []
+                    families = selected_families or ["PG"]
+                    for family in families:
+                        items = snippet_manager.get_category_items(self.field_name, category_tag.category_path[0], family)
+                        category_items.extend(items)
+                    
+                    if category_items:
+                        return random.choice(category_items)
+                else:
+                    return category_tag.text  # Fallback to original text
+            
+            elif category_tag.tag_type == TagType.SUBCATEGORY:
+                # Use the SAME logic as preview system: tag.category_path[0] and tag.category_path[1]
+                if len(category_tag.category_path) >= 2:
+                    subcategory_items = []
+                    families = selected_families or ["PG"]
+                    for family in families:
+                        items = snippet_manager.get_subcategory_items(
+                            self.field_name, 
+                            category_tag.category_path[0],  # Use category_path[0] like preview
+                            category_tag.category_path[1],  # Use category_path[1] like preview
+                            family
+                        )
+                        subcategory_items.extend(items)
+                    
+                    if subcategory_items:
+                        return random.choice(subcategory_items)
+                else:
+                    return category_tag.text  # Fallback to original text
+            
+            else:
+                return category_tag.text  # Not a category/subcategory tag
+                
+        except Exception as e:
+            print(f"Error realizing category tag '{category_tag.text}': {e}")
+            return category_tag.text  # Fallback to original text
 
 
 class TagTextFieldWidget(TagFieldWidget):
@@ -310,6 +387,22 @@ class SeedFieldWidget(QWidget):
         self.randomize_button.clicked.connect(self._randomize_seed)
         self.randomize_button.setToolTip("Roll the dice - Generate random seed")
         
+        # Create realize button with custom icon
+        self.realize_button = QPushButton()
+        self.realize_button.setObjectName("realizeButton")
+        self.realize_button.setFixedSize(30, 30)
+        self.realize_button.clicked.connect(self._realize_fields)
+        self.realize_button.setToolTip("Realize fields - Convert category/subcategory tags to actual items")
+        
+        # Set custom icon
+        icon_path = Path(__file__).parent.parent.parent / "assets" / "icons" / "imagenRealizeRndClean_01.svg"
+        if icon_path.exists():
+            self.realize_button.setIcon(QIcon(str(icon_path)))
+            self.realize_button.setIconSize(QSize(16, 16))
+        else:
+            # Fallback to text icon if custom icon not found
+            self.realize_button.setText("❗")
+        
         # Apply styling with proper button frame and smaller icon
         button_style = """
             QPushButton#diceButton {
@@ -335,19 +428,46 @@ class SeedFieldWidget(QWidget):
                 border: 2px solid #004499 !important;
                 color: #333 !important;
             }
+            QPushButton#realizeButton {
+                background-color: #f8f8f8 !important;
+                border: 2px solid #bbb !important;
+                border-radius: 6px !important;
+                font-size: 16px !important;
+                color: #333 !important;
+                padding: 2px !important;
+                min-height: 26px !important;
+                max-height: 26px !important;
+                min-width: 26px !important;
+                max-width: 26px !important;
+                font-weight: normal !important;
+            }
+            QPushButton#realizeButton:hover {
+                background-color: #ebebeb !important;
+                border: 2px solid #0066cc !important;
+                color: #333 !important;
+            }
+            QPushButton#realizeButton:pressed {
+                background-color: #e0e0e0 !important;
+                border: 2px solid #004499 !important;
+                color: #333 !important;
+            }
         """
         self.randomize_button.setStyleSheet(button_style)
+        self.realize_button.setStyleSheet(button_style)
         
-        # Force the button to use the new style immediately
+        # Force the buttons to use the new style immediately
         self.randomize_button.setAutoFillBackground(True)
+        self.realize_button.setAutoFillBackground(True)
         palette = self.randomize_button.palette()
         palette.setColor(palette.ColorRole.Button, QColor("#f5f5f5"))
         palette.setColor(palette.ColorRole.ButtonText, QColor("#333"))
         self.randomize_button.setPalette(palette)
+        self.realize_button.setPalette(palette)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)
         self.layout.addWidget(self.randomize_button)
+        self.layout.addWidget(self.realize_button)
         self.layout.addStretch()  # Push everything to the left
     
     def _on_seed_changed(self, value: int):
@@ -360,6 +480,44 @@ class SeedFieldWidget(QWidget):
         import random
         new_seed = random.randint(0, 999999)
         self.seed_input.setValue(new_seed)
+    
+    def _realize_fields(self):
+        """Realize category/subcategory tags to actual snippet items."""
+        # Find the main window to access all field widgets
+        main_window = self._find_main_window()
+        if not main_window:
+            return
+        
+        # Get current seed for consistent realization
+        current_seed = self.get_value()
+        
+        # Get selected families for snippet filtering
+        selected_families = main_window._get_selected_families() if hasattr(main_window, '_get_selected_families') else ["PG"]
+        
+        # Realize all field widgets
+        field_widgets = [
+            getattr(main_window, attr, None) for attr in [
+                'style_widget', 'setting_widget', 'weather_widget', 'datetime_widget',
+                'subjects_widget', 'pose_widget', 'camera_widget', 'framing_widget',
+                'grading_widget', 'details_widget'
+            ]
+        ]
+        
+        for field_widget in field_widgets:
+            if field_widget and hasattr(field_widget, 'realize_category_tags'):
+                field_widget.realize_category_tags(current_seed, selected_families)
+        
+        # Emit change signal to update preview
+        self.value_changed.emit()
+    
+    def _find_main_window(self):
+        """Find the main window by traversing up the widget hierarchy."""
+        current = self
+        while current:
+            if hasattr(current, '_get_selected_families'):
+                return current
+            current = current.parent()
+        return None
     
     def get_value(self) -> int:
         """Get the current seed value."""

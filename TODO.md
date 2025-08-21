@@ -15,10 +15,11 @@
 - [x] Debug system with file logging
 - [x] **Tag-based snippet system** with randomization
 - [x] **Dynamic snippet filtering** based on selected families
+- [x] **Realize functionality** - Convert random category/subcategory tags to specific snippet items
 
 ### **PySide6 GUI Implementation (Major Achievement)**
 - [x] **Complete PySide6 migration** - Modern Qt-based interface
-- [x] **Professional light theme** - Blue accent buttons and modern scrollbars
+- [x] **Professional light/dark themes** - JSON-based theme system with customization
 - [x] **Tag-based input system** - Inline tags with colors and editing
 - [x] **Dynamic snippet popup** - Category blocks rearrange on window resize
 - [x] **Auto-expanding Additional Details** - 1-4 lines with scrollbar
@@ -28,13 +29,14 @@
 - [x] **Professional button layout** - 2px spacing with equal distribution
 - [x] **Fixed text clipping issues** - Snippet buttons and input fields
 - [x] **Hierarchical snippet categories** - Gender/Age/Profession properly displayed
-- [x] **Side-by-side model selection** - Target Diffusion + LLM models
+- [x] **LLM model selection** - Simplified to only LLM model (target diffusion handled by LLM instructions)
 - [x] **Fixed-height status bar** - Word/character count at bottom
 - [x] **Copy to Clipboard** - Added to main action row
 - [x] **Clear All Fields** - Renamed and repositioned button
 - [x] **Seed-based randomization** - Deterministic random snippet selection
 - [x] **Tag color coding** - Different colors for different tag types
 - [x] **Dynamic snippet updates** - Real-time filtering when families change
+- [x] **Realize button** - Convert random tags to specific items with deterministic consistency
 
 ### **JSON Structure Refactoring (Major Achievement)**
 - [x] **Unified snippet structure** - All JSON files use consistent key-value format
@@ -144,6 +146,18 @@
   - [x] Remove pydantic, httpx, and other unused packages
   - [x] Update requirements.txt to only include actually used packages
   - [x] Verify all imports are either standard Python or in requirements.txt
+- [x] **Add realize fields button** - Add button next to dice for converting category/subcategory tags to actual items ✅ **COMPLETED**
+  - [x] Add realize button (❗) next to dice button
+  - [x] Implement global realization of category/subcategory tags
+  - [x] Convert category/subcategory tags to actual snippet items
+  - [x] Use current seed for consistent realization
+  - [x] Remove category/subcategory tags after realization
+  - [x] Update preview to show realized items
+- [ ] **Implement undo system** - Allow undoing realize operations and other actions
+  - [ ] Add undo/redo functionality for realize operations
+  - [ ] Store action history for undo/redo
+  - [ ] Add keyboard shortcuts (Ctrl+Z, Ctrl+Y)
+  - [ ] Add undo/redo buttons to UI
 - [ ] **Expand snippet subcategories** - Add 2-3 subcategories to every snippet JSON file
   - [ ] Review existing snippet files and identify logical subcategory groupings
   - [ ] Create subcategories with at least 3 items each for relevance

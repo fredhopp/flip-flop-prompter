@@ -10,7 +10,6 @@ try:
     from .snippet_widgets_qt import (
         SnippetDropdown, 
         ContentRatingWidget,
-        ModelSelectionWidget,
         LLMSelectionWidget
     )
     from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFieldWidget
@@ -31,7 +30,6 @@ __all__ = [
     'PreviewPanel',
     'SnippetDropdown',
     'ContentRatingWidget',
-    'ModelSelectionWidget',
     'LLMSelectionWidget',
     
     # Tag system components

@@ -387,7 +387,6 @@ class InlineTagInputWidget(QWidget):
     def generate_random_text(self, seed: int, snippet_manager, selected_families: List[str] = None) -> str:
         """Generate randomized text based on tags and seed."""
         import random
-        random.seed(seed)
         result_texts = []
         
         for tag in self.tags:
@@ -401,6 +400,11 @@ class InlineTagInputWidget(QWidget):
                         items = snippet_manager.get_category_items(field_name, tag.category_path[0], family)
                         category_items.extend(items)
                     if category_items:
+                        # Use the SAME deterministic seed logic as realization
+                        field_hash = hash(field_name)
+                        tag_hash = hash(tag.text)
+                        deterministic_seed = seed + field_hash + tag_hash
+                        random.seed(deterministic_seed)
                         result_texts.append(random.choice(category_items))
             elif tag.tag_type == TagType.SUBCATEGORY:
                 # Get random item from subcategory
@@ -414,6 +418,11 @@ class InlineTagInputWidget(QWidget):
                         )
                         subcategory_items.extend(items)
                     if subcategory_items:
+                        # Use the SAME deterministic seed logic as realization
+                        field_hash = hash(field_name)
+                        tag_hash = hash(tag.text)
+                        deterministic_seed = seed + field_hash + tag_hash
+                        random.seed(deterministic_seed)
                         result_texts.append(random.choice(subcategory_items))
             else:
                 # Static tag or user text

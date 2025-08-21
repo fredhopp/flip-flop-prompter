@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QAction, QFont
 
 from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFieldWidget
-from .snippet_widgets_qt import ContentRatingWidget, ModelSelectionWidget, LLMSelectionWidget
+from .snippet_widgets_qt import ContentRatingWidget, LLMSelectionWidget
 from .preview_panel_qt import PreviewPanel
 from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
@@ -294,12 +294,6 @@ class MainWindow(QMainWindow):
         model_layout.setContentsMargins(0, 5, 0, 5)
         model_layout.setSpacing(20)
         
-        # Target Diffusion Model
-        self.model_widget = ModelSelectionWidget(
-            change_callback=self._on_model_changed
-        )
-        model_layout.addWidget(self.model_widget)
-        
         # LLM Model  
         self.llm_widget = LLMSelectionWidget(
             change_callback=self._on_llm_changed
@@ -463,9 +457,9 @@ class MainWindow(QMainWindow):
         
         if duration:
             # Update cache with actual duration
-            if hasattr(self, 'llm_widget') and hasattr(self, 'model_widget'):
+            if hasattr(self, 'llm_widget'):
                 llm_model = self.llm_widget.get_value()
-                target_model = self.model_widget.get_value()
+                target_model = "seedream"  # Default model since target model is handled by LLM instructions
                 self._update_cached_generation_time(llm_model, target_model, duration)
             
             # Show completion message with statistics
@@ -649,9 +643,9 @@ class MainWindow(QMainWindow):
         
         # Apply button styling
         for button in self.findChildren(QPushButton):
-            # Skip dice button and buttons inside tag widgets
+            # Skip dice button, realize button, and buttons inside tag widgets
             parent = button.parent()
-            if (button.objectName() != "diceButton" and 
+            if (button.objectName() not in ["diceButton", "realizeButton"] and 
                 not (parent and parent.objectName() in ["tagWidget", "InlineTagWidget"])):
                 button.setStyleSheet(f"""
                     QPushButton {{
@@ -891,6 +885,11 @@ class MainWindow(QMainWindow):
     
     def _generate_prompt(self):
         """Generate the final prompt using the LLM."""
+        # Initialize variables outside try block to avoid UnboundLocalError
+        llm_model = "gemma3:4b"  # Default fallback
+        model = "seedream"  # Default model
+        content_rating = "PG"  # Default fallback
+        
         try:
             # Log the generation attempt
             if self.logger:
@@ -922,14 +921,13 @@ class MainWindow(QMainWindow):
                 self._show_error_message("LLM instructions required")
                 return
             
-            # Get model and families (use first selected family for backward compatibility)
-            model = self.model_widget.get_value() if hasattr(self, 'model_widget') else "seedream"
+            # Get LLM model and families (use first selected family for backward compatibility)
             llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
             selected_families = self._get_selected_families()
             content_rating = selected_families[0] if selected_families else "PG"
             
             # Start progress tracking
-            self._start_progress_tracking(llm_model, model)
+            self._start_progress_tracking(llm_model, "seedream")
             
             # Record start time
             start_time = datetime.now()
@@ -1065,6 +1063,8 @@ class MainWindow(QMainWindow):
                 "Details": self.details_widget.get_randomized_value(seed) if hasattr(self, 'details_widget') else "",
             }
             
+
+            
             # Build preview text - only include fields with values
             preview_lines = []
             for field, value in field_values.items():
@@ -1119,13 +1119,7 @@ class MainWindow(QMainWindow):
         # Update preview
         self._update_preview()
     
-    def _on_model_changed(self, model_name):
-        """Handle model selection changes."""
-        # Update preview panel model info
-        self.preview_panel.update_model_info(model_name)
-        
-        # Update preview
-        self._update_preview()
+
     
     def _on_llm_changed(self, llm_name):
         """Handle LLM selection changes."""
@@ -1234,8 +1228,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'seed_widget'):
             self.seed_widget.value_changed.connect(self._update_preview)
         
-        # Initial preview update
-        self._update_preview()
+        # Initial preview update - delay to ensure window is ready
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self._update_preview)
     
     def _update_status_bar(self):
         """Update the status bar with word and character count."""

@@ -14,11 +14,11 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 
 ### **User Interface**
 - **Modern PySide6 GUI**: Professional Qt-based interface with native look and feel
-- **Legacy Tkinter Support**: Backward compatibility for older systems  
-- **Clean Design**: Light theme with blue accent buttons and modern scrollbars
-- **Responsive Layout**: Dynamic snippet categories and proper window resizing
-- **Auto-expanding Fields**: Additional Details field grows from 1-4 lines automatically
-- **Professional Spacing**: Optimized button layout and field positioning
+- **Dark/Light Theme Support**: Complete theme system with JSON-based customization
+- **Tag-Based Input System**: Inline tags with color coding (blue=snippets, orange=categories, yellow=subcategories, purple=user text)
+- **Real-time Preview**: Live preview with deterministic randomization
+- **Realize Functionality**: Convert random category tags to specific snippet items
+- **Professional Design**: Modern scrollbars, responsive layout, and optimized spacing
 
 ### **Data Management**
 - **User Data Folders**: Automatic organization of snippets, templates, and preferences
@@ -56,9 +56,10 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
    ```
 
 ### **Running the Application**
-**Modern PySide6 Interface (Recommended):**
+**PySide6 Interface (Standard):**
 ```bash
-python main_qt.py --gui
+python main_qt.py --debug  # With debug logging
+python main_qt.py          # Standard mode
 ```
 
 ## 📖 Usage
@@ -81,14 +82,22 @@ python main_qt.py --gui
 - **Pose and Action**: How subjects are positioned/acting
 - **Camera**: Camera type and characteristics
 - **Framing and Action**: Camera angle and movement
-- **Color Grading & Mood**: Visual style and atmosphere
-- **Additional Details**: Any extra information
+- **Color/Mood**: Visual style and atmosphere
+- **Details**: Any extra information
+
+### **Tag System**
+- **Blue Tags**: Static snippet items (click to add/remove)
+- **Orange Tags**: Random category tags (randomized on preview/generation)
+- **Yellow Tags**: Random subcategory tags (randomized on preview/generation)
+- **Purple Tags**: User-typed text (double-click to edit)
+- **Realize Button (❗)**: Convert all random tags to specific items using current seed
 
 ### **Snippets**
 - Click the "Snippets" button next to any field
 - Browse categories and click items to add/remove them
-- Snippets are filtered by content rating
+- Snippets are filtered by selected families (PG/NSFW/Hentai)
 - Supports toggle behavior (click again to remove)
+- Categories and subcategories appear as random tags (orange/yellow)
 
 ### **Templates**
 - **Save Template**: File → Save Template (saves current state)
@@ -142,11 +151,11 @@ The application creates a user data directory to store:
 - macOS: `~/Library/Application Support/FlipFlopPrompt/`
 - Linux: `~/.config/FlipFlopPrompt/`
 
-### **Content Ratings**
+### **Content Families**
 - **PG**: Family-friendly content
 - **NSFW**: Adult content (non-explicit)
 - **Hentai**: Explicit adult content
-- **Custom**: User-defined ratings
+- **Dynamic Filtering**: Snippets are filtered based on selected families
 
 ### **LLM Models**
 The application supports various Ollama models:
@@ -159,13 +168,13 @@ The application supports various Ollama models:
 ### **Running in Development Mode**
 ```bash
 # Activate virtual environment
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Run modern PySide6 version
-python main_qt.py --gui
+# Run with debug logging
+python main_qt.py --debug
 
-# Run legacy Tkinter version  
-python main_qt.py --gui
+# Run standard mode
+python main_qt.py
 ```
 
 ### **Debug Mode**
@@ -216,6 +225,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.1.0  
 **Last Updated**: August 2025  
 **Status**: Active Development

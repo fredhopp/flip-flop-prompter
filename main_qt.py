@@ -44,45 +44,33 @@ def qt_message_handler(message_type, context, message):
 def main():
     """Main entry point for PySide6 version."""
     parser = argparse.ArgumentParser(description="FlipFlopPrompt - AI Image Generation Prompt Builder (PySide6)")
-    parser.add_argument("--gui", action="store_true", help="Launch GUI mode")
-    parser.add_argument("--cli", action="store_true", help="Launch CLI mode")
-    parser.add_argument("--debug", action="store_true", help="Show Qt debug messages")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     
     args = parser.parse_args()
     
-    # Default to GUI if no mode specified
-    if not args.gui and not args.cli:
-        args.gui = True
+    # Initialize logger with debug mode
+    logger = initialize_logger(args.debug)
     
-    if args.gui:
-        # Initialize logger with debug mode
-        logger = initialize_logger(args.debug)
-        
-        # Create QApplication
-        app = QApplication(sys.argv)
-        
-        # Install custom message handler to suppress QPainter messages
-        if not args.debug:
-            qInstallMessageHandler(qt_message_handler)
-        
-        # Set application properties
-        app.setApplicationName("FlipFlopPrompt")
-        app.setApplicationVersion("2.0")
-        app.setOrganizationName("FlipFlopPrompt")
-        
-        # Enable high DPI scaling (Qt 6.x handles this automatically)
-        
-        # Create and show main window
-        window = MainWindow(debug_enabled=args.debug)
-        window.show()
-        
-        # Start event loop
-        sys.exit(app.exec())
+    # Create QApplication
+    app = QApplication(sys.argv)
     
-    elif args.cli:
-        # Launch CLI (placeholder for future implementation)
-        print("CLI mode not yet implemented.")
-        sys.exit(1)
+    # Install custom message handler to suppress QPainter messages
+    if not args.debug:
+        qInstallMessageHandler(qt_message_handler)
+    
+    # Set application properties
+    app.setApplicationName("FlipFlopPrompt")
+    app.setApplicationVersion("2.0")
+    app.setOrganizationName("FlipFlopPrompt")
+    
+    # Enable high DPI scaling (Qt 6.x handles this automatically)
+    
+    # Create and show main window
+    window = MainWindow(debug_enabled=args.debug)
+    window.show()
+    
+    # Start event loop
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

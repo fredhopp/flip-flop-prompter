@@ -356,12 +356,24 @@ class SnippetManager:
                         
                         if isinstance(category_data, list):
                             # Flat list of items
-                            items.extend(category_data)
+                            for item in category_data:
+                                if isinstance(item, dict):
+                                    # New format: extract name from dictionary
+                                    items.append(item.get("name", str(item)))
+                                else:
+                                    # Old format: use item directly
+                                    items.append(item)
                         elif isinstance(category_data, dict):
                             # Nested structure - collect all items from all subcategories
                             for subcategory_items in category_data.values():
                                 if isinstance(subcategory_items, list):
-                                    items.extend(subcategory_items)
+                                    for item in subcategory_items:
+                                        if isinstance(item, dict):
+                                            # New format: extract name from dictionary
+                                            items.append(item.get("name", str(item)))
+                                        else:
+                                            # Old format: use item directly
+                                            items.append(item)
         
         # Remove duplicates while preserving order
         seen = set()
@@ -391,7 +403,13 @@ class SnippetManager:
                         if isinstance(category_data, dict) and subcategory_name in category_data:
                             subcategory_items = category_data[subcategory_name]
                             if isinstance(subcategory_items, list):
-                                items.extend(subcategory_items)
+                                for item in subcategory_items:
+                                    if isinstance(item, dict):
+                                        # New format: extract name from dictionary
+                                        items.append(item.get("name", str(item)))
+                                    else:
+                                        # Old format: use item directly
+                                        items.append(item)
         
         # Remove duplicates while preserving order
         seen = set()
