@@ -4,9 +4,9 @@ Preview panel for displaying generated prompts using PySide6 with tabbed interfa
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
-    QFrame, QScrollArea, QGroupBox, QTabWidget
+    QFrame, QScrollArea, QGroupBox, QTabWidget, QPushButton
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QPalette, QColor
 from typing import Optional
 from ..utils.theme_manager import theme_manager
@@ -14,6 +14,12 @@ from ..utils.theme_manager import theme_manager
 
 class PreviewPanel(QWidget):
     """Panel for displaying prompt preview and final output using PySide6 with tabs."""
+    
+    # Signals for history navigation
+    history_back_requested = Signal()
+    history_forward_requested = Signal()
+    history_delete_requested = Signal()
+    history_clear_requested = Signal()
     
     def __init__(self):
         super().__init__()
@@ -60,6 +66,9 @@ class PreviewPanel(QWidget):
         
         frame_layout.addWidget(self.tab_widget)
         
+        # Create navigation controls
+        self._create_navigation_controls(frame_layout)
+        
         # Add frame to main layout
         layout.addWidget(self.frame)
         
@@ -70,6 +79,60 @@ class PreviewPanel(QWidget):
         self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
         self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
         self._set_placeholder_style()
+    
+    def _create_navigation_controls(self, parent_layout):
+        """Create navigation controls for history."""
+        # Create horizontal layout for navigation
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(0, 5, 0, 0)
+        nav_layout.setSpacing(10)
+        
+        # Back button
+        self.back_button = QPushButton("←")
+        self.back_button.setFixedSize(30, 30)
+        self.back_button.setToolTip("Go to previous prompt")
+        self.back_button.clicked.connect(self.history_back_requested.emit)
+        self.back_button.setEnabled(False)
+        
+        # Forward button
+        self.forward_button = QPushButton("→")
+        self.forward_button.setFixedSize(30, 30)
+        self.forward_button.setToolTip("Go to next prompt")
+        self.forward_button.clicked.connect(self.history_forward_requested.emit)
+        self.forward_button.setEnabled(False)
+        
+        # Counter label
+        self.counter_label = QLabel("0/0")
+        self.counter_label.setFont(QFont("Arial", 9))
+        self.counter_label.setMinimumWidth(50)
+        self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Delete button
+        self.delete_button = QPushButton("🗑")
+        self.delete_button.setFixedSize(30, 30)
+        self.delete_button.setToolTip("Delete current prompt")
+        self.delete_button.clicked.connect(self.history_delete_requested.emit)
+        self.delete_button.setEnabled(False)
+        
+        # Clear history button
+        self.clear_button = QPushButton("Clear")
+        self.clear_button.setFixedSize(50, 30)
+        self.clear_button.setToolTip("Clear all history")
+        self.clear_button.clicked.connect(self.history_clear_requested.emit)
+        self.clear_button.setEnabled(False)
+        
+        # Add stretch to push controls to the left
+        nav_layout.addStretch()
+        
+        # Add buttons to layout
+        nav_layout.addWidget(self.back_button)
+        nav_layout.addWidget(self.forward_button)
+        nav_layout.addWidget(self.counter_label)
+        nav_layout.addWidget(self.delete_button)
+        nav_layout.addWidget(self.clear_button)
+        
+        # Add navigation layout to parent
+        parent_layout.addLayout(nav_layout)
     
     def _apply_styling(self):
         """Apply theme-aware styling to the widgets."""
@@ -118,6 +181,9 @@ class PreviewPanel(QWidget):
         """
         self.summary_text.setStyleSheet(text_style)
         self.final_text.setStyleSheet(text_style)
+        
+        # Apply navigation styling
+        self._apply_navigation_styling()
     
     def _set_placeholder_style(self):
         """Set placeholder text styling."""
@@ -285,3 +351,70 @@ class PreviewPanel(QWidget):
         font.setFamily(family)
         self.summary_text.setFont(font)
         self.final_text.setFont(font)
+    
+    def update_navigation_controls(self, can_go_back: bool, can_go_forward: bool, 
+                                  current_position: int, total_count: int, has_history: bool):
+        """Update navigation controls state."""
+        self.back_button.setEnabled(can_go_back)
+        self.forward_button.setEnabled(can_go_forward)
+        self.delete_button.setEnabled(has_history)
+        self.clear_button.setEnabled(has_history)
+        
+        # Update counter
+        if total_count > 0:
+            self.counter_label.setText(f"{current_position}/{total_count}")
+        else:
+            self.counter_label.setText("0/0")
+    
+    def _apply_navigation_styling(self):
+        """Apply styling to navigation controls using the same blue color as other buttons."""
+        colors = theme_manager.get_theme_colors()
+        
+        # Use the same button styling as other buttons in the app
+        nav_style = f"""
+            QPushButton {{
+                background-color: {colors['button_bg']};
+                color: {colors['button_fg']};
+                border: 2px solid {colors['button_bg']};
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['button_bg']};
+                border-color: {colors['button_bg']};
+                opacity: 0.8;
+            }}
+            QPushButton:pressed {{
+                background-color: {colors['button_bg']};
+                border-color: {colors['button_bg']};
+                opacity: 0.6;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['placeholder_fg']};
+                border-color: {colors['placeholder_fg']};
+                color: {colors['text_bg']};
+            }}
+        """
+        
+        # Apply styling to navigation buttons
+        if hasattr(self, 'back_button'):
+            self.back_button.setStyleSheet(nav_style)
+        if hasattr(self, 'forward_button'):
+            self.forward_button.setStyleSheet(nav_style)
+        if hasattr(self, 'delete_button'):
+            self.delete_button.setStyleSheet(nav_style)
+        if hasattr(self, 'clear_button'):
+            self.clear_button.setStyleSheet(nav_style)
+        
+        # Style the counter label
+        if hasattr(self, 'counter_label'):
+            self.counter_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {colors['text_fg']};
+                    background-color: {colors['text_bg']};
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 3px;
+                    padding: 2px 6px;
+                }}
+            """)
