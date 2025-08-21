@@ -1380,11 +1380,46 @@ class MainWindow(QMainWindow):
         """Restore fields from current history entry."""
         entry = self.history_manager.get_current_entry()
         if entry:
-            # Restore field data
-            for field_name, value in entry.field_data.items():
-                if hasattr(self, f'{field_name}_widget'):
-                    widget = getattr(self, f'{field_name}_widget')
-                    widget.set_value(value)
+            # Temporarily disconnect value_changed signals to prevent cascading updates
+            self._disconnect_field_signals()
+            
+            try:
+                # Restore field data
+                for field_name, field_data in entry.field_data.items():
+                    if hasattr(self, f'{field_name}_widget'):
+                        widget = getattr(self, f'{field_name}_widget')
+                        
+                        if isinstance(field_data, dict) and field_data.get('type') == 'tags':
+                            # Restore tags
+                            from ..gui.tag_widgets_qt import Tag, TagType
+                            tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
+                            widget.set_tags(tags)
+                        elif isinstance(field_data, dict) and field_data.get('type') == 'text':
+                            # Restore plain text
+                            widget.set_value(field_data['value'])
+                        else:
+                            # Legacy format - treat as plain text
+                            widget.set_value(str(field_data))
+                
+                # Restore families
+                for family in entry.families:
+                    if family in self.family_actions:
+                        self.family_actions[family].setChecked(True)
+                
+                # Restore seed
+                if hasattr(self, 'seed_widget'):
+                    self.seed_widget.set_value(entry.seed)
+                
+                # Restore LLM model
+                if hasattr(self, 'llm_widget'):
+                    self.llm_widget.set_value(entry.llm_model)
+                
+            finally:
+                # Reconnect signals
+                self._connect_field_signals()
+                
+                # Update preview once at the end
+                self._update_preview()
             
             # Restore families
             for family in entry.families:
@@ -1426,7 +1461,17 @@ class MainWindow(QMainWindow):
         for field in field_widgets:
             if hasattr(self, f'{field}_widget'):
                 widget = getattr(self, f'{field}_widget')
-                field_data[field] = widget.get_value()
+                # Save the actual tags for proper restoration
+                if hasattr(widget, 'get_tags'):
+                    field_data[field] = {
+                        'type': 'tags',
+                        'tags': [tag.to_dict() for tag in widget.get_tags()]
+                    }
+                else:
+                    field_data[field] = {
+                        'type': 'text',
+                        'value': widget.get_value()
+                    }
         
         # Get selected families
         selected_families = []
@@ -1453,3 +1498,27 @@ class MainWindow(QMainWindow):
         
         # Update navigation controls
         self._update_history_navigation()
+    
+    def _disconnect_field_signals(self):
+        """Temporarily disconnect field value_changed signals to prevent cascading updates."""
+        self._field_connections = []
+        field_widgets = [
+            'style', 'setting', 'weather', 'datetime', 'subjects', 
+            'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions'
+        ]
+        
+        for field in field_widgets:
+            if hasattr(self, f'{field}_widget'):
+                widget = getattr(self, f'{field}_widget')
+                if hasattr(widget, 'value_changed'):
+                    # Store the connection for later reconnection
+                    self._field_connections.append((widget, widget.value_changed))
+                    # Disconnect the signal
+                    widget.value_changed.disconnect()
+    
+    def _connect_field_signals(self):
+        """Reconnect field value_changed signals."""
+        if hasattr(self, '_field_connections'):
+            for widget, signal in self._field_connections:
+                signal.connect(self._update_preview)
+            self._field_connections = []
