@@ -55,39 +55,55 @@ class InlineTagWidget(QWidget):
         self.setFixedHeight(20)  # Consistent height
     
     def _apply_styling(self):
-        """Apply styling based on tag type."""
-        # Color mapping for tag types
-        self.colors = {
-            TagType.SNIPPET: QColor("#E3F2FD"),      # Very light blue
-            TagType.USER_TEXT: QColor("#E8F5E8"),    # Very light green
-            TagType.CATEGORY: QColor("#FFF3E0"),     # Pale orange
-            TagType.SUBCATEGORY: QColor("#FFFDE7")   # Pale yellow
+        """Apply styling based on tag type using theme colors."""
+        # Import theme manager
+        from ..utils.theme_manager import theme_manager
+        
+        # Get current theme colors
+        theme_colors = theme_manager.get_theme_colors()
+        
+        # Color mapping for tag types using theme colors
+        colors = {
+            TagType.SNIPPET: theme_colors["snippet_bg"],      # Blue - static snippet content
+            TagType.USER_TEXT: theme_colors["user_text_bg"],  # Purple - user-created static content
+            TagType.CATEGORY: theme_colors["category_bg"],    # Orange - randomized category content
+            TagType.SUBCATEGORY: theme_colors["subcategory_bg"] # Yellow - randomized subcategory content
         }
         
-        self.border_colors = {
-            TagType.SNIPPET: QColor("#90CAF9"),      # Light blue
-            TagType.USER_TEXT: QColor("#A5D6A7"),   # Light green
-            TagType.CATEGORY: QColor("#FFB74D"),    # Orange
-            TagType.SUBCATEGORY: QColor("#FFF176")  # Yellow
+        border_colors = {
+            TagType.SNIPPET: theme_colors["snippet_border"],      # Blue border
+            TagType.USER_TEXT: theme_colors["user_text_border"],  # Purple border
+            TagType.CATEGORY: theme_colors["category_border"],    # Orange border
+            TagType.SUBCATEGORY: theme_colors["subcategory_border"] # Yellow border
         }
         
-        self.bg_color = self.colors.get(self.tag.tag_type, QColor("#F5F5F5"))
-        self.border_color = self.border_colors.get(self.tag.tag_type, QColor("#D0D0D0"))
+        text_colors = {
+            TagType.SNIPPET: theme_colors["snippet_fg"],      # Black/white text
+            TagType.USER_TEXT: theme_colors["user_text_fg"],  # Black/white text
+            TagType.CATEGORY: theme_colors["category_fg"],    # Black/white text
+            TagType.SUBCATEGORY: theme_colors["subcategory_fg"] # Black/white text
+        }
         
-        # Apply border styling with CSS
+        self.bg_color = QColor(colors.get(self.tag.tag_type, theme_colors["tag_bg"]))
+        self.border_color = QColor(border_colors.get(self.tag.tag_type, theme_colors["tag_border"]))
+        self.text_color = QColor(text_colors.get(self.tag.tag_type, theme_colors["tag_fg"]))
+        
+        # Apply comprehensive styling with theme colors
         tag_style = f"""
             QWidget {{
-                border: 1px solid {self.border_color.name()};
-                border-radius: 4px;
-                margin: 1px;
+                background-color: {self.bg_color.name()} !important;
+                border: 1px solid {self.border_color.name()} !important;
+                border-radius: 8px !important;
+                margin: 1px !important;
             }}
             QWidget:hover {{
-                border: 2px solid #0066cc;
+                background-color: {theme_colors["button_bg"]} !important;
+                border: 1px solid {theme_colors["button_bg"]} !important;
             }}
             QLabel {{
                 background-color: transparent;
                 border: none;
-                color: #333;
+                color: {self.text_color.name()} !important;
             }}
         """
         
@@ -109,6 +125,13 @@ class InlineTagWidget(QWidget):
         
         self.setStyleSheet(tag_style)
         self.remove_button.setStyleSheet(button_style)
+    
+    def refresh_theme(self):
+        """Refresh the styling when theme changes."""
+        self._apply_styling()
+        # Force repaint to ensure colors are applied
+        self.update()
+        self.repaint()
     
     def paintEvent(self, event):
         """Custom paint event to draw background color."""
@@ -402,6 +425,16 @@ class InlineTagInputWidget(QWidget):
             result_texts.append(current_text)
         
         return ", ".join(result_texts)
+    
+    def refresh_theme(self):
+        """Refresh the styling when theme changes."""
+        # Refresh all tag widgets
+        for i in range(self.content_layout.count()):
+            item = self.content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if hasattr(widget, 'refresh_theme'):
+                    widget.refresh_theme()
     
     def set_value(self, value: str):
         """Set the field value (for backwards compatibility)."""

@@ -648,6 +648,12 @@ class SnippetPopup(QDialog):
                             else:
                                 self.snippets[category] = items
         
+        # Initialize widget tracking lists for theme updates
+        self.category_frames = []
+        self.category_labels = []
+        self.snippet_buttons = []
+        self.sub_labels = []
+        
         self._setup_dialog()
         self._create_widgets()
     
@@ -708,6 +714,152 @@ class SnippetPopup(QDialog):
         # Apply styling
         self._apply_styling()
     
+    def refresh_theme(self):
+        """Refresh the styling when theme changes."""
+        try:
+            # Import theme manager here to ensure it's available
+            from ..utils.theme_manager import theme_manager
+            colors = theme_manager.get_theme_colors()
+        except Exception as e:
+            print(f"Error getting theme colors: {e}")
+            return
+        
+        # Force repaint of all buttons to ensure colors are applied
+        for btn in self.snippet_buttons:
+            btn.update()
+            btn.repaint()
+        
+        # Update category frames
+        for frame in self.category_frames:
+            frame.setStyleSheet(f"""
+                QFrame {{
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 5px;
+                    background-color: {colors['text_bg']};
+                    margin: 2px;
+                }}
+            """)
+        
+        # Update category labels (now buttons) - use category colors
+        for button in self.category_labels:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    color: {colors['category_fg']}; 
+                    margin-bottom: 5px; 
+                    border: 1px solid {colors['category_border']};
+                    border-radius: 5px;
+                    background-color: {colors['category_bg']};
+                    padding: 6px;
+                    text-align: center;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['button_bg']};
+                    border: 2px solid {colors['button_bg']};
+                    color: {colors['button_fg']};
+                }}
+            """)
+        
+        # Update snippet buttons - use correct colors based on button type
+        for btn in self.snippet_buttons:
+            if hasattr(btn, 'button_type'):
+                if btn.button_type == 'category':
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {colors['category_bg']};
+                            border: 1px solid {colors['category_border']};
+                            border-radius: 3px;
+                            padding: 6px 12px;
+                            text-align: left;
+                            margin: 1px 0px;
+                            margin-left: 10px;
+                            font-size: 12px;
+                            color: {colors['category_fg']};
+                        }}
+                        QPushButton:hover {{
+                            background-color: {colors['button_bg']};
+                            border: 2px solid {colors['button_bg']};
+                            color: {colors['button_fg']};
+                        }}
+                    """)
+                elif btn.button_type == 'subcategory':
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {colors['subcategory_bg']};
+                            border: 1px solid {colors['subcategory_border']};
+                            border-radius: 3px;
+                            padding: 6px 12px;
+                            text-align: left;
+                            margin: 1px 0px;
+                            margin-left: 10px;
+                            font-size: 12px;
+                            color: {colors['subcategory_fg']};
+                        }}
+                        QPushButton:hover {{
+                            background-color: {colors['button_bg']};
+                            border: 2px solid {colors['button_bg']};
+                            color: {colors['button_fg']};
+                        }}
+                    """)
+                else:  # snippet
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {colors['snippet_bg']};
+                            border: 1px solid {colors['snippet_border']};
+                            border-radius: 3px;
+                            padding: 6px 12px;
+                            text-align: left;
+                            margin: 1px 0px;
+                            margin-left: 10px;
+                            font-size: 12px;
+                            color: {colors['snippet_fg']};
+                        }}
+                        QPushButton:hover {{
+                            background-color: {colors['button_bg']};
+                            border: 2px solid {colors['button_bg']};
+                            color: {colors['button_fg']};
+                        }}
+                    """)
+            else:
+                # Fallback for any buttons without type - use snippet colors
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {colors['snippet_bg']};
+                        border: 1px solid {colors['snippet_border']};
+                        border-radius: 3px;
+                        padding: 4px 8px;
+                        text-align: left;
+                        margin: 1px 0px;
+                        color: {colors['snippet_fg']};
+                    }}
+                    QPushButton:hover {{
+                        background-color: {colors['button_bg']};
+                        border: 2px solid {colors['button_bg']};
+                        color: {colors['button_fg']};
+                    }}
+                """)
+        
+        # Update sub labels (now buttons) - use subcategory colors
+        for button in self.sub_labels:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    color: {colors['subcategory_fg']}; 
+                    margin-top: 8px; 
+                    margin-bottom: 3px; 
+                    border: 1px solid {colors['subcategory_border']};
+                    border-radius: 4px;
+                    background-color: {colors['subcategory_bg']};
+                    padding: 4px;
+                    text-align: left;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['button_bg']};
+                    border: 2px solid {colors['button_bg']};
+                    color: {colors['button_fg']};
+                }}
+            """)
+    
     def _build_snippet_buttons(self, layout):
         """Build snippet selection buttons with category blocks."""
         # Log the popup population
@@ -731,63 +883,123 @@ class SnippetPopup(QDialog):
             # Create a frame for each category
             category_frame = QFrame()
             category_frame.setFrameStyle(QFrame.Shape.Box)
-            category_frame.setStyleSheet("""
-                QFrame {
-                    border: 1px solid #ccc;
-                    border-radius: 5px;
-                    background-color: #f9f9f9;
-                    margin: 2px;
+            # Get theme colors
+            try:
+                colors = theme_manager.get_theme_colors()
+            except Exception as e:
+                print(f"Error getting theme colors: {e}")
+                print("Using fallback colors for snippet popup")
+                # Use fallback colors that match the theme
+                colors = {
+                    "tag_border": "#cccccc",
+                    "text_bg": "#ffffff",
+                    "text_fg": "#000000",
+                    "tag_bg": "#e3f2fd",
+                    "tag_fg": "#000000",
+                    "snippet_bg": "#e3f2fd",  # Blue to match theme
+                    "snippet_fg": "#000000",
+                    "snippet_border": "#90caf9",  # Blue border to match theme
+                    "category_bg": "#fff3e0",  # Orange to match theme
+                    "category_fg": "#000000",
+                    "category_border": "#ffb74d",  # Orange border to match theme
+                    "subcategory_bg": "#fffde7",  # Yellow to match theme
+                    "subcategory_fg": "#000000",
+                    "subcategory_border": "#ffd54f",  # Yellow border to match theme
+                    "user_text_bg": "#f3e5f5",  # Purple to match theme
+                    "user_text_fg": "#000000",
+                    "user_text_border": "#ce93d8",  # Purple border to match theme
+                    "button_bg": "#0066cc",
+                    "button_fg": "#ffffff",
+                    "bg": "#f0f0f0",
+                    "entry_bg": "#ffffff",
+                    "placeholder_fg": "#666666",
+                    "menu_bg": "#f0f0f0",
+                    "menu_fg": "#000000",
+                    "menu_selection_bg": "#0066cc",
+                    "menu_selection_fg": "#ffffff",
+                    "status_bg": "#f0f0f0",
+                    "status_fg": "#000000",
+                    "scrollbar_bg": "#e0e0e0",
+                    "scrollbar_handle": "#c0c0c0"
                 }
+            category_frame.setStyleSheet(f"""
+                QFrame {{
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 5px;
+                    background-color: {colors['text_bg']};
+                    margin: 2px;
+                }}
             """)
             category_frame.setMinimumWidth(200)
             category_frame.setMaximumWidth(300)
+            
+            # Store reference for theme updates
+            self.category_frames.append(category_frame)
             
             # Layout for this category frame
             category_layout = QVBoxLayout(category_frame)
             category_layout.setContentsMargins(8, 8, 8, 8)
             category_layout.setSpacing(5)
             
-            # Category title as label with family info (not clickable)
+            # Category title as clickable button with family info
             family_name = self.family_snippets.get(category, "Unknown")
-            category_label = QLabel(f"{category.title()} ({family_name})")
-            category_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            category_label.setStyleSheet("""
-                QLabel {
-                    color: #333; 
-                    margin-bottom: 5px; 
-                    border: 1px solid #FF9800;
+            category_button = QPushButton(f"{category.title()} ({family_name})")
+            category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            category_button.button_type = 'category'  # Mark as category button
+            category_button.setStyleSheet(f"""
+                QPushButton {{
+                    color: {colors['category_fg']};
+                    margin-bottom: 5px;
+                    border: 1px solid {colors['category_border']};
                     border-radius: 5px;
-                    background-color: #FFF3E0;
+                    background-color: {colors['category_bg']};
                     padding: 6px;
-                }
+                    text-align: center;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['button_bg']};
+                    border: 2px solid {colors['button_bg']};
+                    color: {colors['button_fg']};
+                }}
             """)
-            category_layout.addWidget(category_label)
+            category_button.clicked.connect(lambda checked, c=category: self._select_category(c))
+            category_layout.addWidget(category_button)
+            
+            # Store reference for theme updates
+            self.category_labels.append(category_button)
             
             if isinstance(items, list):
                 # Simple category with list of items
                 for item in items:
                     # Handle both string format (old) and object format (new)
                     if isinstance(item, str):
-                        # Traditional string format
+                        # Traditional string format - mark as snippet button
                         btn = QPushButton(item)
                         btn.setMinimumHeight(25)
                         btn.setMaximumHeight(35)
-                        btn.setStyleSheet("""
-                            QPushButton {
-                                background-color: #E3F2FD;
-                                border: 1px solid #90CAF9;
+                        btn.button_type = 'snippet'  # Mark as snippet button
+
+                        
+                        btn.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {colors['snippet_bg']};
+                                border: 1px solid {colors['snippet_border']};
                                 border-radius: 3px;
                                 padding: 4px 8px;
                                 text-align: left;
                                 margin: 1px 0px;
-                            }
-                            QPushButton:hover {
-                                background-color: #BBDEFB;
-                                border: 2px solid #2196F3;
-                            }
+                                color: {colors['snippet_fg']};
+                            }}
+                            QPushButton:hover {{
+                                background-color: {colors['button_bg']};
+                                border: 2px solid {colors['button_bg']};
+                                color: {colors['button_fg']};
+                            }}
                         """)
                         btn.clicked.connect(lambda checked, i=item: self._select_item(i))
                         category_layout.addWidget(btn)
+                        self.snippet_buttons.append(btn)  # Track for theme updates
                     elif isinstance(item, dict):
                         # New key-value format
                         display_name = item.get("name", "Unknown")
@@ -801,21 +1013,23 @@ class SnippetPopup(QDialog):
                         btn.setMinimumWidth(200)
                         btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                         
-                        btn.setStyleSheet("""
-                            QPushButton {
-                                background-color: #E8F5E8;
-                                border: 1px solid #4CAF50;
+                        btn.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {colors['snippet_bg']};
+                                border: 1px solid {colors['snippet_border']};
                                 border-radius: 3px;
                                 padding: 6px 12px;
                                 text-align: left;
                                 margin: 1px 0px;
                                 margin-left: 10px;
                                 font-size: 12px;
-                            }
-                            QPushButton:hover {
-                                background-color: #C8E6C9;
-                                border: 2px solid #4CAF50;
-                            }
+                                color: {colors['snippet_fg']};
+                            }}
+                            QPushButton:hover {{
+                                background-color: {colors['button_bg']};
+                                border: 2px solid {colors['button_bg']};
+                                color: {colors['button_fg']};
+                            }}
                         """)
                         
                         # Set tooltip with the full content
@@ -823,32 +1037,45 @@ class SnippetPopup(QDialog):
                         btn.setToolTipDuration(30000)
                         btn.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
                         
+                        # Mark as snippet button and track for theme updates
+                        btn.button_type = 'snippet'
+                        
                         # Fix lambda capture issue by creating a closure
                         def create_click_handler(full_item):
                             return lambda checked: self._select_item(full_item)
                         btn.clicked.connect(create_click_handler(item))
                         category_layout.addWidget(btn)
+                        self.snippet_buttons.append(btn)  # Track for theme updates
                     
             elif isinstance(items, dict):
                 # Nested category structure - show subcategories properly
                 for subcategory, subitems in items.items():
                     if isinstance(subitems, list):
-                        # Subcategory as label (not clickable)
-                        sub_label = QLabel(subcategory)
-                        sub_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
-                        sub_label.setStyleSheet("""
-                            QLabel {
-                                color: #555; 
+                        # Subcategory as clickable button
+                        sub_button = QPushButton(subcategory)
+                        sub_button.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+                        sub_button.button_type = 'subcategory'  # Mark as subcategory button
+                        sub_button.setStyleSheet(f"""
+                            QPushButton {{
+                                color: {colors['subcategory_fg']}; 
                                 margin-top: 8px; 
                                 margin-bottom: 3px; 
-                                border: 1px solid #FFC107;
+                                border: 1px solid {colors['subcategory_border']};
                                 border-radius: 4px;
-                                background-color: #FFFDE7;
+                                background-color: {colors['subcategory_bg']};
                                 padding: 4px;
                                 text-align: left;
-                            }
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: {colors['button_bg']};
+                                border: 2px solid {colors['button_bg']};
+                                color: {colors['button_fg']};
+                            }}
                         """)
-                        category_layout.addWidget(sub_label)
+                        sub_button.clicked.connect(lambda checked, cat=category, subcat=subcategory: self._select_subcategory(cat, subcat))
+                        category_layout.addWidget(sub_button)
+                        self.sub_labels.append(sub_button)
                         
                         # Items in this subcategory
                         for item in subitems:
@@ -858,20 +1085,22 @@ class SnippetPopup(QDialog):
                                 btn = QPushButton(item)
                                 btn.setMinimumHeight(25)
                                 btn.setMaximumHeight(35)
-                                btn.setStyleSheet("""
-                                    QPushButton {
-                                        background-color: #E3F2FD;
-                                        border: 1px solid #90CAF9;
+                                btn.setStyleSheet(f"""
+                                    QPushButton {{
+                                        background-color: {colors['tag_bg']};
+                                        border: 1px solid {colors['tag_border']};
                                         border-radius: 3px;
                                         padding: 4px 8px;
                                         text-align: left;
                                         margin: 1px 0px;
                                         margin-left: 10px;
-                                    }
-                                    QPushButton:hover {
-                                        background-color: #BBDEFB;
-                                        border: 2px solid #2196F3;
-                                    }
+                                        color: {colors['tag_fg']};
+                                    }}
+                                    QPushButton:hover {{
+                                        background-color: {colors['button_bg']};
+                                        border: 2px solid {colors['button_bg']};
+                                        color: {colors['button_fg']};
+                                    }}
                                 """)
                                 btn.clicked.connect(lambda checked, i=item: self._select_item(i))
                                 category_layout.addWidget(btn)
@@ -888,21 +1117,23 @@ class SnippetPopup(QDialog):
                                 btn.setMinimumWidth(200)
                                 btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                                 
-                                btn.setStyleSheet("""
-                                    QPushButton {
-                                        background-color: #E8F5E8;
-                                        border: 1px solid #4CAF50;
+                                btn.setStyleSheet(f"""
+                                    QPushButton {{
+                                        background-color: {colors['snippet_bg']};
+                                        border: 1px solid {colors['snippet_border']};
                                         border-radius: 3px;
                                         padding: 6px 12px;
                                         text-align: left;
                                         margin: 1px 0px;
                                         margin-left: 10px;
                                         font-size: 12px;
-                                    }
-                                    QPushButton:hover {
-                                        background-color: #C8E6C9;
-                                        border: 2px solid #4CAF50;
-                                    }
+                                        color: {colors['snippet_fg']};
+                                    }}
+                                    QPushButton:hover {{
+                                        background-color: {colors['button_bg']};
+                                        border: 2px solid {colors['button_bg']};
+                                        color: {colors['button_fg']};
+                                    }}
                                 """)
                                 
                                 # Set tooltip with the full content
@@ -966,13 +1197,24 @@ class SnippetPopup(QDialog):
             
             self.logger.log_snippet_interaction(self.field_name, "selected", item_name, family)
         
+        # For LLM instructions, pass the original item (dict) to preserve structure
         # For regular snippets, call with just the item text
         if hasattr(self.on_select, '__code__') and self.on_select.__code__.co_argcount > 2:
             # New signature that accepts category_path
-            self.on_select(item_content, None)
+            if self.field_name == "llm_instructions" and isinstance(item, dict):
+                # For LLM instructions, pass the original dictionary
+                self.on_select(item, None)
+            else:
+                # For regular snippets, pass the content
+                self.on_select(item_content, None)
         else:
             # Old signature for backwards compatibility
-            self.on_select(item_content)
+            if self.field_name == "llm_instructions" and isinstance(item, dict):
+                # For LLM instructions, pass the original dictionary
+                self.on_select(item)
+            else:
+                # For regular snippets, pass the content
+                self.on_select(item_content)
         # Don't close popup - let user select multiple items
     
     def _select_category(self, category: str):

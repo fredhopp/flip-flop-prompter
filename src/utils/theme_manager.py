@@ -1,5 +1,5 @@
 """
-Simplified theme manager for basic color scheme.
+Theme manager for loading and managing JSON-based theme files.
 """
 
 import json
@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 
 class ThemeManager:
-    """Simplified theme manager with basic, clear colors."""
+    """Theme manager that loads themes from JSON files."""
     
     def __init__(self):
         self.user_data_dir = self._get_user_data_dir()
@@ -20,20 +20,11 @@ class ThemeManager:
         self.preferences_file = self.user_data_dir / "preferences.json"
         self.preferences = self._load_preferences()
         
-        # Basic color scheme for clear readability
-        self.basic_colors = {
-            "bg": "#f0f0f0",              # Light gray background
-            "text_bg": "#ffffff",         # White text background
-            "text_fg": "#000000",         # Black text
-            "entry_bg": "#ffffff",        # White entry background
-            "button_bg": "#0066cc",       # Blue buttons
-            "button_fg": "#ffffff",       # White button text
-            "placeholder_fg": "#666666",  # Gray placeholder text
-            "menu_bg": "#f0f0f0",         # Menu background
-            "menu_fg": "#000000",         # Menu text
-            "menu_selection_bg": "#0066cc", # Menu selection background
-            "menu_selection_fg": "#ffffff"  # Menu selection text
-        }
+        # Load themes from JSON files
+        self.themes = self._load_themes()
+        
+        # Current theme (default to light)
+        self.current_theme = self.preferences.get("theme", "light")
     
     def _get_user_data_dir(self) -> Path:
         """Get user data directory."""
@@ -46,41 +37,134 @@ class ThemeManager:
         
         return base_dir / "FlipFlopPrompt"
     
-    def get_theme_colors(self, theme_name: str = None) -> Dict[str, str]:
-        """Get colors for the specified theme (always returns basic colors)."""
-        return self.basic_colors.copy()
+    def _load_themes(self) -> Dict[str, Dict[str, str]]:
+        """Load themes from JSON files."""
+        themes = {}
+        
+        # Load built-in themes from data/themes directory
+        builtin_themes_dir = Path(__file__).parent.parent.parent / "data" / "themes"
+        
+        # Load user themes from user data directory
+        user_themes_dir = self.themes_dir
+        
+        # Combine both directories
+        theme_dirs = [builtin_themes_dir, user_themes_dir]
+        
+        for theme_dir in theme_dirs:
+            if theme_dir.exists():
+                for theme_file in theme_dir.glob("*.json"):
+                    try:
+                        with open(theme_file, 'r', encoding='utf-8') as f:
+                            theme_data = json.load(f)
+                        
+                        # Extract theme name and colors
+                        theme_name = theme_data.get("name", theme_file.stem)
+                        colors = theme_data.get("colors", {})
+                        
+                        # Use filename as key for consistency
+                        theme_key = theme_file.stem
+                        themes[theme_key] = colors
+                        
+                    except (json.JSONDecodeError, IOError) as e:
+                        print(f"Warning: Could not load theme {theme_file}: {e}")
+        
+        # Ensure we have at least light and dark themes
+        if not themes:
+            print("Warning: No themes found, using fallback colors")
+            themes = self._get_fallback_themes()
+        
+        return themes
     
-    def get_current_theme(self) -> str:
-        """Get current theme name (always 'basic')."""
-        return "basic"
-    
-    def get_available_themes(self) -> List[str]:
-        """Get available themes (only basic for now)."""
-        return ["basic"]
-    
-    def set_current_theme(self, theme_name: str):
-        """Set current theme (ignored, always uses basic)."""
-        pass
-    
-    def reload_themes(self):
-        """Reload themes (no-op for basic theme)."""
-        pass
+    def _get_fallback_themes(self) -> Dict[str, Dict[str, str]]:
+        """Provide fallback themes if JSON loading fails."""
+        return {
+            "light": {
+                "bg": "#f0f0f0",
+                "text_bg": "#ffffff",
+                "text_fg": "#000000",
+                "button_bg": "#0066cc",
+                "button_fg": "#ffffff"
+            },
+            "dark": {
+                "bg": "#2b2b2b",
+                "text_bg": "#3c3c3c",
+                "text_fg": "#ffffff",
+                "button_bg": "#4a9eff",
+                "button_fg": "#ffffff"
+            }
+        }
     
     def _load_preferences(self) -> Dict:
-        """Load user preferences from file."""
-        try:
-            if self.preferences_file.exists():
+        """Load user preferences."""
+        if self.preferences_file.exists():
+            try:
                 with open(self.preferences_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-        except Exception as e:
-            print(f"Warning: Could not load preferences: {e}")
+            except (json.JSONDecodeError, IOError):
+                pass
+        return {}
+    
+    def _save_preferences(self):
+        """Save user preferences."""
+        try:
+            with open(self.preferences_file, 'w', encoding='utf-8') as f:
+                json.dump(self.preferences, f, indent=2)
+        except IOError as e:
+            print(f"Warning: Could not save preferences: {e}")
+    
+    def get_theme_colors(self, theme_name: str = None) -> Dict[str, str]:
+        """Get colors for the specified theme."""
+        if theme_name is None:
+            theme_name = self.current_theme
         
-        # Return default preferences
-        return {
-            "llm_model": "gemma3:4b",
-            "target_model": "seedream",
-            "content_rating": "PG"
-        }
+        # Get theme colors, fallback to light if not found
+        theme_colors = self.themes.get(theme_name, self.themes.get("light", {}))
+        
+        # Ensure all required colors are present
+        required_colors = [
+            "bg", "text_bg", "text_fg", "button_bg", "button_fg",
+            "category_bg", "category_fg", "category_border",
+            "subcategory_bg", "subcategory_fg", "subcategory_border",
+            "snippet_bg", "snippet_fg", "snippet_border",
+            "user_text_bg", "user_text_fg", "user_text_border",
+            "tag_bg", "tag_fg", "tag_border"
+        ]
+        
+        # Use fallback colors for missing values
+        fallback_colors = self.themes.get("light", {})
+        for color_key in required_colors:
+            if color_key not in theme_colors:
+                theme_colors[color_key] = fallback_colors.get(color_key, "#000000")
+        
+        return theme_colors.copy()
+    
+    def get_current_theme(self) -> str:
+        """Get current theme name."""
+        return self.current_theme
+    
+    def get_available_themes(self) -> List[str]:
+        """Get list of available theme names."""
+        return list(self.themes.keys())
+    
+    def set_current_theme(self, theme_name: str):
+        """Set the current theme."""
+        if theme_name in self.themes:
+            self.current_theme = theme_name
+            self.preferences["theme"] = theme_name
+            self._save_preferences()
+        else:
+            print(f"Warning: Theme '{theme_name}' not found")
+    
+    def toggle_theme(self):
+        """Toggle between light and dark themes."""
+        if self.current_theme == "light":
+            self.set_current_theme("dark")
+        else:
+            self.set_current_theme("light")
+    
+    def reload_themes(self):
+        """Reload themes from JSON files."""
+        self.themes = self._load_themes()
     
     def save_preferences(self, preferences: Dict):
         """Save user preferences to file."""
@@ -104,5 +188,5 @@ class ThemeManager:
         self.save_preferences({})
 
 
-# Global instance
+# Global theme manager instance
 theme_manager = ThemeManager()

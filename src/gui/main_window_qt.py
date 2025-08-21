@@ -151,6 +151,11 @@ class MainWindow(QMainWindow):
         light_action.triggered.connect(lambda: self._set_theme("light"))
         themes_menu.addAction(light_action)
         
+        # Dark theme
+        dark_action = QAction("Dark Theme", self)
+        dark_action.triggered.connect(lambda: self._set_theme("dark"))
+        themes_menu.addAction(dark_action)
+        
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
         
@@ -514,127 +519,165 @@ class MainWindow(QMainWindow):
         self.status_label.setText("Ready")
     
     def _apply_styling(self):
-        """Apply light theme styling to the application."""
-        # Light theme styles
+        """Apply theme-based styling to the application."""
+        # Get current theme colors
+        colors = theme_manager.get_theme_colors()
         
-        # Main window style with modern scrollbars
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #ffffff;
-                color: #333333;
-            }
-            QWidget {
-                background-color: #ffffff;
-                color: #333333;
-            }
-            QGroupBox {
+        # Build stylesheet with theme colors
+        stylesheet = f"""
+            QMainWindow {{
+                background-color: {colors['bg']};
+                color: {colors['text_fg']};
+            }}
+            QWidget {{
+                background-color: {colors['bg']};
+                color: {colors['text_fg']};
+            }}
+            QGroupBox {{
                 font-weight: bold;
-                border: 2px solid #cccccc;
+                border: 2px solid {colors['tag_border']};
                 border-radius: 5px;
                 margin-top: 1ex;
                 padding-top: 10px;
-                background-color: #fafafa;
-            }
-            QGroupBox::title {
+                background-color: {colors['text_bg']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
-                background-color: #ffffff;
-            }
-            QScrollArea {
-                border: 1px solid #ddd;
-                background-color: #ffffff;
-            }
+                background-color: {colors['text_bg']};
+            }}
+            QScrollArea {{
+                border: 1px solid {colors['tag_border']};
+                background-color: {colors['text_bg']};
+            }}
             
             /* Modern Scrollbars */
-            QScrollBar:vertical {
-                background-color: #f0f0f0;
+            QScrollBar:vertical {{
+                background-color: {colors['scrollbar_bg']};
                 width: 12px;
                 border-radius: 6px;
                 border: none;
                 margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #c0c0c0;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {colors['scrollbar_handle']};
                 border-radius: 6px;
                 min-height: 20px;
                 margin: 2px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #a0a0a0;
-            }
-            QScrollBar::handle:vertical:pressed {
-                background-color: #808080;
-            }
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {colors['button_bg']};
+            }}
+            QScrollBar::handle:vertical:pressed {{
+                background-color: {colors['button_bg']};
+            }}
             QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {
+            QScrollBar::sub-line:vertical {{
                 height: 0px;
                 width: 0px;
-            }
+            }}
             QScrollBar::add-page:vertical,
-            QScrollBar::sub-page:vertical {
+            QScrollBar::sub-page:vertical {{
                 background: none;
-            }
+            }}
             
-            QScrollBar:horizontal {
-                background-color: #f0f0f0;
+            QScrollBar:horizontal {{
+                background-color: {colors['scrollbar_bg']};
                 height: 12px;
                 border-radius: 6px;
                 border: none;
                 margin: 0px;
-            }
-            QScrollBar::handle:horizontal {
-                background-color: #c0c0c0;
+            }}
+            QScrollBar::handle:horizontal {{
+                background-color: {colors['scrollbar_handle']};
                 border-radius: 6px;
                 min-width: 20px;
                 margin: 2px;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background-color: #a0a0a0;
-            }
-            QScrollBar::handle:horizontal:pressed {
-                background-color: #808080;
-            }
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background-color: {colors['button_bg']};
+            }}
+            QScrollBar::handle:horizontal:pressed {{
+                background-color: {colors['button_bg']};
+            }}
             QScrollBar::add-line:horizontal,
-            QScrollBar::sub-line:horizontal {
+            QScrollBar::sub-line:horizontal {{
                 height: 0px;
                 width: 0px;
-            }
+            }}
             QScrollBar::add-page:horizontal,
-            QScrollBar::sub-page:horizontal {
+            QScrollBar::sub-page:horizontal {{
                 background: none;
-            }
-        """)
+            }}
+            
+            /* Menu styling */
+            QMenuBar {{
+                background-color: {colors['menu_bg']};
+                color: {colors['menu_fg']};
+            }}
+            QMenuBar::item {{
+                background-color: transparent;
+                padding: 4px 8px;
+            }}
+            QMenuBar::item:selected {{
+                background-color: {colors['menu_selection_bg']};
+                color: {colors['menu_selection_fg']};
+            }}
+            QMenu {{
+                background-color: {colors['menu_bg']};
+                color: {colors['menu_fg']};
+                border: 1px solid {colors['tag_border']};
+            }}
+            QMenu::item {{
+                padding: 4px 8px;
+            }}
+            QMenu::item:selected {{
+                background-color: {colors['menu_selection_bg']};
+                color: {colors['menu_selection_fg']};
+            }}
+            
+            /* Status bar styling */
+            QStatusBar {{
+                background-color: {colors['status_bg']};
+                color: {colors['status_fg']};
+            }}
+        """
         
-        # Apply blue styling to all buttons except dice button and tag widgets
+        # Apply the main stylesheet
+        self.setStyleSheet(stylesheet)
+        
+        # Apply button styling
         for button in self.findChildren(QPushButton):
             # Skip dice button and buttons inside tag widgets
             parent = button.parent()
             if (button.objectName() != "diceButton" and 
                 not (parent and parent.objectName() in ["tagWidget", "InlineTagWidget"])):
-                button.setStyleSheet("""
-                    QPushButton {
-                        background-color: #0066cc;
-                        color: white;
-                        border: 2px solid #0066cc;
+                button.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {colors['button_bg']};
+                        color: {colors['button_fg']};
+                        border: 2px solid {colors['button_bg']};
                         border-radius: 4px;
                         padding: 8px 16px;
                         font-weight: bold;
                         min-height: 20px;
-                    }
-                    QPushButton:hover {
-                        background-color: #0052a3;
-                        border-color: #0052a3;
-                    }
-                    QPushButton:pressed {
-                        background-color: #003d7a;
-                        border-color: #003d7a;
-                    }
-                    QPushButton:disabled {
-                        background-color: #cccccc;
-                        border-color: #cccccc;
-                        color: #666666;
-                    }
+                    }}
+                    QPushButton:hover {{
+                        background-color: {colors['button_bg']};
+                        border-color: {colors['button_bg']};
+                        opacity: 0.8;
+                    }}
+                    QPushButton:pressed {{
+                        background-color: {colors['button_bg']};
+                        border-color: {colors['button_bg']};
+                        opacity: 0.6;
+                    }}
+                    QPushButton:disabled {{
+                        background-color: {colors['placeholder_fg']};
+                        border-color: {colors['placeholder_fg']};
+                        color: {colors['text_bg']};
+                    }}
                 """)
     
     # Event handlers
@@ -928,8 +971,47 @@ class MainWindow(QMainWindow):
     
     def _set_theme(self, theme_name):
         """Set the application theme."""
-        # This is a placeholder - theme system will be implemented later
-        self._show_status_message(f"Theme set to {theme_name}")
+        try:
+            # Set theme in theme manager
+            theme_manager.set_current_theme(theme_name)
+            
+            # Apply the new theme
+            self._apply_styling()
+            
+            # Refresh preview panel
+            if hasattr(self, 'preview_panel'):
+                self.preview_panel._apply_styling()
+            
+            # Refresh any open snippet popups
+            for popup in self.open_snippet_popups:
+                if hasattr(popup, 'refresh_theme'):
+                    popup.refresh_theme()
+            
+            # Refresh all tag containers
+            self._refresh_tag_containers()
+            
+            # Log the theme change
+            if self.logger:
+                self.logger.log_gui_action("Theme changed", f"Set to {theme_name}")
+            
+            self._show_status_message(f"Theme set to {theme_name}")
+        except Exception as e:
+            self._show_error_message(f"Failed to set theme: {str(e)}")
+    
+
+    
+    def _refresh_tag_containers(self):
+        """Refresh all tag containers when theme changes."""
+        tag_widgets = [
+            self.style_widget, self.setting_widget, self.weather_widget,
+            self.datetime_widget, self.subjects_widget, self.pose_widget,
+            self.camera_widget, self.framing_widget, self.grading_widget,
+            self.details_widget, self.llm_instructions_widget
+        ]
+        
+        for widget in tag_widgets:
+            if hasattr(widget, 'tag_input') and hasattr(widget.tag_input, 'refresh_theme'):
+                widget.tag_input.refresh_theme()
     
     def _toggle_debug_mode(self):
         """Toggle debug mode."""

@@ -101,28 +101,59 @@ class TagWidget(QWidget):
         layout.addWidget(self.remove_button)
     
     def _apply_styling(self):
-        """Apply styling based on tag type."""
-        # Color mapping for tag types
+        """Apply styling based on tag type using theme colors."""
+        # Import theme manager
+        from ..utils.theme_manager import theme_manager
+        
+        # Get current theme colors
+        theme_colors = theme_manager.get_theme_colors()
+        
+        # Color mapping for tag types using theme colors
+        # Warm/hot colors for randomized content, cold colors for static content
         colors = {
-            TagType.SNIPPET: "#E3F2FD",      # Very light blue
-            TagType.USER_TEXT: "#E8F5E8",    # Very light green
-            TagType.CATEGORY: "#FFF3E0",     # Pale orange
-            TagType.SUBCATEGORY: "#FFFDE7"   # Pale yellow
+            TagType.SNIPPET: theme_colors["snippet_bg"],      # Blue - static snippet content
+            TagType.USER_TEXT: theme_colors["user_text_bg"],  # Purple - user-created static content
+            TagType.CATEGORY: theme_colors["category_bg"],    # Orange - randomized category content
+            TagType.SUBCATEGORY: theme_colors["subcategory_bg"] # Yellow - randomized subcategory content
         }
         
-        bg_color = colors.get(self.tag.tag_type, "#F5F5F5")
+        # Border colors mapping
+        border_colors = {
+            TagType.SNIPPET: theme_colors["snippet_border"],      # Blue border
+            TagType.USER_TEXT: theme_colors["user_text_border"],  # Purple border
+            TagType.CATEGORY: theme_colors["category_border"],    # Orange border
+            TagType.SUBCATEGORY: theme_colors["subcategory_border"] # Yellow border
+        }
         
-        # Apply comprehensive styling with background color
+        # Text colors mapping
+        text_colors = {
+            TagType.SNIPPET: theme_colors["snippet_fg"],      # Black/white text
+            TagType.USER_TEXT: theme_colors["user_text_fg"],  # Black/white text
+            TagType.CATEGORY: theme_colors["category_fg"],    # Black/white text
+            TagType.SUBCATEGORY: theme_colors["subcategory_fg"] # Black/white text
+        }
+        
+        bg_color = colors.get(self.tag.tag_type, theme_colors["tag_bg"])
+        border_color = border_colors.get(self.tag.tag_type, theme_colors["tag_border"])
+        text_color = text_colors.get(self.tag.tag_type, theme_colors["tag_fg"])
+        
+
+        
+
+        
+        # Apply comprehensive styling with theme colors
         tag_style = f"""
             QWidget#tagWidget {{
                 background-color: {bg_color} !important;
-                border: 1px solid #D0D0D0 !important;
+                border: 1px solid {border_color} !important;
                 border-radius: 8px !important;
                 margin: 1px !important;
-                color: #333333 !important;
+                color: {text_color} !important;
             }}
             QWidget#tagWidget:hover {{
-                background-color: {self._darken_color(bg_color)} !important;
+                background-color: {theme_colors["button_bg"]} !important;
+                border: 1px solid {theme_colors["button_bg"]} !important;
+                color: {theme_colors["button_fg"]} !important;
             }}
         """
         
@@ -143,6 +174,13 @@ class TagWidget(QWidget):
         
         self.setStyleSheet(tag_style)
         self.remove_button.setStyleSheet(button_style)
+    
+    def refresh_theme(self):
+        """Refresh the styling when theme changes."""
+        self._apply_styling()
+        # Force repaint to ensure colors are applied
+        self.update()
+        self.repaint()
     
     def _darken_color(self, hex_color: str) -> str:
         """Darken a hex color slightly for hover effect."""
@@ -287,24 +325,43 @@ class TagContainer(QWidget):
         self._apply_styling()
     
     def _apply_styling(self):
-        """Apply styling to the container."""
-        style = """
-            QFrame {
-                background-color: white;
-                border: 1px solid #D0D0D0;
+        """Apply styling to the container using theme colors."""
+        # Import theme manager
+        from ..utils.theme_manager import theme_manager
+        
+        # Get current theme colors
+        theme_colors = theme_manager.get_theme_colors()
+        
+        style = f"""
+            QFrame {{
+                background-color: {theme_colors["text_bg"]};
+                border: 1px solid {theme_colors["tag_border"]};
                 border-radius: 4px;
-            }
-            QLineEdit {
-                border: 1px solid #D0D0D0;
+            }}
+            QLineEdit {{
+                border: 1px solid {theme_colors["tag_border"]};
                 border-radius: 4px;
                 padding: 4px;
                 font-size: 11px;
-            }
-            QLineEdit:focus {
-                border: 2px solid #0066cc;
-            }
+                background-color: {theme_colors["text_bg"]};
+                color: {theme_colors["text_fg"]};
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {theme_colors["button_bg"]};
+            }}
         """
         self.setStyleSheet(style)
+    
+    def refresh_theme(self):
+        """Refresh the styling when theme changes."""
+        self._apply_styling()
+        # Refresh all tag widgets
+        for i in range(self.tag_layout.count()):
+            item = self.tag_layout.itemAt(i)
+            if item and item.widget():
+                tag_widget = item.widget()
+                if hasattr(tag_widget, 'refresh_theme'):
+                    tag_widget.refresh_theme()
     
     def add_tag(self, tag: Tag):
         """Add a tag to the container."""

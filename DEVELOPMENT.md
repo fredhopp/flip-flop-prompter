@@ -46,6 +46,7 @@ taskkill //F //IM python.exe
 - **Families**: Dynamic filtering system with real-time snippet updates
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 - **Logging**: Comprehensive GUI interaction logging with debug mode integration
+- **Theme System**: JSON-based light/dark themes with external file customization
 
 ## Git Workflow
 ## ��� GIT PUSH CONFIRMATION RULE ���
@@ -88,6 +89,7 @@ Should I proceed with the commit and push?"
 - **Core Logic**: `src/core/` (prompt engine, data models, LLM integration)
 - **Utilities**: `src/utils/` (snippet manager, theme manager)
 - **Snippets**: `data/snippets/` (JSON files with family/LLM_rating fields)
+- **Themes**: `data/themes/` (JSON files with color definitions)
 - **User Data**: Home directory via `theme_manager.user_data_dir`
 - **Templates**: JSON format, saved in user data directory
 
@@ -97,7 +99,9 @@ Should I proceed with the commit and push?"
 - **Family Filtering**: Strict matching (no hierarchy) - PG only shows PG content
 - **GUI Styling**: Blue accent buttons (`#0066cc`) with modern scrollbars
 - **Window Behavior**: Only preview panel expands on resize, status bar fixed height
+- **Theme Management**: JSON-based theme files with hot-reload capability
 - **LLM Instructions**: Full content displayed in tooltips, clean button names
+- **Theme System**: JSON-based light/dark themes with 21 color definitions each, persistent preferences
 
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
@@ -122,6 +126,8 @@ Should I proceed with the commit and push?"
 5. **Future**: AI service integrations and advanced features
 
 ## Recent Major Changes
+- **Dark Theme Implementation**: Complete light/dark theme system with persistence and keyboard shortcuts (Ctrl+T)
+- **JSON Theme System**: Converted from hardcoded themes to external JSON files for easy customization
 - **JSON Structure Refactoring**: Unified all snippet files to key-value format with proper tooltips
 - **GUI Logging System**: Comprehensive logging of user interactions with debug mode integration
 - **PySide6 Migration**: Complete migration from Tkinter to modern Qt-based GUI

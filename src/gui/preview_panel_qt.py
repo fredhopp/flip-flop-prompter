@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPalette, QColor
 from typing import Optional
+from ..utils.theme_manager import theme_manager
 
 
 class PreviewPanel(QWidget):
@@ -71,87 +72,95 @@ class PreviewPanel(QWidget):
         self._set_placeholder_style()
     
     def _apply_styling(self):
-        """Apply styling to the widgets."""
+        """Apply theme-aware styling to the widgets."""
+        # Get current theme colors
+        colors = theme_manager.get_theme_colors()
+        
         # Style the frame
-        self.frame.setStyleSheet("""
-            QFrame {
-                border: 1px solid #ccc;
+        self.frame.setStyleSheet(f"""
+            QFrame {{
+                border: 1px solid {colors['tag_border']};
                 border-radius: 5px;
-                background-color: #fafafa;
-            }
+                background-color: {colors['text_bg']};
+            }}
         """)
         
         # Style the tab widget
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #ddd;
+        self.tab_widget.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: 1px solid {colors['tag_border']};
                 border-radius: 3px;
-                background-color: #f8f9fa;
-            }
-            QTabBar::tab {
-                background-color: #e9ecef;
-                border: 1px solid #ddd;
+                background-color: {colors['text_bg']};
+            }}
+            QTabBar::tab {{
+                background-color: {colors['bg']};
+                border: 1px solid {colors['tag_border']};
                 padding: 8px 16px;
                 margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #f8f9fa;
-                border-bottom: 1px solid #f8f9fa;
-            }
+                color: {colors['text_fg']};
+            }}
+            QTabBar::tab:selected {{
+                background-color: {colors['text_bg']};
+                border-bottom: 1px solid {colors['text_bg']};
+                color: {colors['text_fg']};
+            }}
         """)
         
         # Style the text widgets for normal state
-        text_style = """
-            QTextEdit {
-                border: 1px solid #ddd;
+        text_style = f"""
+            QTextEdit {{
+                border: 1px solid {colors['tag_border']};
                 border-radius: 3px;
-                background-color: #f8f9fa;
-                color: #212529;
+                background-color: {colors['text_bg']};
+                color: {colors['text_fg']};
                 padding: 10px;
-            }
+            }}
         """
         self.summary_text.setStyleSheet(text_style)
         self.final_text.setStyleSheet(text_style)
     
     def _set_placeholder_style(self):
         """Set placeholder text styling."""
-        placeholder_style = """
-            QTextEdit {
-                border: 1px solid #ddd;
+        colors = theme_manager.get_theme_colors()
+        placeholder_style = f"""
+            QTextEdit {{
+                border: 1px solid {colors['tag_border']};
                 border-radius: 3px;
-                background-color: #f8f9fa;
-                color: #6c757d;
+                background-color: {colors['text_bg']};
+                color: {colors['placeholder_fg']};
                 padding: 10px;
                 font-style: italic;
-            }
+            }}
         """
         self.summary_text.setStyleSheet(placeholder_style)
         self.final_text.setStyleSheet(placeholder_style)
     
     def _set_preview_style(self):
         """Set preview text styling."""
-        preview_style = """
-            QTextEdit {
-                border: 1px solid #ddd;
+        colors = theme_manager.get_theme_colors()
+        preview_style = f"""
+            QTextEdit {{
+                border: 1px solid {colors['tag_border']};
                 border-radius: 3px;
-                background-color: #f8f9fa;
-                color: #212529;
+                background-color: {colors['text_bg']};
+                color: {colors['text_fg']};
                 padding: 10px;
-            }
+            }}
         """
         self.summary_text.setStyleSheet(preview_style)
     
     def _set_final_style(self):
         """Set final prompt styling."""
-        final_style = """
-            QTextEdit {
-                border: 1px solid #28a745;
+        colors = theme_manager.get_theme_colors()
+        final_style = f"""
+            QTextEdit {{
+                border: 1px solid {colors['snippet_border']};
                 border-radius: 3px;
-                background-color: #e8f5e8;
-                color: #1a472a;
+                background-color: {colors['snippet_bg']};
+                color: {colors['snippet_fg']};
                 padding: 10px;
                 font-weight: bold;
-            }
+            }}
         """
         self.final_text.setStyleSheet(final_style)
     
