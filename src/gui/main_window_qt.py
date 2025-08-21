@@ -75,6 +75,10 @@ class MainWindow(QMainWindow):
         # Apply modern styling
         self._apply_styling()
         
+        # Ensure navigation controls are properly styled
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.refresh_navigation_styling()
+        
         # Initialize progress tracking
         self._init_progress_tracking()
     
@@ -984,6 +988,7 @@ class MainWindow(QMainWindow):
             # Refresh preview panel
             if hasattr(self, 'preview_panel'):
                 self.preview_panel._apply_styling()
+                self.preview_panel.refresh_navigation_styling()
             
             # Refresh any open snippet popups
             self._refresh_snippet_popups()

@@ -1,5 +1,5 @@
 
-# FlipFlopPrompt
+# Flip-Flop Prompter
 
 A powerful AI image generation prompt builder with a clean, user-friendly interface. Create, refine, and save prompts for various AI image generation models.
 

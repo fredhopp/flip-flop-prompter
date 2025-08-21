@@ -72,13 +72,16 @@ class PreviewPanel(QWidget):
         # Add frame to main layout
         layout.addWidget(self.frame)
         
-        # Apply initial styling
-        self._apply_styling()
-        
         # Set initial text
         self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
         self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
         self._set_placeholder_style()
+        
+        # Apply initial styling (after setting text)
+        self._apply_styling()
+        
+        # Force navigation styling to be applied
+        self._apply_navigation_styling()
     
     def _create_navigation_controls(self, parent_layout):
         """Create navigation controls for history."""
@@ -377,6 +380,10 @@ class PreviewPanel(QWidget):
         button_pressed = "#003d7a"  # Even darker on press
         disabled_bg = "#cccccc"  # Light gray when disabled
         disabled_fg = "#666666"  # Dark gray text when disabled
+    
+    def refresh_navigation_styling(self):
+        """Refresh navigation controls styling - can be called when theme changes."""
+        self._apply_navigation_styling()
         
         # Use the same button styling as other buttons in the app
         nav_style = f"""
