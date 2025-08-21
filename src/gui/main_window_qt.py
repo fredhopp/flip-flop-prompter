@@ -962,8 +962,7 @@ class MainWindow(QMainWindow):
             self.preview_panel.update_preview(final_prompt, is_final=True)
             
             # Save to history
-            summary_prompt = self.preview_panel.get_summary_text()
-            self._save_to_history(summary_prompt, final_prompt)
+            self._save_to_history()
             
             # Update status bar
             self._update_status_bar()
@@ -1380,6 +1379,9 @@ class MainWindow(QMainWindow):
         """Restore fields from current history entry."""
         entry = self.history_manager.get_current_entry()
         if entry:
+            # Preserve current tab selection
+            current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
+            
             # Temporarily disconnect value_changed signals to prevent cascading updates
             self._disconnect_field_signals()
             
@@ -1420,6 +1422,10 @@ class MainWindow(QMainWindow):
                 
                 # Update preview once at the end
                 self._update_preview()
+                
+                # Restore the original tab selection
+                if hasattr(self, 'preview_panel'):
+                    self.preview_panel.tab_widget.setCurrentIndex(current_tab)
             
             # Restore families
             for family in entry.families:
@@ -1449,7 +1455,7 @@ class MainWindow(QMainWindow):
                 can_go_back, can_go_forward, current_pos, total_count, has_history
             )
     
-    def _save_to_history(self, summary_prompt: str, final_prompt: str):
+    def _save_to_history(self):
         """Save current state to history."""
         # Get current field data
         field_data = {}
@@ -1487,8 +1493,6 @@ class MainWindow(QMainWindow):
         
         # Add to history
         self.history_manager.add_entry(
-            summary_prompt=summary_prompt,
-            final_prompt=final_prompt,
             field_data=field_data,
             seed=seed,
             families=selected_families,

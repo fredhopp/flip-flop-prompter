@@ -14,8 +14,6 @@ from pathlib import Path
 class HistoryEntry:
     """Represents a single history entry."""
     timestamp: str
-    summary_prompt: str
-    final_prompt: str
     field_data: Dict[str, Any]  # All field values
     seed: int
     families: List[str]
@@ -34,13 +32,11 @@ class HistoryManager:
         # Load existing history
         self._load_history()
     
-    def add_entry(self, summary_prompt: str, final_prompt: str, field_data: Dict[str, Any], 
-                  seed: int, families: List[str], llm_model: str, target_model: str) -> None:
+    def add_entry(self, field_data: Dict[str, Any], seed: int, families: List[str], 
+                  llm_model: str, target_model: str) -> None:
         """Add a new entry to history."""
         entry = HistoryEntry(
             timestamp=datetime.now().isoformat(),
-            summary_prompt=summary_prompt,
-            final_prompt=final_prompt,
             field_data=field_data,
             seed=seed,
             families=families,
