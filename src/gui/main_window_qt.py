@@ -1084,7 +1084,7 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     print(f"Error refreshing popup theme: {e}")
     
-    def _update_preview(self):
+    def _update_preview(self, preserve_tab: bool = False):
         """Update the prompt preview with randomization support."""
         # Don't update if preview panel doesn't exist yet
         if not hasattr(self, 'preview_panel'):
@@ -1123,7 +1123,7 @@ class MainWindow(QMainWindow):
                 preview_text = ""  # Empty preview will show placeholder
             
             # Update preview panel
-            self.preview_panel.update_preview(preview_text, is_final=False)
+            self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=preserve_tab)
             
             # Update status bar
             self._update_status_bar()
@@ -1132,7 +1132,7 @@ class MainWindow(QMainWindow):
             print(f"Error updating preview: {e}")
             # Show empty preview on error if preview panel exists
             if hasattr(self, 'preview_panel'):
-                self.preview_panel.update_preview("", is_final=False)
+                self.preview_panel.update_preview("", is_final=False, preserve_tab=preserve_tab)
     
     def _update_llm_status_lazy(self):
         """Lazy update LLM status to avoid blocking startup."""
@@ -1420,8 +1420,8 @@ class MainWindow(QMainWindow):
                 # Reconnect signals
                 self._connect_field_signals()
                 
-                # Update preview once at the end
-                self._update_preview()
+                # Update preview once at the end (preserve tab selection during history restoration)
+                self._update_preview(preserve_tab=True)
                 
                 # Restore the original tab selection
                 if hasattr(self, 'preview_panel'):

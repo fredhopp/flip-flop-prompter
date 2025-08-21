@@ -233,13 +233,14 @@ class PreviewPanel(QWidget):
         """
         self.final_text.setStyleSheet(final_style)
     
-    def update_preview(self, text: str, is_final: bool = False):
+    def update_preview(self, text: str, is_final: bool = False, preserve_tab: bool = False):
         """
         Update the preview with new text.
         
         Args:
             text: The text to display
             is_final: Whether this is the final generated prompt
+            preserve_tab: Whether to preserve the current tab selection
         """
         self.current_text = text
         self.is_final = is_final
@@ -247,12 +248,14 @@ class PreviewPanel(QWidget):
         if is_final:
             # Update Final Prompt tab
             self.final_text.setPlainText(text)
-            self.tab_widget.setCurrentIndex(1)  # Switch to Final Prompt tab
+            if not preserve_tab:
+                self.tab_widget.setCurrentIndex(1)  # Switch to Final Prompt tab
             self._set_final_style()
         else:
             # Update Prompt Summary tab
             self.summary_text.setPlainText(text)
-            self.tab_widget.setCurrentIndex(0)  # Switch to Prompt Summary tab
+            if not preserve_tab:
+                self.tab_widget.setCurrentIndex(0)  # Switch to Prompt Summary tab
             if text.strip():
                 self._set_preview_style()
             else:
