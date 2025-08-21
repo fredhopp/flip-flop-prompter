@@ -34,7 +34,7 @@ Should I proceed with the commit and push?"
 - **Shell**: Git Bash on Windows
 - **Working Directory**: `Z:/Dev/FlipFlopPrompt`
 - **GUI Framework**: PySide6 (Qt-based) - Tkinter has been completely removed
-- **Entry Point**: `main_qt.py` (legacy `main.py` removed)
+- **Entry Point**: `main.py` (legacy `main_qt.py` renamed)
 
 ## Development Commands
 ```bash
@@ -42,10 +42,10 @@ Should I proceed with the commit and push?"
 source .venv/Scripts/activate
 
 # Run PySide6 GUI (standard)
-python main_qt.py
+python main.py
 
 # Run with debug logging
-python main_qt.py --debug
+python main.py --debug
 
 # Install dependencies
 pip install -r requirements.txt

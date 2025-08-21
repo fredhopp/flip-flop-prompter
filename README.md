@@ -59,8 +59,8 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 ### **Running the Application**
 **PySide6 Interface (Standard):**
 ```bash
-python main_qt.py --debug  # With debug logging
-python main_qt.py          # Standard mode
+python main.py --debug  # With debug logging
+python main.py          # Standard mode
 ```
 
 ## 📖 Usage
@@ -110,7 +110,7 @@ python main_qt.py          # Standard mode
 
 ```
 FlipFlopPrompt/
-├── main_qt.py                 # PySide6 entry point
+├── main.py                    # PySide6 entry point
 ├── requirements.txt           # Python dependencies
 ├── README.md                 # This file
 ├── TODO.md                   # Development tasks
@@ -172,10 +172,10 @@ The application supports various Ollama models:
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Run with debug logging
-python main_qt.py --debug
+python main.py --debug
 
 # Run standard mode
-python main_qt.py
+python main.py
 ```
 
 ### **Debug Mode**
