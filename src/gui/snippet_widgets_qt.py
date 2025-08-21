@@ -653,6 +653,8 @@ class SnippetPopup(QDialog):
         self.category_labels = []
         self.snippet_buttons = []
         self.sub_labels = []
+        self.category_buttons = []
+        self.subcategory_buttons = []
         
         self._setup_dialog()
         self._create_widgets()
@@ -968,6 +970,7 @@ class SnippetPopup(QDialog):
             
             # Store reference for theme updates
             self.category_labels.append(category_button)
+            self.category_buttons.append(category_button)
             
             if isinstance(items, list):
                 # Simple category with list of items
@@ -1076,6 +1079,7 @@ class SnippetPopup(QDialog):
                         sub_button.clicked.connect(lambda checked, cat=category, subcat=subcategory: self._select_subcategory(cat, subcat))
                         category_layout.addWidget(sub_button)
                         self.sub_labels.append(sub_button)
+                        self.subcategory_buttons.append(sub_button)
                         
                         # Items in this subcategory
                         for item in subitems:
@@ -1249,23 +1253,126 @@ class SnippetPopup(QDialog):
                 break
         
         if close_button:
-            close_button.setStyleSheet("""
-                QPushButton {
-                    background-color: white;
-                    color: #333;
-                    border: 2px solid #ccc;
+            from ..utils.theme_manager import theme_manager
+            colors = theme_manager.get_theme_colors()
+            
+            # Use UI background colors instead of button colors
+            ui_bg = colors.get("bg", "#f0f0f0")
+            ui_text_bg = colors.get("text_bg", "#ffffff")
+            
+            # Create slightly lighter/darker versions for button states
+            current_theme = theme_manager.get_current_theme()
+            if current_theme == "dark":
+                # Dark theme: use slightly lighter background
+                button_bg = "#404040"  # Lighter than #2b2b2b
+                button_hover_bg = "#505050"  # Even lighter
+                button_pressed_bg = "#606060"  # Lightest
+                button_text = "#ffffff"
+            else:
+                # Light theme: use slightly darker background
+                button_bg = "#e0e0e0"  # Darker than #f0f0f0
+                button_hover_bg = "#d0d0d0"  # Even darker
+                button_pressed_bg = "#c0c0c0"  # Darkest
+                button_text = "#333333"
+            
+            # Use subtle borders that match the theme
+            button_border = colors.get("tag_border", "#ccc")
+            button_hover_border = colors.get("snippet_border", "#999")
+            button_pressed_border = colors.get("category_border", "#666")
+            
+            close_button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {button_bg};
+                    color: {button_text};
+                    border: 2px solid {button_border};
                     border-radius: 4px;
                     padding: 8px 16px;
                     font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #f8f8f8;
-                    border-color: #999;
-                }
-                QPushButton:pressed {
-                    background-color: #e8e8e8;
-                    border-color: #666;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {button_hover_bg};
+                    border-color: {button_hover_border};
+                }}
+                QPushButton:pressed {{
+                    background-color: {button_pressed_bg};
+                    border-color: {button_pressed_border};
+                }}
+            """)
+    
+    def refresh_theme(self):
+        """Refresh the theme styling."""
+        self._apply_styling()
+        self.refresh_theme_buttons()
+    
+    def refresh_theme_buttons(self):
+        """Refresh the theme styling for all buttons."""
+        from ..utils.theme_manager import theme_manager
+        colors = theme_manager.get_theme_colors()
+        
+        # Refresh all tracked buttons
+        for button in self.snippet_buttons:
+            if hasattr(button, 'button_type'):
+                if button.button_type == 'snippet':
+                    button.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {colors.get('snippet_bg', '#4a90e2')};
+                            color: {colors.get('snippet_text', '#ffffff')};
+                            border: 1px solid {colors.get('snippet_border', '#357abd')};
+                            border-radius: 4px;
+                            padding: 4px 8px;
+                            font-size: 11px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: {colors.get('snippet_hover_bg', '#357abd')};
+                            border-color: {colors.get('snippet_hover_border', '#2e6da4')};
+                        }}
+                        QPushButton:pressed {{
+                            background-color: {colors.get('snippet_pressed_bg', '#2e6da4')};
+                            border-color: {colors.get('snippet_pressed_border', '#1e4a6b')};
+                        }}
+                    """)
+        
+        # Refresh category and subcategory buttons
+        for button in self.category_buttons:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {colors.get('category_bg', '#ff9500')};
+                    color: {colors.get('category_text', '#ffffff')};
+                    border: 1px solid {colors.get('category_border', '#e6850e')};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('category_hover_bg', '#e6850e')};
+                    border-color: {colors.get('category_hover_border', '#d17a0d')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('category_pressed_bg', '#d17a0d')};
+                    border-color: {colors.get('category_pressed_border', '#b86b0b')};
+                }}
+            """)
+        
+        for button in self.subcategory_buttons:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {colors.get('subcategory_bg', '#ffcc00')};
+                    color: {colors.get('subcategory_text', '#333333')};
+                    border: 1px solid {colors.get('subcategory_border', '#e6b800')};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('subcategory_hover_bg', '#e6b800')};
+                    border-color: {colors.get('subcategory_hover_border', '#d4a800')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('subcategory_pressed_bg', '#d4a800')};
+                    border-color: {colors.get('subcategory_pressed_border', '#b89400')};
+                }}
             """)
     
     def refresh_snippets(self, selected_families: List[str]):

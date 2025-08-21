@@ -308,38 +308,12 @@ class TagTextFieldWidget(TagFieldWidget):
 class TagTextAreaWidget(TagFieldWidget):
     """Multi-line tag field widget (replaces TextAreaWidget)."""
     
-    def _create_widgets(self):
-        """Create the text area widgets with tag support."""
-        # Create label
-        self.label = QLabel(self.label_text)
-        self.label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
-        self.layout.addWidget(self.label)
+    def __init__(self, label: str, placeholder: str = "", change_callback: Optional[Callable] = None):
+        super().__init__(label, placeholder, change_callback)
         
-        # Create horizontal layout for tag container and snippet button
-        input_layout = QHBoxLayout()
-        input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(5)
-        
-        # Create inline tag input with larger minimum height for text area
-        self.tag_input = InlineTagInputWidget(self.placeholder)
-        self.tag_input.tags_changed.connect(self._on_tags_changed)
-        self.tag_input.value_changed.connect(self._on_tags_changed)
-        
-        # Set field name for randomization
-        self.tag_input._field_name = self.field_name
-        
-        # Set minimum height for multi-line appearance
-        self.tag_input.setMinimumHeight(80)
-        
-        # Create snippet button
-        self.snippet_button = QPushButton("Snippets")
-        self.snippet_button.setMinimumWidth(90)
-        self.snippet_button.clicked.connect(self._show_snippets)
-        
-        input_layout.addWidget(self.tag_input, 1)
-        input_layout.addWidget(self.snippet_button)
-        
-        self.layout.addLayout(input_layout)
+        # After parent initialization, set minimum height for text area appearance
+        if hasattr(self, 'tag_input'):
+            self.tag_input.setMinimumHeight(60)  # Reduced from 80 to be less prominent
 
 
 class SeedFieldWidget(QWidget):
@@ -403,66 +377,8 @@ class SeedFieldWidget(QWidget):
             # Fallback to text icon if custom icon not found
             self.realize_button.setText("❗")
         
-        # Apply styling with proper button frame and smaller icon
-        button_style = """
-            QPushButton#diceButton {
-                background-color: #f8f8f8 !important;
-                border: 2px solid #bbb !important;
-                border-radius: 6px !important;
-                font-size: 18px !important;
-                color: #333 !important;
-                padding: 2px !important;
-                min-height: 26px !important;
-                max-height: 26px !important;
-                min-width: 26px !important;
-                max-width: 26px !important;
-                font-weight: normal !important;
-            }
-            QPushButton#diceButton:hover {
-                background-color: #ebebeb !important;
-                border: 2px solid #0066cc !important;
-                color: #333 !important;
-            }
-            QPushButton#diceButton:pressed {
-                background-color: #e0e0e0 !important;
-                border: 2px solid #004499 !important;
-                color: #333 !important;
-            }
-            QPushButton#realizeButton {
-                background-color: #f8f8f8 !important;
-                border: 2px solid #bbb !important;
-                border-radius: 6px !important;
-                font-size: 16px !important;
-                color: #333 !important;
-                padding: 2px !important;
-                min-height: 26px !important;
-                max-height: 26px !important;
-                min-width: 26px !important;
-                max-width: 26px !important;
-                font-weight: normal !important;
-            }
-            QPushButton#realizeButton:hover {
-                background-color: #ebebeb !important;
-                border: 2px solid #0066cc !important;
-                color: #333 !important;
-            }
-            QPushButton#realizeButton:pressed {
-                background-color: #e0e0e0 !important;
-                border: 2px solid #004499 !important;
-                color: #333 !important;
-            }
-        """
-        self.randomize_button.setStyleSheet(button_style)
-        self.realize_button.setStyleSheet(button_style)
-        
-        # Force the buttons to use the new style immediately
-        self.randomize_button.setAutoFillBackground(True)
-        self.realize_button.setAutoFillBackground(True)
-        palette = self.randomize_button.palette()
-        palette.setColor(palette.ColorRole.Button, QColor("#f5f5f5"))
-        palette.setColor(palette.ColorRole.ButtonText, QColor("#333"))
-        self.randomize_button.setPalette(palette)
-        self.realize_button.setPalette(palette)
+        # Apply styling with theme colors
+        self._apply_button_styling()
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.seed_input)
@@ -474,6 +390,99 @@ class SeedFieldWidget(QWidget):
         """Handle seed value changes."""
         self.current_seed = value
         self.value_changed.emit()
+    
+    def _apply_button_styling(self):
+        """Apply theme-aware styling to the dice and realize buttons."""
+        from ..utils.theme_manager import theme_manager
+        colors = theme_manager.get_theme_colors()
+        
+        # Use UI background colors instead of button colors
+        ui_bg = colors.get("bg", "#f0f0f0")
+        ui_text_bg = colors.get("text_bg", "#ffffff")
+        
+        # Create slightly lighter/darker versions for button states
+        current_theme = theme_manager.get_current_theme()
+        if current_theme == "dark":
+            # Dark theme: use slightly lighter background
+            button_bg = "#404040"  # Lighter than #2b2b2b
+            button_hover_bg = "#505050"  # Even lighter
+            button_pressed_bg = "#606060"  # Lightest
+            button_text = "#ffffff"
+        else:
+            # Light theme: use slightly darker background
+            button_bg = "#e0e0e0"  # Darker than #f0f0f0
+            button_hover_bg = "#d0d0d0"  # Even darker
+            button_pressed_bg = "#c0c0c0"  # Darkest
+            button_text = "#333333"
+        
+        # Use subtle borders that match the theme
+        button_border = colors.get("tag_border", "#ccc")
+        button_hover_border = colors.get("snippet_border", "#999")
+        button_pressed_border = colors.get("category_border", "#666")
+        
+        button_style = f"""
+            QPushButton#diceButton {{
+                background-color: {button_bg} !important;
+                border: 2px solid {button_border} !important;
+                border-radius: 6px !important;
+                font-size: 18px !important;
+                color: {button_text} !important;
+                padding: 2px !important;
+                min-height: 26px !important;
+                max-height: 26px !important;
+                min-width: 26px !important;
+                max-width: 26px !important;
+                font-weight: normal !important;
+            }}
+            QPushButton#diceButton:hover {{
+                background-color: {button_hover_bg} !important;
+                border: 2px solid {button_hover_border} !important;
+                color: {button_text} !important;
+            }}
+            QPushButton#diceButton:pressed {{
+                background-color: {button_pressed_bg} !important;
+                border: 2px solid {button_pressed_border} !important;
+                color: {button_text} !important;
+            }}
+            QPushButton#realizeButton {{
+                background-color: {button_bg} !important;
+                border: 2px solid {button_border} !important;
+                border-radius: 6px !important;
+                font-size: 16px !important;
+                color: {button_text} !important;
+                padding: 2px !important;
+                min-height: 26px !important;
+                max-height: 26px !important;
+                min-width: 26px !important;
+                max-width: 26px !important;
+                font-weight: normal !important;
+            }}
+            QPushButton#realizeButton:hover {{
+                background-color: {button_hover_bg} !important;
+                border: 2px solid {button_hover_border} !important;
+                color: {button_text} !important;
+            }}
+            QPushButton#realizeButton:pressed {{
+                background-color: {button_pressed_bg} !important;
+                border: 2px solid {button_pressed_border} !important;
+                color: {button_text} !important;
+            }}
+        """
+        self.randomize_button.setStyleSheet(button_style)
+        self.realize_button.setStyleSheet(button_style)
+        
+        # Force the buttons to use the new style immediately
+        self.randomize_button.setAutoFillBackground(True)
+        self.realize_button.setAutoFillBackground(True)
+        palette = self.randomize_button.palette()
+        palette.setColor(palette.ColorRole.Button, QColor(button_bg))
+        palette.setColor(palette.ColorRole.ButtonText, QColor(button_text))
+        self.randomize_button.setPalette(palette)
+        self.realize_button.setPalette(palette)
+    
+    def refresh_theme(self):
+        """Refresh the theme styling for the buttons."""
+        self._apply_button_styling()
     
     def _randomize_seed(self):
         """Generate a random seed."""

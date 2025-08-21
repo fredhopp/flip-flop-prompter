@@ -1,3 +1,4 @@
+
 # FlipFlopPrompt
 
 A powerful AI image generation prompt builder with a clean, user-friendly interface. Create, refine, and save prompts for various AI image generation models.
@@ -5,12 +6,12 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 ## ✨ Features
 
 ### **Core Functionality**
-- **Multi-Model Support**: Generate prompts optimized for Seedream, Veo, Flux, Wan, and Hailuo
 - **LLM Integration**: Uses Ollama for local, free prompt refinement
-- **Content Rating System**: PG, NSFW, and custom ratings with appropriate filtering
+- **Content Family System**: PG, NSFW, and Hentai families with appropriate filtering
 - **Snippet System**: Quick selection from categorized prompt elements
 - **Template System**: Save and load complete prompt configurations
 - **Real-time Preview**: See your prompt as you build it
+- **Realize Functionality**: Convert random category tags to specific snippet items
 
 ### **User Interface**
 - **Modern PySide6 GUI**: Professional Qt-based interface with native look and feel
@@ -65,12 +66,12 @@ python main_qt.py          # Standard mode
 ## 📖 Usage
 
 ### **Basic Workflow**
-1. **Select Model**: Choose your target AI image generation model
-2. **Set Content Rating**: Select appropriate content rating (affects LLM filtering)
-3. **Fill Fields**: Use the form fields to describe your image
-4. **Use Snippets**: Click snippet buttons for quick suggestions
-5. **Preview**: See your prompt in real-time
-6. **Generate**: Click "Generate Prompt" for LLM refinement
+1. **Set Content Families**: Select appropriate content families (PG/NSFW/Hentai) for snippet filtering
+2. **Fill Fields**: Use the form fields to describe your image
+3. **Use Snippets**: Click snippet buttons for quick suggestions
+4. **Preview**: See your prompt in real-time
+5. **Generate**: Click "Generate Prompt" for LLM refinement
+6. **Realize**: Use the realize button (❗) to convert random tags to specific items
 7. **Save**: Save your prompt or template for later use
 
 ### **Field Descriptions**
@@ -187,8 +188,8 @@ Enable debug mode in the Debug menu to:
 ### **Adding Snippets**
 1. Create JSON files in the user snippets directory
 2. Follow the snippet format (see existing files)
-3. Use the "Reload Snippets" menu option
-4. Snippets are automatically categorized by field and rating
+3. Use Tools → Reload Snippets to load new snippets without restarting
+4. Snippets are automatically categorized by field and family
 
 ## 🤝 Contributing
 
@@ -200,7 +201,6 @@ Enable debug mode in the Debug menu to:
 
 ### **Development Guidelines**
 - Follow PEP 8 style guidelines
-- Add docstrings to new functions
 - Update TODO.md with new tasks
 - Test on multiple platforms
 - Update documentation as needed
@@ -211,7 +211,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Built with Python, PySide6 (Qt), and legacy Tkinter support
+- Built with Python and PySide6 (Qt)
 - Modern GUI powered by Qt framework via PySide6
 - LLM integration powered by Ollama
 - Inspired by the need for better AI prompt tools
@@ -221,7 +221,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Issues**: Use GitHub Issues for bug reports
 - **Discussions**: Use GitHub Discussions for questions
-- **Wiki**: Check the wiki for detailed documentation
 
 ---
 

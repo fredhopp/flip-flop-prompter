@@ -174,6 +174,11 @@ class MainWindow(QMainWindow):
         clear_cache_action = QAction("Clear Generation Cache", self)
         clear_cache_action.triggered.connect(self._clear_generation_cache)
         tools_menu.addAction(clear_cache_action)
+        
+        # Reload snippets
+        reload_snippets_action = QAction("Reload Snippets", self)
+        reload_snippets_action.triggered.connect(self._reload_snippets)
+        tools_menu.addAction(reload_snippets_action)
     
     def _create_central_widget(self):
         """Create the central widget with scroll area."""
@@ -981,9 +986,7 @@ class MainWindow(QMainWindow):
                 self.preview_panel._apply_styling()
             
             # Refresh any open snippet popups
-            for popup in self.open_snippet_popups:
-                if hasattr(popup, 'refresh_theme'):
-                    popup.refresh_theme()
+            self._refresh_snippet_popups()
             
             # Refresh all tag containers
             self._refresh_tag_containers()
@@ -1010,6 +1013,10 @@ class MainWindow(QMainWindow):
         for widget in tag_widgets:
             if hasattr(widget, 'tag_input') and hasattr(widget.tag_input, 'refresh_theme'):
                 widget.tag_input.refresh_theme()
+        
+        # Refresh seed widget buttons
+        if hasattr(self, 'seed_widget') and hasattr(self.seed_widget, 'refresh_theme'):
+            self.seed_widget.refresh_theme()
     
     def _toggle_debug_mode(self):
         """Toggle debug mode."""
@@ -1038,6 +1045,32 @@ class MainWindow(QMainWindow):
             self._show_status_message("Generation cache cleared")
         except Exception as e:
             self._show_error_message(f"Failed to clear cache: {str(e)}")
+    
+    def _reload_snippets(self):
+        """Reload snippets from files."""
+        try:
+            # Import snippet manager
+            from ..utils.snippet_manager import snippet_manager
+            
+            # Reload snippets
+            snippet_manager.reload_snippets()
+            
+            # Refresh all snippet popups if they're open
+            self._refresh_snippet_popups()
+            
+            self._show_status_message("Snippets reloaded successfully")
+        except Exception as e:
+            self._show_error_message(f"Failed to reload snippets: {str(e)}")
+    
+    def _refresh_snippet_popups(self):
+        """Refresh any open snippet popups."""
+        # Find and refresh any open snippet popups
+        for widget in self.findChildren(QWidget):
+            if hasattr(widget, 'refresh_theme') and callable(widget.refresh_theme):
+                try:
+                    widget.refresh_theme()
+                except Exception as e:
+                    print(f"Error refreshing popup theme: {e}")
     
     def _update_preview(self):
         """Update the prompt preview with randomization support."""
