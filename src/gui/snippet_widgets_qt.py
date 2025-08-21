@@ -12,6 +12,7 @@ from PySide6.QtGui import QFont
 from typing import Callable, Optional, List, Dict
 from ..utils.snippet_manager import snippet_manager
 from ..utils.theme_manager import theme_manager
+from ..utils.logger import get_logger
 
 
 class FlowLayout(QLayout):
@@ -592,9 +593,15 @@ class SnippetPopup(QDialog):
     def __init__(self, parent, field_name: str, selected_families: List[str], on_select: Callable):
         super().__init__(parent)
         
+        # Enable tooltips on this dialog
+        self.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
+        
         self.field_name = field_name
         self.selected_families = selected_families
         self.on_select = on_select
+        
+        # Get logger for debugging
+        self.logger = get_logger()
         
         # Get snippets for each selected family separately
         self.snippets = {}
@@ -703,7 +710,13 @@ class SnippetPopup(QDialog):
     
     def _build_snippet_buttons(self, layout):
         """Build snippet selection buttons with category blocks."""
+        # Log the popup population
+        if self.logger:
+            self.logger.log_gui_action("Snippet popup opened", f"Field: {self.field_name}, Families: {self.selected_families}")
+        
         if not self.snippets:
+            if self.logger:
+                self.logger.log_warning(f"No snippets found for field {self.field_name}")
             no_snippets_label = QLabel("No snippets available for selected families")
             no_snippets_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             no_snippets_label.setStyleSheet("color: #666; font-style: italic;")
@@ -734,12 +747,12 @@ class SnippetPopup(QDialog):
             category_layout.setContentsMargins(8, 8, 8, 8)
             category_layout.setSpacing(5)
             
-            # Category title as clickable button with family info
+            # Category title as label with family info (not clickable)
             family_name = self.family_snippets.get(category, "Unknown")
-            category_button = QPushButton(f"{category.title()} ({family_name})")
-            category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            category_button.setStyleSheet("""
-                QPushButton {
+            category_label = QLabel(f"{category.title()} ({family_name})")
+            category_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            category_label.setStyleSheet("""
+                QLabel {
                     color: #333; 
                     margin-bottom: 5px; 
                     border: 1px solid #FF9800;
@@ -747,46 +760,84 @@ class SnippetPopup(QDialog):
                     background-color: #FFF3E0;
                     padding: 6px;
                 }
-                QPushButton:hover {
-                    background-color: #FFE0B2;
-                    border: 2px solid #FF9800;
-                }
             """)
-            category_button.clicked.connect(lambda checked, cat=category: self._select_category(cat))
-            category_layout.addWidget(category_button)
+            category_layout.addWidget(category_label)
             
             if isinstance(items, list):
                 # Simple category with list of items
                 for item in items:
-                    btn = QPushButton(item)
-                    btn.setMinimumHeight(25)
-                    btn.setMaximumHeight(35)
-                    btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: #E3F2FD;
-                            border: 1px solid #90CAF9;
-                            border-radius: 3px;
-                            padding: 4px 8px;
-                            text-align: left;
-                            margin: 1px 0px;
-                        }
-                        QPushButton:hover {
-                            background-color: #BBDEFB;
-                            border: 2px solid #2196F3;
-                        }
-                    """)
-                    btn.clicked.connect(lambda checked, i=item: self._select_item(i))
-                    category_layout.addWidget(btn)
+                    # Handle both string format (old) and object format (new)
+                    if isinstance(item, str):
+                        # Traditional string format
+                        btn = QPushButton(item)
+                        btn.setMinimumHeight(25)
+                        btn.setMaximumHeight(35)
+                        btn.setStyleSheet("""
+                            QPushButton {
+                                background-color: #E3F2FD;
+                                border: 1px solid #90CAF9;
+                                border-radius: 3px;
+                                padding: 4px 8px;
+                                text-align: left;
+                                margin: 1px 0px;
+                            }
+                            QPushButton:hover {
+                                background-color: #BBDEFB;
+                                border: 2px solid #2196F3;
+                            }
+                        """)
+                        btn.clicked.connect(lambda checked, i=item: self._select_item(i))
+                        category_layout.addWidget(btn)
+                    elif isinstance(item, dict):
+                        # New key-value format
+                        display_name = item.get("name", "Unknown")
+                        content = item.get("content", "")
+                        description = item.get("description", "")
+                        
+                        btn = QPushButton()
+                        btn.setText(display_name)
+                        btn.setMinimumHeight(30)
+                        btn.setMaximumHeight(40)
+                        btn.setMinimumWidth(200)
+                        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                        
+                        btn.setStyleSheet("""
+                            QPushButton {
+                                background-color: #E8F5E8;
+                                border: 1px solid #4CAF50;
+                                border-radius: 3px;
+                                padding: 6px 12px;
+                                text-align: left;
+                                margin: 1px 0px;
+                                margin-left: 10px;
+                                font-size: 12px;
+                            }
+                            QPushButton:hover {
+                                background-color: #C8E6C9;
+                                border: 2px solid #4CAF50;
+                            }
+                        """)
+                        
+                        # Set tooltip with the full content
+                        btn.setToolTip(content)
+                        btn.setToolTipDuration(30000)
+                        btn.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
+                        
+                        # Fix lambda capture issue by creating a closure
+                        def create_click_handler(full_item):
+                            return lambda checked: self._select_item(full_item)
+                        btn.clicked.connect(create_click_handler(item))
+                        category_layout.addWidget(btn)
                     
             elif isinstance(items, dict):
                 # Nested category structure - show subcategories properly
                 for subcategory, subitems in items.items():
                     if isinstance(subitems, list):
-                        # Subcategory as clickable button
-                        sub_button = QPushButton(subcategory)
-                        sub_button.setFont(QFont("Arial", 9, QFont.Weight.Bold))
-                        sub_button.setStyleSheet("""
-                            QPushButton {
+                        # Subcategory as label (not clickable)
+                        sub_label = QLabel(subcategory)
+                        sub_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+                        sub_label.setStyleSheet("""
+                            QLabel {
                                 color: #555; 
                                 margin-top: 8px; 
                                 margin-bottom: 3px; 
@@ -796,18 +847,14 @@ class SnippetPopup(QDialog):
                                 padding: 4px;
                                 text-align: left;
                             }
-                            QPushButton:hover {
-                                background-color: #FFF9C4;
-                                border: 2px solid #FFC107;
-                            }
                         """)
-                        sub_button.clicked.connect(lambda checked, cat=category, sub=subcategory: self._select_subcategory(cat, sub))
-                        category_layout.addWidget(sub_button)
+                        category_layout.addWidget(sub_label)
                         
                         # Items in this subcategory
-                        if isinstance(subitems, list):
-                            # Traditional list format
-                            for item in subitems:
+                        for item in subitems:
+                            # Handle both string format (old) and object format (new)
+                            if isinstance(item, str):
+                                # Traditional simple string format
                                 btn = QPushButton(item)
                                 btn.setMinimumHeight(25)
                                 btn.setMaximumHeight(35)
@@ -828,22 +875,29 @@ class SnippetPopup(QDialog):
                                 """)
                                 btn.clicked.connect(lambda checked, i=item: self._select_item(i))
                                 category_layout.addWidget(btn)
+                            elif isinstance(item, dict):
+                                # New key-value format
+                                display_name = item.get("name", "Unknown")
+                                content = item.get("content", "")
+                                description = item.get("description", "")
                                 
-                        elif isinstance(subitems, dict):
-                            # New instruction format with content/description
-                            for item_name, item_data in subitems.items():
-                                btn = QPushButton(item_name)
-                                btn.setMinimumHeight(25)
-                                btn.setMaximumHeight(35)
+                                btn = QPushButton()
+                                btn.setText(display_name)
+                                btn.setMinimumHeight(30)
+                                btn.setMaximumHeight(40)
+                                btn.setMinimumWidth(200)
+                                btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                                
                                 btn.setStyleSheet("""
                                     QPushButton {
                                         background-color: #E8F5E8;
                                         border: 1px solid #4CAF50;
                                         border-radius: 3px;
-                                        padding: 4px 8px;
+                                        padding: 6px 12px;
                                         text-align: left;
                                         margin: 1px 0px;
                                         margin-left: 10px;
+                                        font-size: 12px;
                                     }
                                     QPushButton:hover {
                                         background-color: #C8E6C9;
@@ -851,14 +905,15 @@ class SnippetPopup(QDialog):
                                     }
                                 """)
                                 
-                                # Set tooltip with description
-                                if isinstance(item_data, dict) and 'description' in item_data:
-                                    btn.setToolTip(item_data['description'])
-                                    # Enable tooltips explicitly
-                                    btn.setToolTipDuration(5000)  # Show for 5 seconds
+                                # Set tooltip with the full content
+                                btn.setToolTip(content)
+                                btn.setToolTipDuration(30000)
+                                btn.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
                                 
-                                # Connect to select instruction (pass the item_name for display, content for LLM)
-                                btn.clicked.connect(lambda checked, name=item_name, data=item_data: self._select_instruction(name, data))
+                                # Fix lambda capture issue by creating a closure
+                                def create_click_handler(full_item):
+                                    return lambda checked: self._select_item(full_item)
+                                btn.clicked.connect(create_click_handler(item))
                                 category_layout.addWidget(btn)
             
             # Add stretch to push content to top
@@ -873,15 +928,51 @@ class SnippetPopup(QDialog):
         # Add stretch to push everything to top
         layout.addStretch()
     
-    def _select_item(self, item: str):
+    def _select_item(self, item):
         """Handle item selection."""
+        # Handle both string and object formats
+        if isinstance(item, str):
+            # Traditional string format
+            item_name = item
+            item_content = item
+        elif isinstance(item, dict):
+            # New key-value format
+            item_name = item.get("name", "Unknown")
+            item_content = item.get("content", "")
+        else:
+            # Fallback
+            item_name = str(item)
+            item_content = str(item)
+        
+        # Log the snippet selection
+        if self.logger:
+            # Get the family for this item if possible
+            family = "Unknown"
+            for category, items in self.snippets.items():
+                if isinstance(items, list):
+                    for list_item in items:
+                        if (isinstance(list_item, str) and list_item == item_name) or \
+                           (isinstance(list_item, dict) and list_item.get("name") == item_name):
+                            family = self.family_snippets.get(category, "Unknown")
+                            break
+                elif isinstance(items, dict):
+                    for subcat, subitems in items.items():
+                        if isinstance(subitems, list):
+                            for list_item in subitems:
+                                if (isinstance(list_item, str) and list_item == item_name) or \
+                                   (isinstance(list_item, dict) and list_item.get("name") == item_name):
+                                    family = self.family_snippets.get(category, "Unknown")
+                                    break
+            
+            self.logger.log_snippet_interaction(self.field_name, "selected", item_name, family)
+        
         # For regular snippets, call with just the item text
         if hasattr(self.on_select, '__code__') and self.on_select.__code__.co_argcount > 2:
             # New signature that accepts category_path
-            self.on_select(item, None)
+            self.on_select(item_content, None)
         else:
             # Old signature for backwards compatibility
-            self.on_select(item)
+            self.on_select(item_content)
         # Don't close popup - let user select multiple items
     
     def _select_category(self, category: str):
@@ -904,18 +995,7 @@ class SnippetPopup(QDialog):
             self.on_select(f"[SUBCATEGORY: {category}/{subcategory}]")
         # Don't close popup - let user select multiple items
     
-    def _select_instruction(self, name: str, data: dict):
-        """Handle instruction selection."""
-        # For instructions, pass the name (for display) but store the content for LLM use
-        # We'll store both in a special format that the field widget can parse
-        if isinstance(data, dict) and 'content' in data:
-            # Create a special instruction tag format: name|content
-            instruction_tag = f"{name}|{data['content']}"
-            self.on_select(instruction_tag, None)
-        else:
-            # Fallback to just the name
-            self.on_select(name, None)
-        # Don't close popup - let user select multiple items
+
     
     def _apply_styling(self):
         """Apply styling to the dialog."""

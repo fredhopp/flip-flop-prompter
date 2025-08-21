@@ -40,11 +40,12 @@ taskkill //F //IM python.exe
 
 ## Current Architecture
 - **GUI**: Modern PySide6 with tag-based input system
-- **Snippets**: JSON files with family/content rating system (PG/NSFW/Hentai)
+- **Snippets**: JSON files with unified key-value structure (name/content/description)
 - **Tag System**: Inline tags with colors (blue=snippets, green=user text, orange=categories, yellow=subcategories)
 - **Randomization**: Seed-based deterministic random snippet selection
 - **Families**: Dynamic filtering system with real-time snippet updates
 - **LLM Integration**: Ollama with dynamic model population and connection testing
+- **Logging**: Comprehensive GUI interaction logging with debug mode integration
 
 ## Git Workflow
 ## ��� GIT PUSH CONFIRMATION RULE ���
@@ -91,11 +92,12 @@ Should I proceed with the commit and push?"
 - **Templates**: JSON format, saved in user data directory
 
 ## Key Technical Decisions
-- **Snippet Structure**: `family` field for filtering, `LLM_rating` for AI context
+- **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
 - **Tag Colors**: Cold colors for static (blue/green), hot colors for random (orange/yellow)
 - **Family Filtering**: Strict matching (no hierarchy) - PG only shows PG content
 - **GUI Styling**: Blue accent buttons (`#0066cc`) with modern scrollbars
 - **Window Behavior**: Only preview panel expands on resize, status bar fixed height
+- **LLM Instructions**: Full content displayed in tooltips, clean button names
 
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
@@ -120,6 +122,8 @@ Should I proceed with the commit and push?"
 5. **Future**: AI service integrations and advanced features
 
 ## Recent Major Changes
+- **JSON Structure Refactoring**: Unified all snippet files to key-value format with proper tooltips
+- **GUI Logging System**: Comprehensive logging of user interactions with debug mode integration
 - **PySide6 Migration**: Complete migration from Tkinter to modern Qt-based GUI
 - **Tag System**: Implemented inline tag-based input with colors and editing
 - **Family System**: Replaced content rating with family filtering (PG/NSFW/Hentai)

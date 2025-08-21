@@ -25,10 +25,11 @@ class TagType(Enum):
 class Tag:
     """Data model for a tag."""
     
-    def __init__(self, text: str, tag_type: TagType, category_path: Optional[List[str]] = None):
+    def __init__(self, text: str, tag_type: TagType, category_path: Optional[List[str]] = None, data: Optional[str] = None):
         self.text = text
         self.tag_type = tag_type
         self.category_path = category_path or []  # For category/subcategory tags: ["Human", "Gender"]
+        self.data = data  # For special data like LLM instructions with full content
         self.id = f"{tag_type.value}_{text}_{hash(str(category_path))}"
     
     def __eq__(self, other):
@@ -43,11 +44,14 @@ class Tag:
     
     def to_dict(self) -> Dict:
         """Convert tag to dictionary for template persistence."""
-        return {
+        result = {
             "text": self.text,
             "type": self.tag_type.value,
             "category_path": self.category_path
         }
+        if self.data:
+            result["data"] = self.data
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'Tag':
@@ -55,7 +59,8 @@ class Tag:
         return cls(
             text=data["text"],
             tag_type=TagType(data["type"]),
-            category_path=data.get("category_path", [])
+            category_path=data.get("category_path", []),
+            data=data.get("data")
         )
 
 

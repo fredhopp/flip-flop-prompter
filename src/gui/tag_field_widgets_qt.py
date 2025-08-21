@@ -131,8 +131,22 @@ class TagFieldWidget(QWidget):
             
             new_tag = Tag(tag_text, tag_type, category_path)
         else:
-            # Regular snippet selection
-            new_tag = Tag(snippet_text, TagType.SNIPPET)
+            # Check if this is an LLM instruction with key-value format
+            if isinstance(snippet_text, dict):
+                # New key-value format
+                display_name = snippet_text.get("name", "Unknown")
+                content = snippet_text.get("content", "")
+                # Store the full instruction content for LLM use
+                new_tag = Tag(display_name, TagType.SNIPPET, data=content)
+            elif "|" in snippet_text:
+                # Legacy name|content format (for backward compatibility)
+                parts = snippet_text.split("|", 1)
+                display_name = parts[0]
+                # Store the full instruction (name|content) for LLM use
+                new_tag = Tag(display_name, TagType.SNIPPET, data=snippet_text)
+            else:
+                # Regular snippet selection
+                new_tag = Tag(snippet_text, TagType.SNIPPET)
         
         # Check if tag already exists
         existing_tags = self.tag_input.get_tags()
@@ -154,6 +168,23 @@ class TagFieldWidget(QWidget):
     def get_value(self) -> str:
         """Get the current field value for display."""
         return self.tag_input.get_display_text()
+    
+    def get_llm_instruction_content(self) -> str:
+        """Get the full LLM instruction content from tags."""
+        tags = self.tag_input.get_tags()
+        for tag in tags:
+            if tag.data:
+                # Check if it's the new format (content stored directly)
+                if not "|" in tag.data:
+                    # New format: content is stored directly in tag.data
+                    return tag.data
+                else:
+                    # Legacy format: content part of name|content format
+                    return tag.data.split("|", 1)[1]
+            elif tag.text and not tag.data:
+                # Fallback to tag text for simple tags
+                return tag.text
+        return ""
     
     def get_randomized_value(self, seed: int) -> str:
         """Get the randomized value based on current seed."""

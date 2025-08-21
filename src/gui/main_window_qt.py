@@ -21,6 +21,7 @@ from .snippet_widgets_qt import ContentRatingWidget, ModelSelectionWidget, LLMSe
 from .preview_panel_qt import PreviewPanel
 from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
+from ..utils.logger import get_logger
 
 
 class MainWindow(QMainWindow):
@@ -29,7 +30,7 @@ class MainWindow(QMainWindow):
     # Custom signals
     content_rating_changed = Signal(str)
     
-    def __init__(self):
+    def __init__(self, debug_enabled: bool = False):
         super().__init__()
         
         # Initialize components with lazy loading
@@ -37,7 +38,8 @@ class MainWindow(QMainWindow):
         self._prompt_engine_initialized = False
         
         # Debug settings
-        self.debug_enabled = False
+        self.debug_enabled = debug_enabled
+        self.logger = get_logger()
         
         # Track open snippet popups for dynamic updates
         self.open_snippet_popups = []
@@ -847,6 +849,10 @@ class MainWindow(QMainWindow):
     def _generate_prompt(self):
         """Generate the final prompt using the LLM."""
         try:
+            # Log the generation attempt
+            if self.logger:
+                self.logger.log_gui_action("Generate prompt", "Starting prompt generation")
+            
             # Get current seed for randomization
             seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
             
@@ -862,7 +868,7 @@ class MainWindow(QMainWindow):
                 framing_action=self.framing_widget.get_randomized_value(seed) if hasattr(self, 'framing_widget') else "",
                 grading=self.grading_widget.get_randomized_value(seed) if hasattr(self, 'grading_widget') else "",
                 details=self.details_widget.get_randomized_value(seed) if hasattr(self, 'details_widget') else "",
-                llm_instructions=self.llm_instructions_widget.get_value() if hasattr(self, 'llm_instructions_widget') else ""
+                llm_instructions=self.llm_instructions_widget.get_llm_instruction_content() if hasattr(self, 'llm_instructions_widget') else ""
             )
             
             # Validate that LLM instructions are selected
@@ -891,6 +897,10 @@ class MainWindow(QMainWindow):
             # Calculate generation time
             generation_time = (datetime.now() - start_time).total_seconds()
             
+            # Log successful generation
+            if self.logger:
+                self.logger.log_gui_action("Generate prompt", f"Success - {generation_time:.2f}s - Model: {llm_model}")
+            
             # Stop progress tracking with actual duration
             self._stop_progress_tracking(generation_time)
             
@@ -906,6 +916,10 @@ class MainWindow(QMainWindow):
         except Exception as e:
             # Stop progress tracking on error
             self._stop_progress_tracking()
+            
+            # Log the error
+            if self.logger:
+                self.logger.log_error(f"Failed to generate prompt: {str(e)}", "Generate prompt")
             
             QMessageBox.critical(self, "Error", f"Failed to generate prompt: {str(e)}")
             self._show_error_message(f"Failed to generate prompt: {str(e)}")
@@ -1058,6 +1072,10 @@ class MainWindow(QMainWindow):
     
     def _on_family_changed(self, family_name, checked):
         """Handle family selection changes."""
+        # Log the family change
+        if self.logger:
+            self.logger.log_gui_action(f"Family changed", f"{family_name}: {'checked' if checked else 'unchecked'}")
+        
         # Update snippet dropdowns with new family selection
         self._update_snippet_families()
         

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, QMessageLogContext, QMessageLogger
 from PySide6.QtCore import qInstallMessageHandler
 from src.gui.main_window_qt import MainWindow
+from src.utils.logger import initialize_logger
 
 
 def qt_message_handler(message_type, context, message):
@@ -54,6 +55,9 @@ def main():
         args.gui = True
     
     if args.gui:
+        # Initialize logger with debug mode
+        logger = initialize_logger(args.debug)
+        
         # Create QApplication
         app = QApplication(sys.argv)
         
@@ -69,7 +73,7 @@ def main():
         # Enable high DPI scaling (Qt 6.x handles this automatically)
         
         # Create and show main window
-        window = MainWindow()
+        window = MainWindow(debug_enabled=args.debug)
         window.show()
         
         # Start event loop

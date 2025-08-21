@@ -122,10 +122,23 @@ class SnippetManager:
                     self.all_snippets[field_key]["categories"][category_name] = []
                 
                 # Add items with deduplication
-                existing_items = set(self.all_snippets[field_key]["categories"][category_name])
+                existing_items = []
+                for existing_item in self.all_snippets[field_key]["categories"][category_name]:
+                    if isinstance(existing_item, str):
+                        existing_items.append(existing_item)
+                    elif isinstance(existing_item, dict):
+                        existing_items.append(existing_item.get("name", ""))
+                
                 for item in category_items:
-                    if item not in existing_items:
-                        self.all_snippets[field_key]["categories"][category_name].append(item)
+                    # Handle both string format (old) and object format (new)
+                    if isinstance(item, str):
+                        if item not in existing_items:
+                            self.all_snippets[field_key]["categories"][category_name].append(item)
+                    elif isinstance(item, dict):
+                        # New key-value format
+                        item_name = item.get("name", "")
+                        if item_name and item_name not in existing_items:
+                            self.all_snippets[field_key]["categories"][category_name].append(item)
                         
             elif isinstance(category_items, dict):
                 # Nested category structure
@@ -139,10 +152,21 @@ class SnippetManager:
                         if subcategory_name not in self.all_snippets[field_key]["categories"][category_name]:
                             self.all_snippets[field_key]["categories"][category_name][subcategory_name] = []
                         
-                        existing_subitems = set(self.all_snippets[field_key]["categories"][category_name][subcategory_name])
+                        existing_subitems = []
+                        for existing_item in self.all_snippets[field_key]["categories"][category_name][subcategory_name]:
+                            if isinstance(existing_item, str):
+                                existing_subitems.append(existing_item)
+                            elif isinstance(existing_item, dict):
+                                existing_subitems.append(existing_item.get("name", ""))
+                        
                         for item in subcategory_items:
-                            if item not in existing_subitems:
-                                self.all_snippets[field_key]["categories"][category_name][subcategory_name].append(item)
+                            if isinstance(item, str):
+                                if item not in existing_subitems:
+                                    self.all_snippets[field_key]["categories"][category_name][subcategory_name].append(item)
+                            elif isinstance(item, dict):
+                                item_name = item.get("name", "")
+                                if item_name and item_name not in existing_subitems:
+                                    self.all_snippets[field_key]["categories"][category_name][subcategory_name].append(item)
                                 
                     elif isinstance(subcategory_items, dict):
                         # New instruction format with content/description
@@ -177,10 +201,23 @@ class SnippetManager:
                                 matching_snippets[category_name] = []
                             
                             # Add items with deduplication
-                            existing_items = set(matching_snippets[category_name])
+                            existing_items = []
+                            for existing_item in matching_snippets[category_name]:
+                                if isinstance(existing_item, str):
+                                    existing_items.append(existing_item)
+                                elif isinstance(existing_item, dict):
+                                    existing_items.append(existing_item.get("name", ""))
+                            
                             for item in category_items:
-                                if item not in existing_items:
-                                    matching_snippets[category_name].append(item)
+                                # Handle both string format (old) and object format (new)
+                                if isinstance(item, str):
+                                    if item not in existing_items:
+                                        matching_snippets[category_name].append(item)
+                                elif isinstance(item, dict):
+                                    # New key-value format
+                                    item_name = item.get("name", "")
+                                    if item_name and item_name not in existing_items:
+                                        matching_snippets[category_name].append(item)
                                     
                         elif isinstance(category_items, dict):
                             # Nested category structure
@@ -197,10 +234,21 @@ class SnippetManager:
                                     if subcategory_name not in matching_snippets[category_name]:
                                         matching_snippets[category_name][subcategory_name] = []
                                     
-                                    existing_subitems = set(matching_snippets[category_name][subcategory_name])
+                                    existing_subitems = []
+                                    for existing_item in matching_snippets[category_name][subcategory_name]:
+                                        if isinstance(existing_item, str):
+                                            existing_subitems.append(existing_item)
+                                        elif isinstance(existing_item, dict):
+                                            existing_subitems.append(existing_item.get("name", ""))
+                                    
                                     for item in subcategory_items:
-                                        if item not in existing_subitems:
-                                            matching_snippets[category_name][subcategory_name].append(item)
+                                        if isinstance(item, str):
+                                            if item not in existing_subitems:
+                                                matching_snippets[category_name][subcategory_name].append(item)
+                                        elif isinstance(item, dict):
+                                            item_name = item.get("name", "")
+                                            if item_name and item_name not in existing_subitems:
+                                                matching_snippets[category_name][subcategory_name].append(item)
                                             
                                 elif isinstance(subcategory_items, dict):
                                     # New instruction format with content/description
