@@ -89,37 +89,37 @@ class PreviewPanel(QWidget):
         
         # Back button
         self.back_button = QPushButton("←")
-        self.back_button.setFixedSize(30, 30)
+        self.back_button.setFixedSize(35, 35)
         self.back_button.setToolTip("Go to previous prompt")
         self.back_button.clicked.connect(self.history_back_requested.emit)
-        self.back_button.setEnabled(False)
+        self.back_button.setEnabled(True)  # Enable for testing
         
         # Forward button
         self.forward_button = QPushButton("→")
-        self.forward_button.setFixedSize(30, 30)
+        self.forward_button.setFixedSize(35, 35)
         self.forward_button.setToolTip("Go to next prompt")
         self.forward_button.clicked.connect(self.history_forward_requested.emit)
-        self.forward_button.setEnabled(False)
+        self.forward_button.setEnabled(True)  # Enable for testing
         
         # Counter label
         self.counter_label = QLabel("0/0")
-        self.counter_label.setFont(QFont("Arial", 9))
-        self.counter_label.setMinimumWidth(50)
+        self.counter_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.counter_label.setMinimumWidth(60)
         self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Delete button
         self.delete_button = QPushButton("🗑")
-        self.delete_button.setFixedSize(30, 30)
+        self.delete_button.setFixedSize(35, 35)
         self.delete_button.setToolTip("Delete current prompt")
         self.delete_button.clicked.connect(self.history_delete_requested.emit)
-        self.delete_button.setEnabled(False)
+        self.delete_button.setEnabled(True)  # Enable for testing
         
         # Clear history button
         self.clear_button = QPushButton("Clear")
-        self.clear_button.setFixedSize(50, 30)
+        self.clear_button.setFixedSize(60, 35)
         self.clear_button.setToolTip("Clear all history")
         self.clear_button.clicked.connect(self.history_clear_requested.emit)
-        self.clear_button.setEnabled(False)
+        self.clear_button.setEnabled(True)  # Enable for testing
         
         # Add stretch to push controls to the left
         nav_layout.addStretch()
@@ -370,30 +370,37 @@ class PreviewPanel(QWidget):
         """Apply styling to navigation controls using the same blue color as other buttons."""
         colors = theme_manager.get_theme_colors()
         
+        # Use explicit blue color for buttons to ensure they're visible
+        button_bg = "#0066cc"  # Same blue as other buttons
+        button_fg = "#ffffff"  # White text
+        button_hover = "#0052a3"  # Darker blue on hover
+        button_pressed = "#003d7a"  # Even darker on press
+        disabled_bg = "#cccccc"  # Light gray when disabled
+        disabled_fg = "#666666"  # Dark gray text when disabled
+        
         # Use the same button styling as other buttons in the app
         nav_style = f"""
             QPushButton {{
-                background-color: {colors['button_bg']};
-                color: {colors['button_fg']};
-                border: 2px solid {colors['button_bg']};
+                background-color: {button_bg};
+                color: {button_fg};
+                border: 2px solid {button_bg};
                 border-radius: 4px;
                 font-weight: bold;
                 font-size: 12px;
+                min-height: 20px;
             }}
             QPushButton:hover {{
-                background-color: {colors['button_bg']};
-                border-color: {colors['button_bg']};
-                opacity: 0.8;
+                background-color: {button_hover};
+                border-color: {button_hover};
             }}
             QPushButton:pressed {{
-                background-color: {colors['button_bg']};
-                border-color: {colors['button_bg']};
-                opacity: 0.6;
+                background-color: {button_pressed};
+                border-color: {button_pressed};
             }}
             QPushButton:disabled {{
-                background-color: {colors['placeholder_fg']};
-                border-color: {colors['placeholder_fg']};
-                color: {colors['text_bg']};
+                background-color: {disabled_bg};
+                border-color: {disabled_bg};
+                color: {disabled_fg};
             }}
         """
         
@@ -416,5 +423,6 @@ class PreviewPanel(QWidget):
                     border: 1px solid {colors['tag_border']};
                     border-radius: 3px;
                     padding: 2px 6px;
+                    font-weight: bold;
                 }}
             """)
