@@ -380,10 +380,6 @@ class PreviewPanel(QWidget):
         button_pressed = "#003d7a"  # Even darker on press
         disabled_bg = "#cccccc"  # Light gray when disabled
         disabled_fg = "#666666"  # Dark gray text when disabled
-    
-    def refresh_navigation_styling(self):
-        """Refresh navigation controls styling - can be called when theme changes."""
-        self._apply_navigation_styling()
         
         # Use the same button styling as other buttons in the app
         nav_style = f"""
@@ -433,3 +429,7 @@ class PreviewPanel(QWidget):
                     font-weight: bold;
                 }}
             """)
+    
+    def refresh_navigation_styling(self):
+        """Refresh navigation controls styling - can be called when theme changes."""
+        self._apply_navigation_styling()
