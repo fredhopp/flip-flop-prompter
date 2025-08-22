@@ -165,12 +165,20 @@ class MainWindow(QMainWindow):
         
         # Initialize filters (checkboxes)
         self.filter_actions = {}
-        filters = ["PG", "NSFW", "Hentai"]
+        # Get available filters dynamically from snippet files
+        snippet_manager = None
+        try:
+            from ..utils.snippet_manager import SnippetManager
+            snippet_manager = SnippetManager()
+            available_filters = snippet_manager.get_available_filters()
+            filters = available_filters if available_filters else ["PG"]  # Fallback for empty case
+        except Exception:
+            filters = ["PG", "NSFW", "Hentai"]  # Ultimate fallback
         
         for filter_name in filters:
             action = QAction(filter_name, self)
             action.setCheckable(True)
-            if filter_name == "PG":  # Default selection
+            if filter_name == filters[0]:  # Default to first available filter
                 action.setChecked(True)
             action.triggered.connect(lambda checked, f=filter_name: self._on_filter_changed(f, checked))
             filters_menu.addAction(action)
@@ -738,8 +746,10 @@ class MainWindow(QMainWindow):
             self.llm_instructions_widget.clear()
         
         # Reset filters to default
+        # Reset to first available filter (or none if no filters available)
+        first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
         for filter_name, action in self.filter_actions.items():
-            action.setChecked(filter_name == "PG")
+            action.setChecked(filter_name == first_filter)
         
         # Reset model to default
         if hasattr(self, 'model_widget'):
@@ -926,7 +936,9 @@ class MainWindow(QMainWindow):
         # Initialize variables outside try block to avoid UnboundLocalError
         llm_model = "gemma3:4b"  # Default fallback
         model = "seedream"  # Default model
-        content_rating = "PG"  # Default fallback
+        # Get first available filter as fallback 
+        first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
+        content_rating = first_filter if first_filter else "PG"  # Ultimate fallback
         
         try:
             # Log the generation attempt
@@ -962,7 +974,7 @@ class MainWindow(QMainWindow):
             # Get LLM model and filters (use first selected filter for backward compatibility)
             llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
             selected_filters = self._get_selected_filters()
-            content_rating = selected_filters[0] if selected_filters else "PG"
+            content_rating = selected_filters[0] if selected_filters else first_filter
             
             # Start progress tracking
             self._start_progress_tracking(llm_model, "seedream")
@@ -1848,9 +1860,9 @@ class MainWindow(QMainWindow):
         """
         try:
 
-            ratings = snippet_manager.get_available_ratings()
-            for rating in ratings:
-                snippets_data = snippet_manager.get_snippets_for_field(field_name, rating)
+            filters = snippet_manager.get_available_filters()
+            for filter_name in filters:
+                snippets_data = snippet_manager.get_snippets_for_field(field_name, filter_name)
                 if snippets_data:
                     # Search through categories
                     for category_name, category_data in snippets_data.items():

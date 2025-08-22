@@ -102,7 +102,7 @@ class TagFieldWidget(QWidget):
     def _show_snippets(self):
         """Show the snippet popup with category/subcategory buttons."""
         # Get selected filters from main window
-        selected_filters = ["PG"]  # Default fallback
+        selected_filters = []  # No default - will be determined by main window
         
         # Try to find the main window to get selected filters
         main_window = self._find_main_window()
@@ -202,7 +202,7 @@ class TagFieldWidget(QWidget):
     def get_randomized_value(self, seed: int) -> str:
         """Get the randomized value based on current seed."""
         # Get selected filters from main window
-        selected_filters = ["PG"]  # Default fallback
+        selected_filters = []  # No default - will be determined by main window
         
         # Try to find the main window to get selected filters
         main_window = self._find_main_window()
@@ -275,7 +275,7 @@ class TagFieldWidget(QWidget):
                 # Use the SAME logic as preview system: tag.category_path[0]
                 if len(category_tag.category_path) >= 1:
                     category_items = []
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     for filter_name in filters:
                         items = snippet_manager.get_category_items(self.field_name, category_tag.category_path[0], filter_name)
                         category_items.extend(items)
@@ -289,7 +289,7 @@ class TagFieldWidget(QWidget):
                 # Use the SAME logic as preview system: tag.category_path[0] and tag.category_path[1]
                 if len(category_tag.category_path) >= 2:
                     subcategory_items = []
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     for filter_name in filters:
                         items = snippet_manager.get_subcategory_items(
                             self.field_name, 
@@ -513,7 +513,7 @@ class SeedFieldWidget(QWidget):
         current_seed = self.get_value()
         
         # Get selected filters for snippet filtering
-        selected_filters = main_window._get_selected_filters() if hasattr(main_window, '_get_selected_filters') else ["PG"]
+        selected_filters = main_window._get_selected_filters() if hasattr(main_window, '_get_selected_filters') else []
         
         # Realize all field widgets
         field_widgets = [

@@ -418,7 +418,7 @@ class TagContainer(QWidget):
                 if len(tag.category_path) >= 1:
                     # Need to determine field name - get from parent widget if possible
                     field_name = getattr(self, '_field_name', 'subjects')  # Default fallback
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     category_items = []
                     for filter_name in filters:
                         items = snippet_manager.get_category_items(field_name, tag.category_path[0], filter_name)
@@ -430,7 +430,7 @@ class TagContainer(QWidget):
                 if len(tag.category_path) >= 2:
                     # Need to determine field name - get from parent widget if possible
                     field_name = getattr(self, '_field_name', 'subjects')  # Default fallback
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     subcategory_items = []
                     for filter_name in filters:
                         items = snippet_manager.get_subcategory_items(

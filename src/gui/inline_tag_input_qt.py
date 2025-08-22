@@ -391,7 +391,7 @@ class InlineTagInputWidget(QWidget):
                 # Get random item from category
                 if len(tag.category_path) >= 1:
                     field_name = getattr(self, '_field_name', 'subjects')
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     category_items = []
                     for filter_name in filters:
                         items = snippet_manager.get_category_items(field_name, tag.category_path[0], filter_name)
@@ -407,7 +407,7 @@ class InlineTagInputWidget(QWidget):
                 # Get random item from subcategory
                 if len(tag.category_path) >= 2:
                     field_name = getattr(self, '_field_name', 'subjects')
-                    filters = selected_filters or ["PG"]
+                    filters = selected_filters
                     subcategory_items = []
                     for filter_name in filters:
                         items = snippet_manager.get_subcategory_items(

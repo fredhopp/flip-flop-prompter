@@ -71,12 +71,12 @@ class FlipFlopLogger:
         
         self.logger.info(message)
     
-    def log_snippet_interaction(self, field: str, action: str, snippet: str, family: str = "PG"):
+    def log_snippet_interaction(self, field: str, action: str, snippet: str, content_filter: str):
         """Log snippet-related interactions."""
         if not self.debug_enabled or not self.logger:
             return
         
-        self.logger.info(f"SNIPPET: {field} | {action} | '{snippet}' | Family: {family}")
+        self.logger.info(f"SNIPPET: {field} | {action} | '{snippet}' | Filter: {content_filter}")
     
     def log_llm_interaction(self, model: str, action: str, details: Optional[str] = None):
         """Log LLM-related interactions."""

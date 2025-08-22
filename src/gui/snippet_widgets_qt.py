@@ -611,19 +611,8 @@ class SnippetPopup(QDialog):
         self.snippets = {}
         self.filter_name_snippets = {}  # Track which filter_name each category belongs to
         
-        # Process filters in priority order (PG first, then NSFW, then Hentai)
-        filter_name_priority = ["PG", "NSFW", "Hentai"]
-        sorted_filters = []
-        
-        # Add filters in priority order if they're selected
-        for priority_filter_name in filter_name_priority:
-            if priority_filter_name in selected_filters:
-                sorted_filters.append(priority_filter_name)
-        
-        # Add any remaining selected filters not in the priority list
-        for filter_name in selected_filters:
-            if filter_name not in sorted_filters:
-                sorted_filters.append(filter_name)
+        # Process filters in the order they were selected
+        sorted_filters = selected_filters.copy() if selected_filters else []
         
         for filter_name in sorted_filters:
             filter_name_snippets = snippet_manager.get_snippets_for_field(field_name, filter_name)
@@ -1384,23 +1373,12 @@ class SnippetPopup(QDialog):
         """Refresh snippets based on new filter_name selection."""
         self.selected_filters = selected_filters
         
-        # Rebuild snippets with new filter_name selection using priority order
+        # Rebuild snippets with new filter_name selection
         self.snippets = {}
         self.filter_name_snippets = {}
         
-        # Process filters in priority order (PG first, then NSFW, then Hentai)
-        filter_name_priority = ["PG", "NSFW", "Hentai"]
-        sorted_filters = []
-        
-        # Add filters in priority order if they're selected
-        for priority_filter_name in filter_name_priority:
-            if priority_filter_name in selected_filters:
-                sorted_filters.append(priority_filter_name)
-        
-        # Add any remaining selected filters not in the priority list
-        for filter_name in selected_filters:
-            if filter_name not in sorted_filters:
-                sorted_filters.append(filter_name)
+        # Process filters in the order they were selected
+        sorted_filters = selected_filters.copy() if selected_filters else []
         
         for filter_name in sorted_filters:
             filter_name_snippets = snippet_manager.get_snippets_for_field(self.field_name, filter_name)

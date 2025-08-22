@@ -182,7 +182,7 @@ class TextFieldWidget(FieldWidget):
         if main_window:
             selected_filters = main_window._get_selected_filters()
         else:
-            selected_filters = ["PG"]  # Default
+            selected_filters = []  # No default
         
         # Create and show snippet popup
         popup = SnippetPopup(self, field_name, selected_filters, self._on_snippet_select)

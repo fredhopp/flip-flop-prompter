@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Any, Set, Callable
 from enum import Enum
 
 
-class ContentRating(Enum):
-    """Content rating levels."""
+class ContentFilter(Enum):
+    """Content filter levels."""
     PG = "PG"
     NSFW = "NSFW"
     HENTAI = "Hentai"
@@ -28,8 +28,8 @@ class SnippetManager:
         # Master snippet collection
         self.all_snippets: Dict[str, Dict[str, Any]] = {}
         
-        # Available ratings (dynamically discovered)
-        self.available_ratings: List[str] = ["PG"]  # Default fallback
+        # Available filters (dynamically discovered)
+        self.available_filters: List[str] = []  # No default fallback - discover from JSON
         
         # Load all snippets
         self._load_all_snippets()
@@ -51,7 +51,7 @@ class SnippetManager:
     def _load_all_snippets(self):
         """Load all snippets from repo and user directories."""
         self.all_snippets = {}
-        self.available_ratings = set()
+        self.available_filters = set()
         
         # Load repo snippets
         repo_snippets_dir = Path(__file__).parent.parent.parent / "data" / "snippets"
@@ -62,8 +62,8 @@ class SnippetManager:
         if self.snippets_dir.exists():
             self._load_snippets_from_directory(self.snippets_dir, "user")
         
-        # Convert ratings to sorted list with fallback
-        self.available_ratings = sorted(list(self.available_ratings)) if self.available_ratings else ["PG"]
+        # Convert filters to sorted list
+        self.available_filters = sorted(list(self.available_filters)) if self.available_filters else []
     
     def _load_snippets_from_directory(self, directory: Path, source: str):
         """Load all JSON files from a directory."""
@@ -92,7 +92,7 @@ class SnippetManager:
         field = snippet_data.get("field")
         
         # Handle both old "family" field and new "filter" field for backward compatibility
-        family = snippet_data.get("filter", snippet_data.get("family", "PG"))
+        family = snippet_data.get("filter", snippet_data.get("family"))
         llm_rating = snippet_data.get("LLM_rating", snippet_data.get("rating", "PG"))
         
         categories = snippet_data.get("categories", {})
@@ -100,8 +100,8 @@ class SnippetManager:
         if not field or not categories:
             return
         
-        # Add family to available ratings (for backward compatibility, we still call it ratings)
-        self.available_ratings.add(family)
+        # Add filter to available filters
+        self.available_filters.add(family)
         
         # Store snippets by field and family
         field_key = f"{field}_{family}"
@@ -176,21 +176,21 @@ class SnippetManager:
                         # Store the entire object with content and description
                         self.all_snippets[field_key]["categories"][category_name][subcategory_name] = subcategory_items
     
-    def get_available_ratings(self) -> List[str]:
-        """Get all available ratings from loaded snippets."""
-        return self.available_ratings
+    def get_available_filters(self) -> List[str]:
+        """Get all available filters from loaded snippets."""
+        return self.available_filters
     
-    def get_snippets_for_field(self, field_name: str, content_rating: str = "PG") -> Optional[Dict[str, List[str]]]:
-        """Get snippets for a specific field based on content rating."""
-        # Find all snippets for this field and rating
+    def get_snippets_for_field(self, field_name: str, content_filter: str) -> Optional[Dict[str, List[str]]]:
+        """Get snippets for a specific field based on content filter."""
+        # Find all snippets for this field and filter
         matching_snippets = {}
         
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
+                snippet_filter = snippet_data.get("filter", snippet_data.get("family"))
                 
-                # Check if this snippet's family is appropriate for the requested family filter
-                if self._is_family_appropriate(snippet_family, content_rating):
+                # Check if this snippet's filter matches the requested filter
+                if self._is_filter_appropriate(snippet_filter, content_filter):
                     categories = snippet_data.get("categories", {})
                     
                     # Merge categories
@@ -260,11 +260,11 @@ class SnippetManager:
         
         return matching_snippets if matching_snippets else None
     
-    def _is_family_appropriate(self, snippet_family: str, requested_family: str) -> bool:
-        """Check if a snippet's family is appropriate for the requested family filter."""
+    def _is_filter_appropriate(self, snippet_filter: str, requested_filter: str) -> bool:
+        """Check if a snippet's filter matches the requested filter."""
         # Normalize filters to lowercase for comparison
-        snippet_lower = snippet_family.lower()
-        requested_lower = requested_family.lower()
+        snippet_lower = snippet_filter.lower()
+        requested_lower = requested_filter.lower()
         
         # Filters should only show content from their own filter
         # This is a filter, not a hierarchy - each filter is independent
@@ -339,16 +339,16 @@ class SnippetManager:
         except Exception as e:
             print(f"Error importing snippets: {e}")
     
-    def get_category_items(self, field_name: str, category_name: str, content_rating: str = "PG") -> List[str]:
+    def get_category_items(self, field_name: str, category_name: str, content_filter: str) -> List[str]:
         """Get all items from a specific category in a field."""
         items = []
         
         # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
+                snippet_filter = snippet_data.get("filter", snippet_data.get("family"))
                 
-                if self._is_family_appropriate(snippet_family, content_rating):
+                if self._is_filter_appropriate(snippet_filter, content_filter):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:
@@ -385,16 +385,16 @@ class SnippetManager:
         
         return unique_items
     
-    def get_subcategory_items(self, field_name: str, category_name: str, subcategory_name: str, content_rating: str = "PG") -> List[str]:
+    def get_subcategory_items(self, field_name: str, category_name: str, subcategory_name: str, content_filter: str = "PG") -> List[str]:
         """Get all items from a specific subcategory in a field."""
         items = []
         
         # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
+                snippet_filter = snippet_data.get("filter", snippet_data.get("family"))
                 
-                if self._is_family_appropriate(snippet_family, content_rating):
+                if self._is_filter_appropriate(snippet_filter, content_filter):
                     categories = snippet_data.get("categories", {})
                     
                     if category_name in categories:
@@ -421,10 +421,10 @@ class SnippetManager:
         
         return unique_items
 
-    def create_snippet_dropdown(self, parent, field_name: str, on_select: Callable[[str], None], content_rating: str = "PG"):
+    def create_snippet_dropdown(self, parent, field_name: str, on_select: Callable[[str], None], content_filter: str = "PG"):
         """Create a snippet dropdown widget."""
         from ..gui.snippet_widgets import SnippetDropdown
-        return SnippetDropdown(parent, field_name, on_select, content_rating)
+        return SnippetDropdown(parent, field_name, on_select, content_filter)
 
 
 # Global snippet manager instance
