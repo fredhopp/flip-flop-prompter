@@ -112,14 +112,14 @@ class InlineTagWidget(QWidget):
             QPushButton {
                 background-color: rgba(255, 255, 255, 0.7);
                 border: 1px solid #ccc;
-                color: #666666;
+                color: {colors.get('placeholder_fg', '#666666')};
                 font-weight: bold;
                 border-radius: 7px;
             }
             QPushButton:hover {
-                background-color: #FF6B6B;
-                color: white;
-                border: 1px solid #FF6B6B;
+                            background-color: {colors.get('user_text_bg', '#FF6B6B')};
+            color: {colors.get('user_text_fg', '#000000')};
+            border: 1px solid {colors.get('user_text_border', '#FF6B6B')};
             }
         """
         
@@ -218,12 +218,12 @@ class InlineTagInputWidget(QWidget):
         """Apply styling to the widget."""
         style = """
             QScrollArea {
-                border: 1px solid #D0D0D0;
+                border: 1px solid {colors.get('tag_border', '#D0D0D0')};
                 border-radius: 4px;
                 background-color: white;
             }
             QScrollArea:focus {
-                border: 2px solid #0066cc;
+                border: 2px solid {colors.get('focus_color', '#0066cc')};
             }
         """
         self.setStyleSheet(style)

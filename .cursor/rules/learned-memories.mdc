@@ -22,12 +22,14 @@ Should I proceed with the commit and push?"
 - **KILL any process launched by an agent for testing**
 - **Clean up test processes** - Don't leave hanging Python processes when testing
 - **Use `taskkill //F //IM python.exe` to clean hanging processes**
+- **Keep track of bash.exe processes and selectively kill them when no longer needed. Use `taskkill` in command prompt, not gitbash to run `taskkill`** - more than 16 bash.exe processes running results in not being able to run command on the terminal anymore
 
 ## Development Workflow Preferences
 - **Always ask for confirmation before pushing to git**
 - **Execute commands directly rather than just suggest them**
 - **Prefer bash commands over manual instructions**
 - **Clean up test processes** - Don't leave hanging Python processes when testing
+
 
 ## Project Setup & Environment
 - **Virtual Environment**: `.venv` (not `venv`)

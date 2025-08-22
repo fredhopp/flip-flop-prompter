@@ -20,6 +20,7 @@ class TagType(Enum):
     USER_TEXT = "user_text"      # Very light green (typed text)
     CATEGORY = "category"        # Pale orange (random from category)
     SUBCATEGORY = "subcategory"  # Pale yellow (random from subcategory)
+    CUSTOM = "custom"            # Custom tags (loaded from preview)
 
 
 class Tag:

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QPalette, QTextOption
+from ..utils.theme_manager import theme_manager
 from typing import Callable, Optional
 
 
@@ -118,38 +119,42 @@ class TextFieldWidget(FieldWidget):
     
     def _apply_styling(self):
         """Apply styling to the widgets."""
+        colors = theme_manager.get_theme_colors()
+        
         # Style the text input
-        self.text_input.setStyleSheet("""
-            QLineEdit {
+        self.text_input.setStyleSheet(f"""
+            QLineEdit {{
                 padding: 6px;
-                border: 1px solid #ccc;
+                border: 1px solid {colors.get('tag_border', '#ccc')};
                 border-radius: 3px;
                 font-size: 11px;
-            }
-            QLineEdit:focus {
-                border-color: #0066cc;
-            }
+                background-color: {colors.get('text_bg', '#ffffff')};
+                color: {colors.get('text_fg', '#000000')};
+            }}
+            QLineEdit:focus {{
+                border-color: {colors.get('focus_color', '#0066cc')};
+            }}
         """)
         
         # Style the snippet button
-        self.snippet_button.setStyleSheet("""
-            QPushButton {
-                background-color: #0066cc;
-                color: white;
-                border: 2px solid #0066cc;
+        self.snippet_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors.get('button_bg', '#0066cc')};
+                color: {colors.get('button_fg', '#ffffff')};
+                border: 2px solid {colors.get('button_bg', '#0066cc')};
                 border-radius: 3px;
                 padding: 6px 8px;
                 font-weight: bold;
                 font-size: 8px;
-            }
-            QPushButton:hover {
-                background-color: #0052a3;
-                border-color: #0052a3;
-            }
-            QPushButton:pressed {
-                background-color: #003d7a;
-                border-color: #003d7a;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {colors.get('button_hover_bg', '#0052a3')};
+                border-color: {colors.get('button_hover_bg', '#0052a3')};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors.get('button_pressed_bg', '#003d7a')};
+                border-color: {colors.get('button_pressed_bg', '#003d7a')};
+            }}
         """)
     
     def _on_text_changed(self, text):
@@ -262,17 +267,20 @@ class TextAreaWidget(FieldWidget):
     
     def _apply_styling(self):
         """Apply styling to the text area."""
-        self.text_edit.setStyleSheet("""
-            QTextEdit {
+        colors = theme_manager.get_theme_colors()
+        self.text_edit.setStyleSheet(f"""
+            QTextEdit {{
                 padding: 6px;
-                border: 1px solid #ccc;
+                border: 1px solid {colors.get('tag_border', '#ccc')};
                 border-radius: 3px;
                 font-size: 11px;
                 font-family: 'Consolas', 'Courier New', monospace;
-            }
-            QTextEdit:focus {
-                border-color: #0066cc;
-            }
+                background-color: {colors.get('text_bg', '#ffffff')};
+                color: {colors.get('text_fg', '#000000')};
+            }}
+            QTextEdit:focus {{
+                border-color: {colors.get('focus_color', '#0066cc')};
+            }}
         """)
     
     def _on_text_changed(self):
@@ -341,16 +349,19 @@ class DateTimeWidget(FieldWidget):
     
     def _apply_styling(self):
         """Apply styling to the datetime input."""
-        self.text_input.setStyleSheet("""
-            QLineEdit {
+        colors = theme_manager.get_theme_colors()
+        self.text_input.setStyleSheet(f"""
+            QLineEdit {{
                 padding: 6px;
-                border: 1px solid #ccc;
+                border: 1px solid {colors.get('tag_border', '#ccc')};
                 border-radius: 3px;
                 font-size: 11px;
-            }
-            QLineEdit:focus {
-                border-color: #0066cc;
-            }
+                background-color: {colors.get('text_bg', '#ffffff')};
+                color: {colors.get('text_fg', '#000000')};
+            }}
+            QLineEdit:focus {{
+                border-color: {colors.get('focus_color', '#0066cc')};
+            }}
         """)
     
     def _on_text_changed(self, text):

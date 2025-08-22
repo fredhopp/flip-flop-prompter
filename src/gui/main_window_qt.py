@@ -42,10 +42,13 @@ class MainWindow(QMainWindow):
         self.debug_enabled = debug_enabled
         self.logger = get_logger()
         
+        # Flag to prevent cascading updates during history restoration
+        self._suppress_preview_updates = False
+        
         # Track open snippet popups for dynamic updates
         self.open_snippet_popups = []
         
-        # Initialize history manager
+        # Initialize history manager (session-only, no persistence)
         self.history_manager = HistoryManager()
         
         # User data directories
@@ -75,6 +78,10 @@ class MainWindow(QMainWindow):
         
         # Load user preferences
         self._load_preferences()
+        
+        # Set initial theme checkmark
+        current_theme = theme_manager.get_current_theme()
+        self._update_theme_checkmarks(current_theme)
         
         # Apply modern styling
         self._apply_styling()
@@ -155,14 +162,16 @@ class MainWindow(QMainWindow):
         themes_menu = menubar.addMenu("Themes")
         
         # Light theme
-        light_action = QAction("Light Theme", self)
-        light_action.triggered.connect(lambda: self._set_theme("light"))
-        themes_menu.addAction(light_action)
+        self.light_theme_action = QAction("Light Theme", self)
+        self.light_theme_action.setCheckable(True)
+        self.light_theme_action.triggered.connect(lambda: self._set_theme("light"))
+        themes_menu.addAction(self.light_theme_action)
         
         # Dark theme
-        dark_action = QAction("Dark Theme", self)
-        dark_action.triggered.connect(lambda: self._set_theme("dark"))
-        themes_menu.addAction(dark_action)
+        self.dark_theme_action = QAction("Dark Theme", self)
+        self.dark_theme_action.setCheckable(True)
+        self.dark_theme_action.triggered.connect(lambda: self._set_theme("dark"))
+        themes_menu.addAction(self.dark_theme_action)
         
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
@@ -958,11 +967,15 @@ class MainWindow(QMainWindow):
             # Stop progress tracking with actual duration
             self._stop_progress_tracking(generation_time)
             
-            # Update preview with final prompt
-            self.preview_panel.update_preview(final_prompt, is_final=True)
+            # Update preview with final prompt and auto-switch to Final Prompt tab
+            self.preview_panel.update_preview(final_prompt, is_final=True, preserve_tab=False)
             
-            # Save to history
-            self._save_to_history()
+            # Save to history with final prompt
+            self._save_to_history(final_prompt)
+            
+            # Navigate to the newly created history entry (1/X) so user can see the result
+            self.history_manager.navigate_forward()  # This will move from 0/X to 1/X
+            self._update_history_navigation()
             
             # Update status bar
             self._update_status_bar()
@@ -989,6 +1002,9 @@ class MainWindow(QMainWindow):
             # Set theme in theme manager
             theme_manager.set_current_theme(theme_name)
             
+            # Update theme action checkmarks
+            self._update_theme_checkmarks(theme_name)
+            
             # Apply the new theme
             self._apply_styling()
             
@@ -1010,6 +1026,18 @@ class MainWindow(QMainWindow):
             self._show_status_message(f"Theme set to {theme_name}")
         except Exception as e:
             self._show_error_message(f"Failed to set theme: {str(e)}")
+    
+    def _update_theme_checkmarks(self, theme_name):
+        """Update the checkmarks for theme menu items."""
+        # Uncheck all theme actions
+        self.light_theme_action.setChecked(False)
+        self.dark_theme_action.setChecked(False)
+        
+        # Check the current theme action
+        if theme_name == "light":
+            self.light_theme_action.setChecked(True)
+        elif theme_name == "dark":
+            self.dark_theme_action.setChecked(True)
     
 
     
@@ -1084,12 +1112,8 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     print(f"Error refreshing popup theme: {e}")
     
-    def _update_preview(self, preserve_tab: bool = False):
-        """Update the prompt preview with randomization support."""
-        # Don't update if preview panel doesn't exist yet
-        if not hasattr(self, 'preview_panel'):
-            return
-            
+    def _generate_preview_text(self) -> str:
+        """Generate preview text from current field values."""
         try:
             # Get current seed for randomization
             seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
@@ -1108,8 +1132,6 @@ class MainWindow(QMainWindow):
                 "Details": self.details_widget.get_randomized_value(seed) if hasattr(self, 'details_widget') else "",
             }
             
-
-            
             # Build preview text - only include fields with values
             preview_lines = []
             for field, value in field_values.items():
@@ -1118,12 +1140,39 @@ class MainWindow(QMainWindow):
             
             # Generate preview text
             if preview_lines:
-                preview_text = "\n".join(preview_lines)
+                return "\n".join(preview_lines)
             else:
-                preview_text = ""  # Empty preview will show placeholder
+                return ""  # Empty preview will show placeholder
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Error generating preview text: {e}")
+            return ""
+
+    def _update_preview(self, preserve_tab: bool = False, force_update: bool = False):
+        """Update the prompt preview with randomization support."""
+        # Don't update if preview panel doesn't exist yet
+        if not hasattr(self, 'preview_panel'):
+            return
+        
+        # Don't update if we're suppressing updates during history restoration
+        if hasattr(self, '_suppress_preview_updates') and self._suppress_preview_updates and not force_update:
+            return
             
-            # Update preview panel
-            self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=preserve_tab)
+        try:
+            # Check if we're in history mode and need to jump back to current state
+            # But only if this isn't a forced update (to avoid recursion)
+            if not force_update and self._should_jump_to_current_state():
+                self._jump_to_current_state()
+                return
+            
+            # Generate preview text
+            preview_text = self._generate_preview_text()
+            
+            # Update preview panel - only if there's actual content, otherwise keep placeholder
+            if preview_text.strip():
+                self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=preserve_tab)
+            # If preview_text is empty, don't update - let the placeholder remain
             
             # Update status bar
             self._update_status_bar()
@@ -1275,10 +1324,12 @@ class MainWindow(QMainWindow):
         
         # Connect preview panel history signals
         if hasattr(self, 'preview_panel'):
-            self.preview_panel.history_back_requested.connect(self._navigate_history_back)
-            self.preview_panel.history_forward_requested.connect(self._navigate_history_forward)
-            self.preview_panel.history_delete_requested.connect(self._delete_history_entry)
-            self.preview_panel.history_clear_requested.connect(self._clear_history)
+                    self.preview_panel.history_back_requested.connect(self._navigate_history_back)
+        self.preview_panel.history_forward_requested.connect(self._navigate_history_forward)
+        self.preview_panel.history_delete_requested.connect(self._delete_history_entry)
+        self.preview_panel.history_clear_requested.connect(self._clear_history)
+        self.preview_panel.load_preview_requested.connect(self._load_preview_into_fields)
+        self.preview_panel.history_jump_requested.connect(self._jump_to_history_position)
         
         # Initial preview update - delay to ensure window is ready
         from PySide6.QtCore import QTimer
@@ -1355,25 +1406,273 @@ class MainWindow(QMainWindow):
     def _navigate_history_back(self):
         """Navigate to previous history entry."""
         if self.history_manager.navigate_back():
-            self._restore_from_history_entry()
             self._update_history_navigation()
     
     def _navigate_history_forward(self):
         """Navigate to next history entry."""
         if self.history_manager.navigate_forward():
-            self._restore_from_history_entry()
             self._update_history_navigation()
     
     def _delete_history_entry(self):
         """Delete current history entry."""
         if self.history_manager.delete_current_entry():
-            self._restore_from_history_entry()
             self._update_history_navigation()
     
     def _clear_history(self):
         """Clear all history entries."""
         self.history_manager.clear_history()
         self._update_history_navigation()
+    
+    def _jump_to_history_position(self, position: int):
+        """Jump to specific history position."""
+        if self.history_manager.jump_to_position(position):
+            self._update_history_navigation()
+    
+    def _should_jump_to_current_state(self) -> bool:
+        """Check if we should jump back to current state (0/X) when field changes."""
+        # Only jump if we're in history mode (not on 0/X)
+        current_pos, total_count = self.history_manager.get_navigation_info()
+        return current_pos > 0  # 0 = current state, 1+ = history entries
+    
+    def _jump_to_current_state(self):
+        """Jump back to current state (0/X) when user modifies fields in history mode."""
+        # If we're on a history entry, load that state into the current state
+        if self.history_manager.current_index >= 0:
+            # Get the current history entry
+            entry = self.history_manager.get_current_entry()
+            if entry:
+                # Load this history state into the current state (0/X)
+                self._load_history_entry_into_current_state(entry)
+        
+        # Jump to position 0 (current state)
+        self.history_manager.jump_to_position(0)
+        self._update_history_navigation()
+        
+        # Switch to summary tab to show the editable current state
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
+    
+    def _load_history_entry_into_current_state(self, entry):
+        """Load a history entry into the current state (0/X) for editing."""
+        # Preserve current tab selection
+        current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
+        
+        # Suppress preview updates during restoration to prevent cascading updates
+        self._suppress_preview_updates = True
+        
+        try:
+            # Restore field data
+            for field_name, field_data in entry.field_data.items():
+                if hasattr(self, f'{field_name}_widget'):
+                    widget = getattr(self, f'{field_name}_widget')
+                    
+                    if isinstance(field_data, dict) and field_data.get('type') == 'tags':
+                        # Restore tags
+                        from ..gui.tag_widgets_qt import Tag, TagType
+                        tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
+                        widget.set_tags(tags)
+                    elif isinstance(field_data, dict) and field_data.get('type') == 'text':
+                        # Restore plain text
+                        widget.set_value(field_data['value'])
+                    else:
+                        # Legacy format - treat as plain text
+                        widget.set_value(str(field_data))
+            
+            # Restore families
+            for family in entry.families:
+                if family in self.family_actions:
+                    self.family_actions[family].setChecked(True)
+            
+            # Restore seed
+            if hasattr(self, 'seed_widget'):
+                self.seed_widget.set_value(entry.seed)
+            
+            # Restore LLM model
+            if hasattr(self, 'llm_widget'):
+                self.llm_widget.set_value(entry.llm_model)
+            
+        finally:
+            # Re-enable preview updates
+            self._suppress_preview_updates = False
+            
+            # Update preview to show the loaded state (force update to avoid recursion)
+            self._update_preview(preserve_tab=True, force_update=True)
+            
+            # Restore the original tab selection
+            if hasattr(self, 'preview_panel'):
+                self.preview_panel.tab_widget.setCurrentIndex(current_tab)
+            
+            # Ensure background colors are set correctly for current state
+            self.preview_panel._update_background_for_state(True)
+    
+    def _load_preview_into_fields(self):
+        """Load the current preview content into the input fields."""
+        # Get the current preview text (from the active tab)
+        current_tab = self.preview_panel.tab_widget.currentIndex()
+        
+        if current_tab == 0:  # Summary tab
+            preview_text = self.preview_panel.summary_text.toPlainText()
+        else:  # Final Prompt tab
+            preview_text = self.preview_panel.final_text.toPlainText()
+        
+        print(f"DEBUG LOAD: Preview text from tab {current_tab}:")
+        print(f"DEBUG LOAD: {preview_text}")
+        
+        if not preview_text.strip():
+            return
+        
+        # Parse the preview text and extract field values
+        # The format is typically "Field: value" on separate lines
+        field_values = {}
+        lines = preview_text.strip().split('\n')
+        
+        for line in lines:
+            if ':' in line:
+                field_name, value = line.split(':', 1)
+                field_name = field_name.strip()
+                value = value.strip()
+                if value:  # Only add non-empty values
+                    field_values[field_name] = value
+                    print(f"DEBUG LOAD: Parsed field '{field_name}' = '{value}'")
+        
+        print(f"DEBUG LOAD: All parsed fields: {field_values}")
+        
+        # Suppress preview updates during loading to prevent cascading updates
+        self._suppress_preview_updates = True
+        
+        try:
+            # Get snippet manager for matching existing snippets
+            from ..utils.snippet_manager import snippet_manager
+            
+            # Map field names to widget names and their corresponding snippet field names
+            field_mapping = {
+                'Style': ('style', 'style'),
+                'Setting': ('setting', 'setting'), 
+                'Weather': ('weather', 'weather'),
+                'Date/Time': ('datetime', 'datetime'),
+                'Subjects': ('subjects', 'subjects'),
+                'Pose/Action': ('pose', 'subjects_pose_and_action'),  # Widget: pose, Snippet field: subjects_pose_and_action
+                'Camera': ('camera', 'camera'),
+                'Camera Framing and Action': ('framing', 'camera_framing_and_action'),  # Widget: framing, Snippet field: camera_framing_and_action
+                'Color Grading & Mood': ('grading', 'color_grading_&_mood'),  # Widget: grading, Snippet field: color_grading_&_mood
+                'Details': ('details', 'details')
+            }
+            
+            for display_name, (widget_name, snippet_field_name) in field_mapping.items():
+                if display_name in field_values and hasattr(self, f'{widget_name}_widget'):
+                    widget = getattr(self, f'{widget_name}_widget')
+                    value = field_values[display_name]
+                    
+                    if hasattr(widget, 'set_tags'):
+                        from ..gui.tag_widgets_qt import Tag, TagType
+                        
+                        # Split comma-separated values into individual tags
+                        individual_values = [v.strip() for v in value.split(',') if v.strip()]
+                        tags = []
+                        
+                        for individual_value in individual_values:
+                            # Try to find matching snippet using the correct snippet field name
+                            matching_result = self._find_matching_snippet(snippet_field_name, individual_value, snippet_manager)
+                            
+                            if matching_result[0] is not None:
+                                snippet_data, category_path, is_category = matching_result
+                                print(f"DEBUG LOAD: MATCH FOUND for '{individual_value}': is_category={is_category}, category_path={category_path}, snippet_data={snippet_data}")
+                                
+                                if is_category:
+                                    # Create category tag
+                                    if len(category_path) == 1:
+                                        tag = Tag(individual_value, TagType.CATEGORY, category_path=category_path)
+                                        print(f"DEBUG LOAD: Created CATEGORY tag: {individual_value}")
+                                    else:
+                                        tag = Tag(individual_value, TagType.SUBCATEGORY, category_path=category_path)
+                                        print(f"DEBUG LOAD: Created SUBCATEGORY tag: {individual_value}")
+                                else:
+                                    # Create snippet tag with proper data
+                                    if isinstance(snippet_data, dict):
+                                        # Handle instruction format with content
+                                        snippet_display_name = snippet_data.get("name", individual_value)
+                                        content = snippet_data.get("content", "")
+                                        tag = Tag(snippet_display_name, TagType.SNIPPET, data=content)
+                                        print(f"DEBUG LOAD: Created SNIPPET tag (dict): {snippet_display_name}")
+                                    else:
+                                        # Handle simple string snippets
+                                        tag = Tag(individual_value, TagType.SNIPPET, data=snippet_data)
+                                        print(f"DEBUG LOAD: Created SNIPPET tag (string): {individual_value}")
+                                tags.append(tag)
+                            else:
+                                # Create user text tag if no snippet found
+                                tag = Tag(individual_value, TagType.USER_TEXT)
+                                print(f"DEBUG LOAD: NO MATCH - Created USER_TEXT tag: {individual_value}")
+                                tags.append(tag)
+                        
+                        # Set the tags
+                        widget.set_tags(tags)
+                    else:
+                        widget.set_value(value)
+        
+        finally:
+            # Re-enable preview updates
+            self._suppress_preview_updates = False
+            
+            # Update preview to reflect the loaded values
+            self._update_preview()
+    
+    def _find_matching_snippet(self, field_name: str, value: str, snippet_manager) -> tuple:
+        """
+        Find a matching snippet and return (snippet_data, category_path, is_category).
+        Returns (None, None, False) if no match found.
+        """
+        try:
+
+            ratings = snippet_manager.get_available_ratings()
+            for rating in ratings:
+                snippets_data = snippet_manager.get_snippets_for_field(field_name, rating)
+                if snippets_data:
+                    # Search through categories
+                    for category_name, category_data in snippets_data.items():
+                        if isinstance(category_data, list):
+                            # Simple list of snippets
+                            for snippet in category_data:
+                                if isinstance(snippet, str):
+                                    if snippet.lower() == value.lower():
+                                        return snippet, [category_name], False
+                                elif isinstance(snippet, dict):
+                                    snippet_name = snippet.get("name", "")
+                                    if snippet_name and snippet_name.lower() == value.lower():
+                                        return snippet, [category_name], False
+                        elif isinstance(category_data, dict):
+                            # Nested category structure
+                            for subcategory_name, subcategory_items in category_data.items():
+                                if isinstance(subcategory_items, list):
+                                    # List of items in subcategory
+                                    for item in subcategory_items:
+                                        if isinstance(item, str):
+                                            if item.lower() == value.lower():
+                                                return item, [category_name, subcategory_name], False
+                                        elif isinstance(item, dict):
+                                            item_name = item.get("name", "")
+                                            if item_name and item_name.lower() == value.lower():
+                                                return item, [category_name, subcategory_name], False
+                                elif isinstance(subcategory_items, dict):
+                                    # Instruction format with content/description
+                                    for instruction_name, instruction_data in subcategory_items.items():
+                                        if isinstance(instruction_data, dict):
+                                            instruction_display = instruction_data.get("name", instruction_name)
+                                            if instruction_display and instruction_display.lower() == value.lower():
+                                                return instruction_data, [category_name, subcategory_name], False
+                    
+                    # If no exact match, check if it's a category name
+                    for category_name, category_data in snippets_data.items():
+                        if category_name.lower() == value.lower():
+                            return category_name, [category_name], True
+                        if isinstance(category_data, dict):
+                            for subcategory_name in category_data.keys():
+                                if subcategory_name.lower() == value.lower():
+                                    return subcategory_name, [category_name, subcategory_name], True
+            return None, None, False
+        except Exception as e:
+            print(f"Error finding matching snippet: {e}")
+            return None, None, False
     
     def _restore_from_history_entry(self):
         """Restore fields from current history entry."""
@@ -1382,8 +1681,8 @@ class MainWindow(QMainWindow):
             # Preserve current tab selection
             current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
             
-            # Temporarily disconnect value_changed signals to prevent cascading updates
-            self._disconnect_field_signals()
+            # Suppress preview updates during restoration to prevent cascading updates
+            self._suppress_preview_updates = True
             
             try:
                 # Restore field data
@@ -1417,31 +1716,30 @@ class MainWindow(QMainWindow):
                     self.llm_widget.set_value(entry.llm_model)
                 
             finally:
-                # Reconnect signals
-                self._connect_field_signals()
+                # Re-enable preview updates
+                self._suppress_preview_updates = False
                 
                 # Update preview once at the end (preserve tab selection during history restoration)
-                self._update_preview(preserve_tab=True)
+                self._update_preview(preserve_tab=True, force_update=True)
+                
+                # Restore the final prompt if it exists
+                if entry.final_prompt:
+                    self.preview_panel.final_text.setPlainText(entry.final_prompt)
+                    # Set regular font for generated content
+                    font = self.preview_panel.final_text.font()
+                    font.setItalic(False)
+                    self.preview_panel.final_text.setFont(font)
+                
+                # Force a preview update to ensure summary reflects the restored fields
+                # This is needed because the fields might not have been fully restored when _update_preview was called
+                QTimer.singleShot(100, lambda: self._update_preview(preserve_tab=True, force_update=True))
                 
                 # Restore the original tab selection
                 if hasattr(self, 'preview_panel'):
                     self.preview_panel.tab_widget.setCurrentIndex(current_tab)
-            
-            # Restore families
-            for family in entry.families:
-                if family in self.family_actions:
-                    self.family_actions[family].setChecked(True)
-            
-            # Restore seed
-            if hasattr(self, 'seed_widget'):
-                self.seed_widget.set_value(entry.seed)
-            
-            # Restore LLM model
-            if hasattr(self, 'llm_widget'):
-                self.llm_widget.set_value(entry.llm_model)
-            
-            # Update preview
-            self._update_preview()
+                
+                # Ensure background colors are set correctly for history state
+                self.preview_panel._update_background_for_state(False)
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
@@ -1451,11 +1749,38 @@ class MainWindow(QMainWindow):
             current_pos, total_count = self.history_manager.get_navigation_info()
             has_history = self.history_manager.has_history()
             
+            # Check if we're in current state (0) or history state (1+)
+            is_current_state = current_pos == 0
+            
+            # If we're in current state, show the current field state
+            if is_current_state:
+                self._show_current_state()
+            else:
+                # We're in history state, restore from history entry
+                self._restore_from_history_entry()
+            
             self.preview_panel.update_navigation_controls(
-                can_go_back, can_go_forward, current_pos, total_count, has_history
+                can_go_back, can_go_forward, current_pos, total_count, has_history, is_current_state
             )
     
-    def _save_to_history(self):
+    def _show_current_state(self):
+        """Show the current state of the fields (not from history)."""
+        # Manually update preview text without calling _update_preview to avoid background color reset
+        preview_text = self._generate_preview_text()
+        self.preview_panel.summary_text.setPlainText(preview_text)
+        
+        # Set the final prompt tab to show the placeholder message with italic formatting
+        self.preview_panel.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+        
+        # Set italic font for placeholder
+        font = self.preview_panel.final_text.font()
+        font.setItalic(True)
+        self.preview_panel.final_text.setFont(font)
+        
+        # Apply current state styling (this will set the correct background colors)
+        self.preview_panel._update_background_for_state(True)
+    
+    def _save_to_history(self, final_prompt: str = ""):
         """Save current state to history."""
         # Get current field data
         field_data = {}
@@ -1497,32 +1822,11 @@ class MainWindow(QMainWindow):
             seed=seed,
             families=selected_families,
             llm_model=llm_model,
-            target_model="seedream"  # Hardcoded as per current implementation
+            target_model="seedream",  # Hardcoded as per current implementation
+            final_prompt=final_prompt
         )
         
         # Update navigation controls
         self._update_history_navigation()
     
-    def _disconnect_field_signals(self):
-        """Temporarily disconnect field value_changed signals to prevent cascading updates."""
-        self._field_connections = []
-        field_widgets = [
-            'style', 'setting', 'weather', 'datetime', 'subjects', 
-            'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions'
-        ]
-        
-        for field in field_widgets:
-            if hasattr(self, f'{field}_widget'):
-                widget = getattr(self, f'{field}_widget')
-                if hasattr(widget, 'value_changed'):
-                    # Store the connection for later reconnection
-                    self._field_connections.append((widget, widget.value_changed))
-                    # Disconnect the signal
-                    widget.value_changed.disconnect()
-    
-    def _connect_field_signals(self):
-        """Reconnect field value_changed signals."""
-        if hasattr(self, '_field_connections'):
-            for widget, signal in self._field_connections:
-                signal.connect(self._update_preview)
-            self._field_connections = []
+

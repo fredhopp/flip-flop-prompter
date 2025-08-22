@@ -167,7 +167,8 @@ class ContentRatingWidget(QWidget):
     
     def _apply_styling(self):
         """Apply styling to the radio buttons."""
-        radio_style = """
+        colors = theme_manager.get_theme_colors()
+        radio_style = f"""
             QRadioButton {
                 font-size: 11px;
                 spacing: 5px;
@@ -177,13 +178,13 @@ class ContentRatingWidget(QWidget):
                 height: 13px;
             }
             QRadioButton::indicator:checked {
-                background-color: #0066cc;
-                border: 2px solid #0066cc;
+                background-color: {colors.get('button_bg', '#0066cc')};
+                border: 2px solid {colors.get('button_bg', '#0066cc')};
                 border-radius: 7px;
             }
             QRadioButton::indicator:unchecked {
-                background-color: white;
-                border: 2px solid #ccc;
+                background-color: {colors.get('text_bg', '#ffffff')};
+                border: 2px solid {colors.get('tag_border', '#ccc')};
                 border-radius: 7px;
             }
         """
@@ -256,17 +257,20 @@ class SnippetDropdown(QWidget):
     
     def _apply_styling(self):
         """Apply styling to the combobox."""
-        self.combo_box.setStyleSheet("""
-            QComboBox {
+        colors = theme_manager.get_theme_colors()
+        self.combo_box.setStyleSheet(f"""
+            QComboBox {{
                 padding: 4px 8px;
-                border: 1px solid #ccc;
+                border: 1px solid {colors.get('tag_border', '#ccc')};
                 border-radius: 3px;
                 font-size: 10px;
                 min-height: 20px;
-            }
-            QComboBox:focus {
-                border-color: #0066cc;
-            }
+                background-color: {colors.get('text_bg', '#ffffff')};
+                color: {colors.get('text_fg', '#000000')};
+            }}
+            QComboBox:focus {{
+                border-color: {colors.get('focus_color', '#0066cc')};
+            }}
             QComboBox::drop-down {
                 border: none;
                 width: 20px;
