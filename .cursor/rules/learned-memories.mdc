@@ -196,6 +196,8 @@ taskkill //F //IM python.exe
 - **Snippet popup issues**: Verify filters filtering and dynamic updates
 - **Startup performance**: MainWindow creation optimized to ~1.2s
 - **Process cleanup**: Use `taskkill //F //IM python.exe` to clean hanging processes
+- **Indentation errors**: Use `python -m py_compile` to check syntax before running
+- **Tag validation issues**: Check `Tag.check_if_missing()` method and ensure proper field name mapping
 
 ## Performance Considerations
 - **Startup Time**: ✅ **OPTIMIZED: 1.209s** (was 4-5 seconds, target achieved!)
@@ -203,6 +205,11 @@ taskkill //F //IM python.exe
 - **Optimization Implemented**: Lazy loading for PromptEngine, LLM components, and snippet manager
 
 ## Recent Major Changes (August 2025)
+- **Tag Validation System Implementation**: Comprehensive system for detecting and visually flagging missing tags when snippet files are unavailable
+- **Missing Tag Detection**: Tags based on missing categories/subcategories/snippets are marked with red styling and explanatory tooltips
+- **Template Loading Edge Case Handling**: Graceful handling of templates containing tags from user-defined JSON snippets that are no longer present
+- **Filter-Based Tag Validation**: Tags are validated against currently selected content filters (PG/NSFW/Hentai) and marked as missing when their parent filters are unchecked
+- **Snippet Reload Functionality**: Fixed menu recreation and tag validation updates when snippet files are reloaded
 - **Font Awesome Icons Implementation**: Professional industry-standard icons throughout the interface using qtawesome library
 - **UI Compactness Improvements**: Optimized spacing between field titles and fields, reduced main layout spacing for better density
 - **Enhanced Tag Visibility**: Increased field heights (30px → 40px) and improved scrollbar spacing (15px → 20px right margin) to prevent tag cropping
@@ -222,9 +229,11 @@ taskkill //F //IM python.exe
 ## Development Priorities
 1. **High Priority**: ✅ **COMPLETED** - Optimize startup time (4-5s → 1.209s)
 2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
-3. **High Priority**: Implement batch processing system
-4. **Next**: Expand snippet subcategories and add prompt history navigation
-5. **Future**: AI service integrations and advanced features
+3. **High Priority**: ✅ **COMPLETED** - Tag validation system implementation
+4. **High Priority**: 🔄 **IN PROGRESS** - Fix snippet tag validation (snippet items not turning red when filters unchecked)
+5. **Next**: Implement batch processing system
+6. **Future**: Expand snippet subcategories and add prompt history navigation
+7. **Future**: AI service integrations and advanced features
 
 ## User Preferences & Context
 - **Prefer bash commands over manual instructions**
@@ -236,9 +245,79 @@ taskkill //F //IM python.exe
 
 ---
 
-**Last Updated**: August 2025
+## 🚨 CURRENT TAG VALIDATION SYSTEM STATUS (August 22, 2025) 🚨
+
+### ✅ **COMPLETED FEATURES**
+- **Missing Tag Detection**: Tags are correctly identified as missing when their parent categories/subcategories are not available
+- **Visual Feedback**: Missing tags display with red styling (background and border) to distinguish them from valid tags
+- **Tooltip System**: All tags have tooltips explaining their type and status (missing tags show "This category/subcategory is not available...")
+- **Filter-Based Validation**: Tags are validated against currently selected content filters (PG/NSFW/Hentai)
+- **Template Loading**: Tags from missing snippet files are properly flagged during template loading
+- **Snippet Reload**: Tag validation updates correctly when snippet files are reloaded
+- **Category/Subcategory Validation**: Both category and subcategory tags turn red when their parent filters are unchecked
+
+### ❌ **CURRENT ISSUE - SNIPPET TAG VALIDATION**
+**Problem**: Snippet tags (individual items like "photorealistic", "naked woman", "Fuji Provia") remain blue even when all filters are unchecked.
+
+**Expected Behavior**: 
+- When ALL filters are unchecked: ALL category, subcategory, AND snippet tags should be RED (missing)
+- When specific filters are unchecked: Any category, subcategory, or snippet belonging to those filters should be RED
+
+**Current Behavior**:
+- ✅ Category tags turn red when filters unchecked
+- ✅ Subcategory tags turn red when filters unchecked  
+- ❌ **Snippet tags remain blue when filters unchecked**
+
+**Debug Evidence**:
+From terminal output, snippet tags are being processed but not marked as missing:
+```
+DEBUG REFRESH: Processing tag 'photorealistic' (type: snippet)
+DEBUG REFRESH: Processing tag 'naked woman' (type: snippet)
+DEBUG REFRESH: Processing tag 'Fuji Provia' (type: snippet)
+```
+But no "DEBUG TAG: Checking..." output for these snippet tags, indicating the validation logic is not being executed.
+
+### 🔧 **TECHNICAL IMPLEMENTATION STATUS**
+**Files Modified for Tag Validation**:
+- `src/gui/tag_widgets_qt.py`: Added `TagType.MISSING`, `Tag.is_missing` flag, `check_if_missing()` method
+- `src/gui/main_window_qt.py`: Added `_refresh_existing_tags()`, filter change triggers, template loading validation
+- `src/gui/tag_field_widgets_qt.py`: Added `refresh_tags()` method and field name mapping
+- `src/gui/inline_tag_input_qt.py`: Added `refresh_tags()` method and visual updates
+- `data/themes/light.json` & `dark.json`: Added missing tag color definitions
+
+**Current Logic Flow**:
+1. Filter changes trigger `_on_filter_changed()`
+2. Calls `_refresh_existing_tags()`
+3. Iterates through all tag widgets and calls `refresh_tags()`
+4. Each tag calls `check_if_missing()` to determine if it should be red
+5. Visual updates applied to tag widgets
+
+### 🎯 **NEXT STEPS TO FIX SNIPPET VALIDATION**
+**Root Cause**: The `check_if_missing()` method includes `TagType.SNIPPET` in the validation check, but the snippet validation logic may not be working correctly.
+
+**Required Fix**: 
+1. Debug why snippet tags are not triggering the validation logic
+2. Ensure snippet validation searches through all categories/subcategories in selected filters
+3. Verify that snippet text matching is case-insensitive and comprehensive
+4. Test that snippet tags turn red when their parent filters are unchecked
+
+### 📋 **TESTING SCENARIOS**
+**Current Test Case**: 
+- Load template: `C:\Users\fredhopp\AppData\Roaming\FlipFlopPrompt\templates\template_20250821_130821.json`
+- Uncheck ALL filters
+- Expected: ALL tags (categories, subcategories, snippets) should turn red
+- Actual: Only categories/subcategories turn red, snippets remain blue
+
+**Additional Test Cases Needed**:
+- Uncheck specific filters (e.g., uncheck PG only)
+- Verify snippet tags from unchecked filters turn red
+- Test with different snippet types and field mappings
+
+---
+
+**Last Updated**: August 22, 2025
 **Purpose**: Serve as persistent memory for development workflow preferences and project context
-**Status**: Active Development - All major features implemented and working
+**Status**: Active Development - Tag validation system 90% complete, snippet validation needs fixing
 description:
 globs:
 alwaysApply: false

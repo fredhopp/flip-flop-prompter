@@ -68,8 +68,8 @@ class TagFieldWidget(QWidget):
         self.tag_input.tags_changed.connect(self._on_tags_changed)
         self.tag_input.value_changed.connect(self._on_tags_changed)
         
-        # Set field name for randomization
-        self.tag_input._field_name = self.field_name
+        # Set field name for randomization and tag validation
+        self.tag_input.set_field_name(self.field_name)
         
         # Create snippet button with icon only
         self.snippet_button = QPushButton()
@@ -91,9 +91,9 @@ class TagFieldWidget(QWidget):
         # Handle special cases - match the actual field names in snippet data
         field_mappings = {
             "date_and_time": "date_time",
-            "subjects_pose_and_action": "subjects_pose_and_action",
+            "pose": "subjects_pose_and_action",  # Map UI field name to actual JSON field name
             "camera_framing_and_action": "camera_framing_and_action",
-            "color_grading_&_mood": "color_grading_&_mood",
+            "grading": "color_grading_&_mood",  # Map UI field name to actual JSON field name
             "additional_details": "details"
         }
         
@@ -119,6 +119,11 @@ class TagFieldWidget(QWidget):
             popup.finished.connect(lambda: main_window.open_snippet_popups.remove(popup) if popup in main_window.open_snippet_popups else None)
         
         popup.show()
+    
+    def refresh_tags(self):
+        """Refresh existing tags to check if they're still missing after snippet reload."""
+        if hasattr(self, 'tag_input') and hasattr(self.tag_input, 'refresh_tags'):
+            self.tag_input.refresh_tags()
     
     def _find_main_window(self):
         """Find the main window by traversing up the widget hierarchy."""
@@ -491,6 +496,11 @@ class SeedFieldWidget(QWidget):
         palette.setColor(palette.ColorRole.ButtonText, QColor(button_text))
         self.randomize_button.setPalette(palette)
         self.realize_button.setPalette(palette)
+    
+    def refresh_tags(self):
+        """Refresh existing tags to check if they're still missing after snippet reload."""
+        if hasattr(self, 'tag_input'):
+            self.tag_input.refresh_tags()
     
     def refresh_theme(self):
         """Refresh the theme styling for the buttons."""

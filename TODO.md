@@ -125,6 +125,12 @@
   - [x] Optimize GUI initialization (reduce widget creation overhead)
   - [x] Consider async loading for non-critical components
   - [x] Profile and optimize import times
+- [x] **Missing tag detection and styling** - Red color for missing categories/subcategories ✅ **COMPLETED**
+  - [x] Add missing tag colors to theme files (red background/border)
+  - [x] Add MISSING tag type to TagType enum
+  - [x] Implement missing tag detection during template loading
+  - [x] Add tooltips for all tags with explanations
+  - [x] Style missing tags with red colors and warning tooltips
 - [ ] **Rename "Families" to "Filters"** - Update terminology throughout the application
   - [ ] Change menu "Families" to "Filters"  
   - [ ] Edit all snippet JSON files to use "filter" instead of "family" (e.g., "family": "PG" becomes "filter": "PG")
@@ -136,6 +142,15 @@
   - [ ] Implement batch prompt generation
   - [ ] Add batch export functionality
   - [ ] Consider progress tracking for large batches
+
+### **Template Enhancement**
+- [ ] **Embed snippet metadata in templates** - Share and grow keyword database
+  - [ ] Add preferences UI under Tools/Preferences menu
+  - [ ] Add option to embed "tag definitions" in template files
+  - [ ] Save JSON metadata of used categories/items in templates
+  - [ ] Check metadata against user's available snippet files on load
+  - [ ] Offer to save missing snippet files to user's folder
+  - [ ] Implement snippet sharing mechanism for community growth
 - [x] **Fix tag field height expansion** - Fields need to expand height to fit tags
   - [ ] Implement dynamic height adjustment for tag fields
   - [ ] Ensure all tags are visible without requiring wide window resize

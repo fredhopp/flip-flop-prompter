@@ -607,39 +607,28 @@ class SnippetPopup(QDialog):
         # Get logger for debugging
         self.logger = get_logger()
         
-        # Get snippets for each selected filter_name separately
+        # Get snippets for all selected filters at once
         self.snippets = {}
         self.filter_name_snippets = {}  # Track which filter_name each category belongs to
         
-        # Process filters in the order they were selected
-        sorted_filters = selected_filters.copy() if selected_filters else []
-        
-        for filter_name in sorted_filters:
-            filter_name_snippets = snippet_manager.get_snippets_for_field(field_name, filter_name)
-            if filter_name_snippets:
-                # Store snippets with filter_name info
-                for category, items in filter_name_snippets.items():
-                    if category not in self.snippets:
-                        # First time seeing this category - assign it to this filter_name
-                        self.snippets[category] = items
-                        self.filter_name_snippets[category] = filter_name
-                    else:
-                        # Category already exists - merge items but keep the original filter_name assignment
-                        # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
-                        if isinstance(items, list):
-                            if isinstance(self.snippets[category], list):
-                                self.snippets[category].extend(items)
-                            else:
-                                self.snippets[category] = items
-                        elif isinstance(items, dict):
-                            if isinstance(self.snippets[category], dict):
-                                for subcat, subitems in items.items():
-                                    if subcat not in self.snippets[category]:
-                                        self.snippets[category][subcat] = subitems
-                                    else:
-                                        self.snippets[category][subcat].extend(subitems)
-                            else:
-                                self.snippets[category] = items
+        # Get all snippets for the selected filters
+        if selected_filters:
+            all_snippets = snippet_manager.get_snippets_for_field(field_name, selected_filters)
+            if all_snippets:
+                self.snippets = all_snippets
+                
+                # Determine which filter each category actually belongs to
+                for category in all_snippets.keys():
+                    # Check which filter actually contains this category
+                    category_filter = None
+                    for filter_name in selected_filters:
+                        filter_snippets = snippet_manager.get_snippets_for_field(field_name, [filter_name])
+                        if filter_snippets and category in filter_snippets:
+                            category_filter = filter_name
+                            break
+                    
+                    # If we can't determine the filter, use the first one as fallback
+                    self.filter_name_snippets[category] = category_filter or (selected_filters[0] if selected_filters else "PG")
         
         # Initialize widget tracking lists for theme updates
         self.category_frames = []
@@ -1377,35 +1366,23 @@ class SnippetPopup(QDialog):
         self.snippets = {}
         self.filter_name_snippets = {}
         
-        # Process filters in the order they were selected
-        sorted_filters = selected_filters.copy() if selected_filters else []
-        
-        for filter_name in sorted_filters:
-            filter_name_snippets = snippet_manager.get_snippets_for_field(self.field_name, filter_name)
-            if filter_name_snippets:
-                # Store snippets with filter_name info
-                for category, items in filter_name_snippets.items():
-                    if category not in self.snippets:
-                        # First time seeing this category - assign it to this filter_name
-                        self.snippets[category] = items
-                        self.filter_name_snippets[category] = filter_name
-                    else:
-                        # Category already exists - merge items but keep the original filter_name assignment
-                        # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
-                        if isinstance(items, list):
-                            if isinstance(self.snippets[category], list):
-                                self.snippets[category].extend(items)
-                            else:
-                                self.snippets[category] = items
-                        elif isinstance(items, dict):
-                            if isinstance(self.snippets[category], dict):
-                                for subcat, subitems in items.items():
-                                    if subcat not in self.snippets[category]:
-                                        self.snippets[category][subcat] = subitems
-                                    else:
-                                        self.snippets[category][subcat].extend(subitems)
-                            else:
-                                self.snippets[category] = items
+        # Get all snippets for the selected filters at once
+        if selected_filters:
+            all_snippets = snippet_manager.get_snippets_for_field(self.field_name, selected_filters)
+            if all_snippets:
+                self.snippets = all_snippets
+                
+                # Determine which filter each category actually belongs to
+                for category in all_snippets.keys():
+                    category_filter = None
+                    for filter_name in selected_filters:
+                        filter_snippets = snippet_manager.get_snippets_for_field(self.field_name, [filter_name])
+                        if filter_snippets and category in filter_snippets:
+                            category_filter = filter_name
+                            break
+                    
+                    # If we can't determine the filter, use the first one as fallback
+                    self.filter_name_snippets[category] = category_filter or (selected_filters[0] if selected_filters else "PG")
         
         # Rebuild the UI by clearing and recreating the scroll area content
         self._rebuild_scroll_content()

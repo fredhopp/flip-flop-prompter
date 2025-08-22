@@ -67,26 +67,35 @@ class InlineTagWidget(QWidget):
             TagType.SNIPPET: theme_colors["snippet_bg"],      # Blue - static snippet content
             TagType.USER_TEXT: theme_colors["user_text_bg"],  # Purple - user-created static content
             TagType.CATEGORY: theme_colors["category_bg"],    # Orange - randomized category content
-            TagType.SUBCATEGORY: theme_colors["subcategory_bg"] # Yellow - randomized subcategory content
+            TagType.SUBCATEGORY: theme_colors["subcategory_bg"], # Yellow - randomized subcategory content
+            TagType.MISSING: theme_colors["missing_tag_bg"]   # Red - missing category/subcategory
         }
         
         border_colors = {
             TagType.SNIPPET: theme_colors["snippet_border"],      # Blue border
             TagType.USER_TEXT: theme_colors["user_text_border"],  # Purple border
             TagType.CATEGORY: theme_colors["category_border"],    # Orange border
-            TagType.SUBCATEGORY: theme_colors["subcategory_border"] # Yellow border
+            TagType.SUBCATEGORY: theme_colors["subcategory_border"], # Yellow border
+            TagType.MISSING: theme_colors["missing_tag_border"]   # Red border
         }
         
         text_colors = {
             TagType.SNIPPET: theme_colors["snippet_fg"],      # Black/white text
             TagType.USER_TEXT: theme_colors["user_text_fg"],  # Black/white text
             TagType.CATEGORY: theme_colors["category_fg"],    # Black/white text
-            TagType.SUBCATEGORY: theme_colors["subcategory_fg"] # Black/white text
+            TagType.SUBCATEGORY: theme_colors["subcategory_fg"], # Black/white text
+            TagType.MISSING: theme_colors["missing_tag_fg"]   # Black/white text
         }
         
-        self.bg_color = QColor(colors.get(self.tag.tag_type, theme_colors["tag_bg"]))
-        self.border_color = QColor(border_colors.get(self.tag.tag_type, theme_colors["tag_border"]))
-        self.text_color = QColor(text_colors.get(self.tag.tag_type, theme_colors["tag_fg"]))
+        # Handle missing tags - override with missing tag colors
+        if self.tag.is_missing:
+            self.bg_color = QColor(colors[TagType.MISSING])
+            self.border_color = QColor(border_colors[TagType.MISSING])
+            self.text_color = QColor(text_colors[TagType.MISSING])
+        else:
+            self.bg_color = QColor(colors.get(self.tag.tag_type, theme_colors["tag_bg"]))
+            self.border_color = QColor(border_colors.get(self.tag.tag_type, theme_colors["tag_border"]))
+            self.text_color = QColor(text_colors.get(self.tag.tag_type, theme_colors["tag_fg"]))
         
         # Apply comprehensive styling with theme colors
         tag_style = f"""
@@ -122,6 +131,26 @@ class InlineTagWidget(QWidget):
         
         self.setStyleSheet(tag_style)
         self.remove_button.setStyleSheet(button_style)
+        
+        # Set up tooltip
+        self._setup_tooltip()
+    
+    def _setup_tooltip(self):
+        """Set up tooltip for the tag based on its type and state."""
+        if self.tag.is_missing:
+            tooltip = f"This category/subcategory '{self.tag.text}' is not available in your current snippet files.\n\nYou may need to add the missing snippet files or remove this tag."
+        else:
+            # Tooltips for different tag types
+            tooltips = {
+                TagType.SNIPPET: "Snippet tag - Static content that will be included as-is",
+                TagType.USER_TEXT: "User text - Custom text you've added",
+                TagType.CATEGORY: "Category tag - Will be randomized to a specific item from this category",
+                TagType.SUBCATEGORY: "Subcategory tag - Will be randomized to a specific item from this subcategory",
+                TagType.CUSTOM: "Custom tag - Special tag with custom behavior"
+            }
+            tooltip = tooltips.get(self.tag.tag_type, "Tag")
+        
+        self.setToolTip(tooltip)
     
     def refresh_theme(self):
         """Refresh the styling when theme changes."""
@@ -129,6 +158,8 @@ class InlineTagWidget(QWidget):
         # Force repaint to ensure colors are applied
         self.update()
         self.repaint()
+    
+
     
     def paintEvent(self, event):
         """Custom paint event to draw background color."""
@@ -431,6 +462,62 @@ class InlineTagInputWidget(QWidget):
             result_texts.append(current_text)
         
         return ", ".join(result_texts)
+    
+    def set_field_name(self, field_name: str):
+        """Set the field name for this widget."""
+        self._field_name = field_name
+    
+    def refresh_tags(self):
+        """Refresh existing tags to check if they're still missing after snippet reload."""
+        # Get field name from parent widget
+        field_name = getattr(self, '_field_name', 'subjects')  # Default fallback
+        
+        # Debug logging
+        debug_enabled = False
+        try:
+            from PySide6.QtWidgets import QApplication
+            for widget in QApplication.topLevelWidgets():
+                if hasattr(widget, 'debug_enabled'):
+                    debug_enabled = widget.debug_enabled
+                    break
+        except:
+            pass
+        
+        if debug_enabled:
+            print(f"DEBUG REFRESH: Refreshing tags for field '{field_name}' with {len(self.tags)} tags")
+        
+        for tag in self.tags:
+            if debug_enabled:
+                print(f"DEBUG REFRESH: Processing tag '{tag.text}' (type: {tag.tag_type.value})")
+            
+            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+                # Check if the tag is still missing
+                old_missing_state = tag.is_missing
+                tag.is_missing = tag.check_if_missing(field_name)
+                
+                if debug_enabled:
+                    print(f"DEBUG REFRESH: Tag '{tag.text}' state: {'missing' if tag.is_missing else 'valid'}")
+                
+                if debug_enabled and old_missing_state != tag.is_missing:
+                    print(f"DEBUG REFRESH: Tag '{tag.text}' changed from {'missing' if old_missing_state else 'valid'} to {'missing' if tag.is_missing else 'valid'}")
+                
+                # If the missing state changed, update the tag widget
+                if old_missing_state != tag.is_missing:
+                    # Find and update the corresponding tag widget
+                    for i in range(self.content_layout.count()):
+                        item = self.content_layout.itemAt(i)
+                        if item and item.widget():
+                            widget = item.widget()
+                            if hasattr(widget, 'tag') and widget.tag == tag:
+                                widget._apply_styling()
+                                widget._setup_tooltip()
+                                widget.update()  # Force repaint
+                                if debug_enabled:
+                                    print(f"DEBUG REFRESH: Updated widget for tag '{tag.text}'")
+                                break
+            elif tag.tag_type == TagType.USER_TEXT:
+                if debug_enabled:
+                    print(f"DEBUG REFRESH: User-defined tag '{tag.text}' - no validation needed")
     
     def refresh_theme(self):
         """Refresh the styling when theme changes."""

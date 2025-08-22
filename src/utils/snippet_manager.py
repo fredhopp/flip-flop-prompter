@@ -51,21 +51,21 @@ class SnippetManager:
     def _load_all_snippets(self):
         """Load all snippets from repo and user directories."""
         self.all_snippets = {}
-        self.available_filters = set()
+        available_filters_set = set()
         
         # Load repo snippets
         repo_snippets_dir = Path(__file__).parent.parent.parent / "data" / "snippets"
         if repo_snippets_dir.exists():
-            self._load_snippets_from_directory(repo_snippets_dir, "repo")
+            self._load_snippets_from_directory(repo_snippets_dir, "repo", available_filters_set)
         
         # Load user snippets
         if self.snippets_dir.exists():
-            self._load_snippets_from_directory(self.snippets_dir, "user")
+            self._load_snippets_from_directory(self.snippets_dir, "user", available_filters_set)
         
         # Convert filters to sorted list
-        self.available_filters = sorted(list(self.available_filters)) if self.available_filters else []
+        self.available_filters = sorted(list(available_filters_set)) if available_filters_set else []
     
-    def _load_snippets_from_directory(self, directory: Path, source: str):
+    def _load_snippets_from_directory(self, directory: Path, source: str, available_filters_set: set):
         """Load all JSON files from a directory."""
         for json_file in directory.glob("*.json"):
             try:
@@ -75,10 +75,10 @@ class SnippetManager:
                 # Handle multi-field format
                 if "snippets" in data:
                     for snippet_data in data["snippets"]:
-                        self._process_snippet_data(snippet_data, source)
+                        self._process_snippet_data(snippet_data, source, available_filters_set)
                 else:
                     # Handle single snippet format
-                    self._process_snippet_data(data, source)
+                    self._process_snippet_data(data, source, available_filters_set)
                     
             except json.JSONDecodeError as e:
                 print(f"Error parsing {json_file} ({source}): {e}")
@@ -87,7 +87,7 @@ class SnippetManager:
                 import traceback
                 traceback.print_exc()
     
-    def _process_snippet_data(self, snippet_data: Dict[str, Any], source: str):
+    def _process_snippet_data(self, snippet_data: Dict[str, Any], source: str, available_filters_set: set = None):
         """Process a single snippet data entry."""
         field = snippet_data.get("field")
         
@@ -101,7 +101,14 @@ class SnippetManager:
             return
         
         # Add filter to available filters
-        self.available_filters.add(family)
+        if available_filters_set is not None:
+            available_filters_set.add(family)
+        else:
+            # Fallback for direct calls
+            if not hasattr(self, 'available_filters') or not isinstance(self.available_filters, list):
+                self.available_filters = []
+            if family not in self.available_filters:
+                self.available_filters.append(family)
         
         # Store snippets by field and family
         field_key = f"{field}_{family}"
@@ -182,15 +189,23 @@ class SnippetManager:
     
     def get_snippets_for_field(self, field_name: str, content_filter: str) -> Optional[Dict[str, List[str]]]:
         """Get snippets for a specific field based on content filter."""
-        # Find all snippets for this field and filter
+        # Handle multiple filters (comma-separated or list)
+        if isinstance(content_filter, list):
+            filters = content_filter
+        elif "," in content_filter:
+            filters = [f.strip() for f in content_filter.split(",")]
+        else:
+            filters = [content_filter]
+        
+        # Find all snippets for this field and any of the requested filters
         matching_snippets = {}
         
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
                 snippet_filter = snippet_data.get("filter", snippet_data.get("family"))
                 
-                # Check if this snippet's filter matches the requested filter
-                if self._is_filter_appropriate(snippet_filter, content_filter):
+                # Check if this snippet's filter matches any of the requested filters
+                if any(self._is_filter_appropriate(snippet_filter, requested_filter) for requested_filter in filters):
                     categories = snippet_data.get("categories", {})
                     
                     # Merge categories
@@ -272,6 +287,10 @@ class SnippetManager:
     
     def reload_snippets(self):
         """Reload all snippets from files."""
+        # Clear existing data
+        self.all_snippets = {}
+        
+        # Reload all snippets (this will properly update available_filters)
         self._load_all_snippets()
     
     def add_snippet(self, field_name: str, category: str, snippet: str, rating: str = "PG"):
@@ -282,7 +301,7 @@ class SnippetManager:
             self.all_snippets[field_name] = {
                 "rating": rating,
                 "categories": {},
-                "source": "user"
+                "source": "user" 
             }
         
         if category not in self.all_snippets[field_name]["categories"]:

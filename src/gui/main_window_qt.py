@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import os
 from enum import Enum
+from typing import List, Dict
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -18,6 +19,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QAction, QFont
 
 from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFieldWidget
+from .tag_widgets_qt import TagType
 from .snippet_widgets_qt import ContentRatingWidget, LLMSelectionWidget
 from .preview_panel_qt import PreviewPanel
 from ..core.data_models import PromptData
@@ -852,37 +854,37 @@ class MainWindow(QMainWindow):
                 if format_version == "2.0":
                     # New tag-based format
                     if hasattr(self, 'style_widget') and "style_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["style_tags"]]
+                        tags = self._load_and_check_tags(template_data["style_tags"], "style")
                         self.style_widget.set_tags(tags)
                     if hasattr(self, 'setting_widget') and "setting_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["setting_tags"]]
+                        tags = self._load_and_check_tags(template_data["setting_tags"], "setting")
                         self.setting_widget.set_tags(tags)
                     if hasattr(self, 'weather_widget') and "weather_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["weather_tags"]]
+                        tags = self._load_and_check_tags(template_data["weather_tags"], "weather")
                         self.weather_widget.set_tags(tags)
                     if hasattr(self, 'datetime_widget') and "datetime_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["datetime_tags"]]
+                        tags = self._load_and_check_tags(template_data["datetime_tags"], "datetime")
                         self.datetime_widget.set_tags(tags)
                     if hasattr(self, 'subjects_widget') and "subjects_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["subjects_tags"]]
+                        tags = self._load_and_check_tags(template_data["subjects_tags"], "subjects")
                         self.subjects_widget.set_tags(tags)
                     if hasattr(self, 'pose_widget') and "pose_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["pose_tags"]]
+                        tags = self._load_and_check_tags(template_data["pose_tags"], "pose")
                         self.pose_widget.set_tags(tags)
                     if hasattr(self, 'camera_widget') and "camera_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["camera_tags"]]
+                        tags = self._load_and_check_tags(template_data["camera_tags"], "camera")
                         self.camera_widget.set_tags(tags)
                     if hasattr(self, 'framing_widget') and "framing_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["framing_tags"]]
+                        tags = self._load_and_check_tags(template_data["framing_tags"], "framing")
                         self.framing_widget.set_tags(tags)
                     if hasattr(self, 'grading_widget') and "grading_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["grading_tags"]]
+                        tags = self._load_and_check_tags(template_data["grading_tags"], "grading")
                         self.grading_widget.set_tags(tags)
                     if hasattr(self, 'details_widget') and "details_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["details_tags"]]
+                        tags = self._load_and_check_tags(template_data["details_tags"], "details")
                         self.details_widget.set_tags(tags)
                     if hasattr(self, 'llm_instructions_widget') and "llm_instructions_tags" in template_data:
-                        tags = [Tag.from_dict(tag_data) for tag_data in template_data["llm_instructions_tags"]]
+                        tags = self._load_and_check_tags(template_data["llm_instructions_tags"], "llm_instructions")
                         self.llm_instructions_widget.set_tags(tags)
                     if hasattr(self, 'seed_widget') and "seed" in template_data:
                         self.seed_widget.set_value(template_data["seed"])
@@ -926,10 +928,42 @@ class MainWindow(QMainWindow):
                 # Update preview
                 self._update_preview()
                 
+                # Refresh existing tags to update visual state after template loading
+                self._refresh_existing_tags()
+                
                 QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+    
+    def _load_and_check_tags(self, tag_data_list, field_name: str):
+        """Load tags from template data and check for missing categories/subcategories."""
+        from .tag_widgets_qt import Tag
+        
+        # Map UI field names to actual JSON field names for validation
+        field_mappings = {
+            "pose": "subjects_pose_and_action",
+            "grading": "color_grading_&_mood", 
+            "datetime": "date_time",
+            "framing": "camera_framing_and_action",
+            "details": "additional_details"
+        }
+        
+        # Use mapped field name for validation, fallback to original if no mapping
+        validation_field_name = field_mappings.get(field_name, field_name)
+        
+        tags = []
+        for tag_data in tag_data_list:
+            tag = Tag.from_dict(tag_data)
+            
+            # Check if this tag is missing (for category/subcategory tags)
+            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+                if tag.check_if_missing(validation_field_name):
+                    tag.is_missing = True
+            
+            tags.append(tag)
+        
+        return tags
     
     def _generate_prompt(self):
         """Generate the final prompt using the LLM."""
@@ -1126,19 +1160,181 @@ class MainWindow(QMainWindow):
             # Refresh all snippet popups if they're open
             self._refresh_snippet_popups()
             
-            self._show_status_message("Snippets reloaded successfully")
+            # Refresh existing tags to check if they're still missing
+            self._refresh_existing_tags()
+            
+            # Recreate filter menus completely instead of trying to refresh them
+            self._recreate_filter_menus()
+            
+            self._show_status_message("Snippets reloaded successfully.")
         except Exception as e:
             self._show_error_message(f"Failed to reload snippets: {str(e)}")
+    
+    def _refresh_existing_tags(self):
+        """Refresh existing tags to check if they're still missing after snippet reload."""
+        try:
+            print(f"DEBUG REFRESH: Starting _refresh_existing_tags()")
+            selected_filters = self._get_selected_filters()
+            print(f"DEBUG REFRESH: Current filters: {selected_filters}")
+            
+            # Get all tag field widgets
+            tag_widgets = [
+                self.style_widget, self.setting_widget, self.weather_widget,
+                self.datetime_widget, self.subjects_widget, self.pose_widget,
+                self.camera_widget, self.framing_widget, self.grading_widget,
+                self.details_widget
+            ]
+            
+            print(f"DEBUG REFRESH: Found {len(tag_widgets)} tag widgets")
+            
+            refresh_count = 0
+            for i, widget in enumerate(tag_widgets):
+                if widget is None:
+                    print(f"DEBUG REFRESH: Widget {i} is None")
+                    continue
+                print(f"DEBUG REFRESH: Checking widget {i} - {type(widget).__name__} - has refresh_tags: {hasattr(widget, 'refresh_tags')}")
+                if hasattr(widget, 'refresh_tags'):
+                    print(f"DEBUG REFRESH: Refreshing widget {i} - {type(widget).__name__}")
+                    widget.refresh_tags()
+                    refresh_count += 1
+                else:
+                    print(f"DEBUG REFRESH: Widget {i} - {type(widget).__name__} does NOT have refresh_tags method")
+            
+            print(f"DEBUG REFRESH: Refreshed {refresh_count} tag widgets")
+                    
+        except Exception as e:
+            import traceback
+            print(f"Error refreshing existing tags: {e}")
+            print(f"DEBUG REFRESH: Exception traceback:")
+            traceback.print_exc()
     
     def _refresh_snippet_popups(self):
         """Refresh any open snippet popups."""
         # Find and refresh any open snippet popups
         for widget in self.findChildren(QWidget):
-            if hasattr(widget, 'refresh_theme') and callable(widget.refresh_theme):
+            if hasattr(widget, 'refresh_snippets') and callable(widget.refresh_snippets):
+                try:
+                    # Get current selected filters for this popup
+                    if hasattr(widget, 'selected_filters'):
+                        widget.refresh_snippets(widget.selected_filters)
+                except Exception as e:
+                    print(f"Error refreshing snippet popup: {e}")
+            elif hasattr(widget, 'refresh_theme') and callable(widget.refresh_theme):
                 try:
                     widget.refresh_theme()
                 except Exception as e:
                     print(f"Error refreshing popup theme: {e}")
+    
+    def _recreate_filter_menus(self):
+        """Completely recreate the filter menus with updated available filters."""
+        try:
+            from ..utils.snippet_manager import snippet_manager
+            
+            # Get updated available filters
+            available_filters = snippet_manager.get_available_filters()
+            filters = available_filters if available_filters else ["PG"]  # Fallback for empty case
+            
+            # Find the Filters menu
+            menubar = self.menuBar()
+            if not menubar:
+                print("Warning: No menubar found")
+                return
+                
+            # Find and remove the existing Filters menu
+            filters_action = None
+            filters_index = -1
+            for i, action in enumerate(menubar.actions()):
+                if action.text() == "Filters":
+                    filters_action = action
+                    filters_index = i
+                    break
+            
+            if filters_action:
+                menubar.removeAction(filters_action)
+            
+            # Create a new Filters menu
+            filters_menu = QMenu("Filters", self)
+            
+            # Clear the filter actions dictionary
+            self.filter_actions.clear()
+            
+            # Add filter actions
+            for filter_name in filters:
+                try:
+                    action = QAction(filter_name, self)
+                    action.setCheckable(True)
+                    if filter_name == filters[0]:  # Default to first available filter
+                        action.setChecked(True)
+                    action.triggered.connect(lambda checked, f=filter_name: self._on_filter_changed(f, checked))
+                    filters_menu.addAction(action)
+                    self.filter_actions[filter_name] = action
+                except Exception as e:
+                    print(f"Error adding filter action {filter_name}: {e}")
+            
+            # Add the new menu to the menubar at the original position
+            if filters_index >= 0:
+                # Insert at the original position
+                menubar.insertMenu(menubar.actions()[filters_index], filters_menu)
+            else:
+                # Fallback: add to the end
+                menubar.addMenu(filters_menu)
+                    
+        except Exception as e:
+            print(f"Error recreating filter menus: {e}")
+    
+    def _refresh_filter_menus(self):
+        """Refresh the filter menus with updated available filters."""
+        try:
+            from ..utils.snippet_manager import snippet_manager
+            
+            # Get updated available filters
+            available_filters = snippet_manager.get_available_filters()
+            filters = available_filters if available_filters else ["PG"]  # Fallback for empty case
+            
+            # Find the Filters menu - be more defensive about menu access
+            menubar = self.menuBar()
+            if not menubar:
+                print("Warning: No menubar found")
+                return
+                
+            filters_menu = None
+            for action in menubar.actions():
+                if action.text() == "Filters":
+                    filters_menu = action.menu()
+                    break
+            
+            if not filters_menu:
+                print("Warning: Filters menu not found")
+                return
+                
+            # Check if menu is still valid
+            if not filters_menu.isWidgetType():
+                print("Warning: Filters menu is not a valid widget")
+                return
+            
+            # Clear existing filter actions
+            try:
+                filters_menu.clear()
+                self.filter_actions.clear()
+            except Exception as e:
+                print(f"Error clearing filter menu: {e}")
+                return
+                
+            # Add updated filter actions
+            for filter_name in filters:
+                try:
+                    action = QAction(filter_name, self)
+                    action.setCheckable(True)
+                    if filter_name == filters[0]:  # Default to first available filter
+                        action.setChecked(True)
+                    action.triggered.connect(lambda checked, f=filter_name: self._on_filter_changed(f, checked))
+                    filters_menu.addAction(action)
+                    self.filter_actions[filter_name] = action
+                except Exception as e:
+                    print(f"Error adding filter action {filter_name}: {e}")
+                    
+        except Exception as e:
+            print(f"Error refreshing filter menus: {e}")
     
     def _generate_preview_text(self) -> str:
         """Generate preview text from current field values."""
@@ -1313,11 +1509,19 @@ class MainWindow(QMainWindow):
         if self.logger:
             self.logger.log_gui_action(f"Filter changed", f"{filter_name}: {'checked' if checked else 'unchecked'}")
         
+        print(f"DEBUG FILTER: Filter {filter_name} {'checked' if checked else 'unchecked'}")
+        selected_filters = self._get_selected_filters()
+        print(f"DEBUG FILTER: Current selected filters: {selected_filters}")
+        
         # Update snippet dropdowns with new filter selection
         self._update_snippet_filters()
         
         # Refresh all open snippet popups
         self._refresh_open_snippet_popups()
+        
+        # Refresh existing tags to check if they're still missing with new filter selection
+        print(f"DEBUG FILTER: Calling _refresh_existing_tags()")
+        self._refresh_existing_tags()
         
         # Update preview
         self._update_preview()
