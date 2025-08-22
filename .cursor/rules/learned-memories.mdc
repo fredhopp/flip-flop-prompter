@@ -230,7 +230,7 @@ taskkill //F //IM python.exe
 1. **High Priority**: ✅ **COMPLETED** - Optimize startup time (4-5s → 1.209s)
 2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
 3. **High Priority**: ✅ **COMPLETED** - Tag validation system implementation
-4. **High Priority**: 🔄 **IN PROGRESS** - Fix snippet tag validation (snippet items not turning red when filters unchecked)
+4. **High Priority**: ✅ **COMPLETED** - Fix snippet tag validation (snippet items now correctly reflect filter state)
 5. **Next**: Implement batch processing system
 6. **Future**: Expand snippet subcategories and add prompt history navigation
 7. **Future**: AI service integrations and advanced features
@@ -256,33 +256,15 @@ taskkill //F //IM python.exe
 - **Snippet Reload**: Tag validation updates correctly when snippet files are reloaded
 - **Category/Subcategory Validation**: Both category and subcategory tags turn red when their parent filters are unchecked
 
-### ❌ **CURRENT ISSUE - SNIPPET TAG VALIDATION**
-**Problem**: Snippet tags (individual items like "photorealistic", "naked woman", "Fuji Provia") remain blue even when all filters are unchecked.
-
-**Expected Behavior**: 
-- When ALL filters are unchecked: ALL category, subcategory, AND snippet tags should be RED (missing)
-- When specific filters are unchecked: Any category, subcategory, or snippet belonging to those filters should be RED
-
-**Current Behavior**:
-- ✅ Category tags turn red when filters unchecked
-- ✅ Subcategory tags turn red when filters unchecked  
-- ❌ **Snippet tags remain blue when filters unchecked**
-
-**Debug Evidence**:
-From terminal output, snippet tags are being processed but not marked as missing:
-```
-DEBUG REFRESH: Processing tag 'photorealistic' (type: snippet)
-DEBUG REFRESH: Processing tag 'naked woman' (type: snippet)
-DEBUG REFRESH: Processing tag 'Fuji Provia' (type: snippet)
-```
-But no "DEBUG TAG: Checking..." output for these snippet tags, indicating the validation logic is not being executed.
+### ✅ **SNIPPET TAG VALIDATION - RESOLVED** (August 22, 2025)
+Snippet tags now correctly reflect filter state and turn red when filters are unchecked. Case-insensitive, normalized matching across categories and subcategories implemented. User-defined tag actions (add/remove/edit) are logged with field context for agent parsing in debug logs.
 
 ### 🔧 **TECHNICAL IMPLEMENTATION STATUS**
 **Files Modified for Tag Validation**:
 - `src/gui/tag_widgets_qt.py`: Added `TagType.MISSING`, `Tag.is_missing` flag, `check_if_missing()` method
 - `src/gui/main_window_qt.py`: Added `_refresh_existing_tags()`, filter change triggers, template loading validation
 - `src/gui/tag_field_widgets_qt.py`: Added `refresh_tags()` method and field name mapping
-- `src/gui/inline_tag_input_qt.py`: Added `refresh_tags()` method and visual updates
+- `src/gui/inline_tag_input_qt.py`: Added `refresh_tags()` method and visual updates; added logging for user-defined tags (add/remove/edit)
 - `data/themes/light.json` & `dark.json`: Added missing tag color definitions
 
 **Current Logic Flow**:
@@ -292,14 +274,10 @@ But no "DEBUG TAG: Checking..." output for these snippet tags, indicating the va
 4. Each tag calls `check_if_missing()` to determine if it should be red
 5. Visual updates applied to tag widgets
 
-### 🎯 **NEXT STEPS TO FIX SNIPPET VALIDATION**
-**Root Cause**: The `check_if_missing()` method includes `TagType.SNIPPET` in the validation check, but the snippet validation logic may not be working correctly.
-
-**Required Fix**: 
-1. Debug why snippet tags are not triggering the validation logic
-2. Ensure snippet validation searches through all categories/subcategories in selected filters
-3. Verify that snippet text matching is case-insensitive and comprehensive
-4. Test that snippet tags turn red when their parent filters are unchecked
+### 🎯 **VALIDATION IMPROVEMENTS IMPLEMENTED**
+- SNIPPET tag checks use `snippet_manager.get_category_items` and `get_subcategory_items` for normalized comparison
+- Case-insensitive match across strings and dict-based snippet items
+- Refresh flow updates all tag widgets’ styling on state change
 
 ### 📋 **TESTING SCENARIOS**
 **Current Test Case**: 
@@ -317,7 +295,7 @@ But no "DEBUG TAG: Checking..." output for these snippet tags, indicating the va
 
 **Last Updated**: August 22, 2025
 **Purpose**: Serve as persistent memory for development workflow preferences and project context
-**Status**: Active Development - Tag validation system 90% complete, snippet validation needs fixing
+**Status**: Active Development - Tag validation system complete; batch processing is next priority
 description:
 globs:
 alwaysApply: false

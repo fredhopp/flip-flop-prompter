@@ -146,25 +146,34 @@ class Tag:
                     print(f"DEBUG TAG: Subcategory '{self.text}' is MISSING - not found in any selected filters")
                 return True
             elif self.tag_type == TagType.SNIPPET:
-                # Check if snippet exists in any of the selected filters
-                # For snippet tags, we need to check if the snippet text exists in any category/subcategory
+                # Check if snippet exists in any of the selected filters (case-insensitive, normalized)
+                wanted = (self.text or "").strip().lower()
                 for filter_name in selected_filters:
                     # Get all snippets for this field and filter
                     field_snippets = snippet_manager.get_snippets_for_field(field_name, [filter_name])
-                    if field_snippets:
-                        # Search through all categories and subcategories
-                        for category_name, category_data in field_snippets.items():
-                            if isinstance(category_data, dict):
-                                # Check subcategories
-                                for subcategory_name, subcategory_items in category_data.items():
-                                    if isinstance(subcategory_items, list) and self.text in subcategory_items:
-                                        if debug_enabled:
-                                            print(f"DEBUG TAG: Snippet '{self.text}' is VALID in filter '{filter_name}' (category: '{category_name}', subcategory: '{subcategory_name}')")
-                                        return False
-                                # Check if it's a direct category item
-                                if isinstance(category_data, list) and self.text in category_data:
+                    if not field_snippets:
+                        continue
+                    # Iterate categories
+                    for category_name, category_data in field_snippets.items():
+                        # First, check all items in this category (normalized via snippet manager helper)
+                        try:
+                            cat_items = snippet_manager.get_category_items(field_name, category_name, filter_name)
+                        except Exception:
+                            cat_items = []
+                        if any((str(item).strip().lower() == wanted) for item in (cat_items or [])):
+                            if debug_enabled:
+                                print(f"DEBUG TAG: Snippet '{self.text}' is VALID in filter '{filter_name}' (category: '{category_name}')")
+                            return False
+                        # If category has subcategories, check each subcategory using normalized helper
+                        if isinstance(category_data, dict):
+                            for subcategory_name in category_data.keys():
+                                try:
+                                    sub_items = snippet_manager.get_subcategory_items(field_name, category_name, subcategory_name, filter_name)
+                                except Exception:
+                                    sub_items = []
+                                if any((str(item).strip().lower() == wanted) for item in (sub_items or [])):
                                     if debug_enabled:
-                                        print(f"DEBUG TAG: Snippet '{self.text}' is VALID in filter '{filter_name}' (category: '{category_name}')")
+                                        print(f"DEBUG TAG: Snippet '{self.text}' is VALID in filter '{filter_name}' (category: '{category_name}', subcategory: '{subcategory_name}')")
                                     return False
                 if debug_enabled:
                     print(f"DEBUG TAG: Snippet '{self.text}' is MISSING - not found in any selected filters")

@@ -12,6 +12,7 @@ from PySide6.QtGui import QFont, QPainter, QPen, QBrush, QColor, QFontMetrics
 from typing import List, Callable, Optional
 from .tag_widgets_qt import Tag, TagType
 import sys
+from ..utils.logger import get_logger
 
 
 class InlineTagWidget(QWidget):
@@ -285,8 +286,18 @@ class InlineTagInputWidget(QWidget):
         if text:
             if self.editing_tag:
                 # Update existing tag and add it back
+                old_text = self.editing_tag.text
                 self.editing_tag.text = text
                 self.add_tag(self.editing_tag)
+                # Log user-defined tag edit
+                try:
+                    if self.editing_tag.tag_type == TagType.USER_TEXT:
+                        logger = get_logger()
+                        if logger:
+                            field_name = getattr(self, '_field_name', 'unknown')
+                            logger.log_gui_action("User tag edited", f"Field: {field_name}, Old: '{old_text}', New: '{text}'")
+                except Exception:
+                    pass
                 self.editing_tag = None
             else:
                 # Create new tag
@@ -300,10 +311,21 @@ class InlineTagInputWidget(QWidget):
     def add_tag(self, tag: Tag):
         """Add a tag to the input."""
         if tag not in self.tags:
+            # Detect if this add is part of an edit operation
+            is_edit_readd = getattr(self, 'editing_tag', None) is tag
             self.tags.append(tag)
             self._refresh_layout()
             self.tags_changed.emit()
             self.value_changed.emit()
+            # Log user-defined tag addition (exclude re-add during edit to avoid duplication)
+            if tag.tag_type == TagType.USER_TEXT and not is_edit_readd:
+                try:
+                    logger = get_logger()
+                    if logger:
+                        field_name = getattr(self, '_field_name', 'unknown')
+                        logger.log_gui_action("User tag added", f"Field: {field_name}, Tag: '{tag.text}'")
+                except Exception:
+                    pass
     
     def remove_tag(self, tag: Tag):
         """Remove a tag from the input."""
@@ -312,6 +334,15 @@ class InlineTagInputWidget(QWidget):
             self._refresh_layout()
             self.tags_changed.emit()
             self.value_changed.emit()
+            # Log user-defined tag removal
+            if tag.tag_type == TagType.USER_TEXT:
+                try:
+                    logger = get_logger()
+                    if logger:
+                        field_name = getattr(self, '_field_name', 'unknown')
+                        logger.log_gui_action("User tag removed", f"Field: {field_name}, Tag: '{tag.text}'")
+                except Exception:
+                    pass
     
     def edit_tag(self, tag: Tag):
         """Start editing a tag (convert back to text)."""
@@ -490,7 +521,7 @@ class InlineTagInputWidget(QWidget):
             if debug_enabled:
                 print(f"DEBUG REFRESH: Processing tag '{tag.text}' (type: {tag.tag_type.value})")
             
-            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY, TagType.SNIPPET]:
                 # Check if the tag is still missing
                 old_missing_state = tag.is_missing
                 tag.is_missing = tag.check_if_missing(field_name)

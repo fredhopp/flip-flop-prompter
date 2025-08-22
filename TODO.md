@@ -98,6 +98,14 @@
 - [ ] **Update documentation** - Ensure TODO.md and DEVELOPMENT.md are current
 
 ### **Snippet System Enhancement**
+- [x] **Snippet tag validation completed** - Snippet tags reflect filter state (red/normal)
+  - [x] Validate snippet tags alongside categories/subcategories on filter change
+  - [x] Case-insensitive matching across categories and subcategories
+  - [x] Normalize dict-based items via snippet manager helpers
+  - [x] Update tag widget styling when missing state changes
+- [x] **User-defined tag action logging** - Add/remove/edit logged with field context
+  - [x] Log to debug file when `--debug` is active
+  - [x] Include field name and old/new text for edits
 - [ ] **Expand snippet subcategories** - Add 2-3 subcategories to every snippet JSON file
   - [ ] Review existing snippet files and identify logical subcategory groupings
   - [ ] Create subcategories with at least 3 items each for relevance
