@@ -594,48 +594,48 @@ class LLMSelectionWidget(QWidget):
 class SnippetPopup(QDialog):
     """Popup dialog for snippet selection."""
     
-    def __init__(self, parent, field_name: str, selected_families: List[str], on_select: Callable):
+    def __init__(self, parent, field_name: str, selected_filters: List[str], on_select: Callable):
         super().__init__(parent)
         
         # Enable tooltips on this dialog
         self.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
         
         self.field_name = field_name
-        self.selected_families = selected_families
+        self.selected_filters = selected_filters
         self.on_select = on_select
         
         # Get logger for debugging
         self.logger = get_logger()
         
-        # Get snippets for each selected family separately
+        # Get snippets for each selected filter_name separately
         self.snippets = {}
-        self.family_snippets = {}  # Track which family each category belongs to
+        self.filter_name_snippets = {}  # Track which filter_name each category belongs to
         
-        # Process families in priority order (PG first, then NSFW, then Hentai)
-        family_priority = ["PG", "NSFW", "Hentai"]
-        sorted_families = []
+        # Process filters in priority order (PG first, then NSFW, then Hentai)
+        filter_name_priority = ["PG", "NSFW", "Hentai"]
+        sorted_filters = []
         
-        # Add families in priority order if they're selected
-        for priority_family in family_priority:
-            if priority_family in selected_families:
-                sorted_families.append(priority_family)
+        # Add filters in priority order if they're selected
+        for priority_filter_name in filter_name_priority:
+            if priority_filter_name in selected_filters:
+                sorted_filters.append(priority_filter_name)
         
-        # Add any remaining selected families not in the priority list
-        for family in selected_families:
-            if family not in sorted_families:
-                sorted_families.append(family)
+        # Add any remaining selected filters not in the priority list
+        for filter_name in selected_filters:
+            if filter_name not in sorted_filters:
+                sorted_filters.append(filter_name)
         
-        for family in sorted_families:
-            family_snippets = snippet_manager.get_snippets_for_field(field_name, family)
-            if family_snippets:
-                # Store snippets with family info
-                for category, items in family_snippets.items():
+        for filter_name in sorted_filters:
+            filter_name_snippets = snippet_manager.get_snippets_for_field(field_name, filter_name)
+            if filter_name_snippets:
+                # Store snippets with filter_name info
+                for category, items in filter_name_snippets.items():
                     if category not in self.snippets:
-                        # First time seeing this category - assign it to this family
+                        # First time seeing this category - assign it to this filter_name
                         self.snippets[category] = items
-                        self.family_snippets[category] = family
+                        self.filter_name_snippets[category] = filter_name
                     else:
-                        # Category already exists - merge items but keep the original family assignment
+                        # Category already exists - merge items but keep the original filter_name assignment
                         # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
                         if isinstance(items, list):
                             if isinstance(self.snippets[category], list):
@@ -871,12 +871,12 @@ class SnippetPopup(QDialog):
         """Build snippet selection buttons with category blocks."""
         # Log the popup population
         if self.logger:
-            self.logger.log_gui_action("Snippet popup opened", f"Field: {self.field_name}, Families: {self.selected_families}")
+            self.logger.log_gui_action("Snippet popup opened", f"Field: {self.field_name}, Filters: {self.selected_filters}")
         
         if not self.snippets:
             if self.logger:
                 self.logger.log_warning(f"No snippets found for field {self.field_name}")
-            no_snippets_label = QLabel("No snippets available for selected families")
+            no_snippets_label = QLabel("No snippets available for selected filters")
             no_snippets_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             no_snippets_label.setStyleSheet("color: #666; font-style: italic;")
             layout.addWidget(no_snippets_label)
@@ -948,9 +948,9 @@ class SnippetPopup(QDialog):
             category_layout.setContentsMargins(8, 8, 8, 8)
             category_layout.setSpacing(5)
             
-            # Category title as clickable button with family info
-            family_name = self.family_snippets.get(category, "Unknown")
-            category_button = QPushButton(f"{category.title()} ({family_name})")
+            # Category title as clickable button with filter_name info
+            filter_name_name = self.filter_name_snippets.get(category, "Unknown")
+            category_button = QPushButton(f"{category.title()} ({filter_name_name})")
             category_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
             category_button.button_type = 'category'  # Mark as category button
             category_button.setStyleSheet(f"""
@@ -1186,14 +1186,14 @@ class SnippetPopup(QDialog):
         
         # Log the snippet selection
         if self.logger:
-            # Get the family for this item if possible
-            family = "Unknown"
+            # Get the filter_name for this item if possible
+            filter_name = "Unknown"
             for category, items in self.snippets.items():
                 if isinstance(items, list):
                     for list_item in items:
                         if (isinstance(list_item, str) and list_item == item_name) or \
                            (isinstance(list_item, dict) and list_item.get("name") == item_name):
-                            family = self.family_snippets.get(category, "Unknown")
+                            filter_name = self.filter_name_snippets.get(category, "Unknown")
                             break
                 elif isinstance(items, dict):
                     for subcat, subitems in items.items():
@@ -1201,10 +1201,10 @@ class SnippetPopup(QDialog):
                             for list_item in subitems:
                                 if (isinstance(list_item, str) and list_item == item_name) or \
                                    (isinstance(list_item, dict) and list_item.get("name") == item_name):
-                                    family = self.family_snippets.get(category, "Unknown")
+                                    filter_name = self.filter_name_snippets.get(category, "Unknown")
                                     break
             
-            self.logger.log_snippet_interaction(self.field_name, "selected", item_name, family)
+            self.logger.log_snippet_interaction(self.field_name, "selected", item_name, filter_name)
         
         # For LLM instructions, pass the original item (dict) to preserve structure
         # For regular snippets, call with just the item text
@@ -1380,39 +1380,39 @@ class SnippetPopup(QDialog):
                 }}
             """)
     
-    def refresh_snippets(self, selected_families: List[str]):
-        """Refresh snippets based on new family selection."""
-        self.selected_families = selected_families
+    def refresh_snippets(self, selected_filters: List[str]):
+        """Refresh snippets based on new filter_name selection."""
+        self.selected_filters = selected_filters
         
-        # Rebuild snippets with new family selection using priority order
+        # Rebuild snippets with new filter_name selection using priority order
         self.snippets = {}
-        self.family_snippets = {}
+        self.filter_name_snippets = {}
         
-        # Process families in priority order (PG first, then NSFW, then Hentai)
-        family_priority = ["PG", "NSFW", "Hentai"]
-        sorted_families = []
+        # Process filters in priority order (PG first, then NSFW, then Hentai)
+        filter_name_priority = ["PG", "NSFW", "Hentai"]
+        sorted_filters = []
         
-        # Add families in priority order if they're selected
-        for priority_family in family_priority:
-            if priority_family in selected_families:
-                sorted_families.append(priority_family)
+        # Add filters in priority order if they're selected
+        for priority_filter_name in filter_name_priority:
+            if priority_filter_name in selected_filters:
+                sorted_filters.append(priority_filter_name)
         
-        # Add any remaining selected families not in the priority list
-        for family in selected_families:
-            if family not in sorted_families:
-                sorted_families.append(family)
+        # Add any remaining selected filters not in the priority list
+        for filter_name in selected_filters:
+            if filter_name not in sorted_filters:
+                sorted_filters.append(filter_name)
         
-        for family in sorted_families:
-            family_snippets = snippet_manager.get_snippets_for_field(self.field_name, family)
-            if family_snippets:
-                # Store snippets with family info
-                for category, items in family_snippets.items():
+        for filter_name in sorted_filters:
+            filter_name_snippets = snippet_manager.get_snippets_for_field(self.field_name, filter_name)
+            if filter_name_snippets:
+                # Store snippets with filter_name info
+                for category, items in filter_name_snippets.items():
                     if category not in self.snippets:
-                        # First time seeing this category - assign it to this family
+                        # First time seeing this category - assign it to this filter_name
                         self.snippets[category] = items
-                        self.family_snippets[category] = family
+                        self.filter_name_snippets[category] = filter_name
                     else:
-                        # Category already exists - merge items but keep the original family assignment
+                        # Category already exists - merge items but keep the original filter_name assignment
                         # (This preserves the priority order - PG takes precedence over NSFW/Hentai)
                         if isinstance(items, list):
                             if isinstance(self.snippets[category], list):

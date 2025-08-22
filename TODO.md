@@ -18,14 +18,14 @@
 - [x] Prompt generation engine
 - [x] LLM integration with Ollama
 - [x] Model-specific prompt formatting
-- [x] **Enhanced "Families" system** (replaces content rating)
+- [x] **Enhanced "Filters" system** (replaces content rating)
 - [x] Snippet system with JSON files
 - [x] **Unified JSON structure** - All snippets use consistent key-value format
 - [x] Template loading/saving system
-- [x] Preferences saving/loading with family persistence
+- [x] Preferences saving/loading with filter persistence
 - [x] Debug system with file logging
 - [x] **Tag-based snippet system** with randomization
-- [x] **Dynamic snippet filtering** based on selected families
+- [x] **Dynamic snippet filtering** based on selected filters
 - [x] **Realize functionality** - Convert random category/subcategory tags to specific snippet items
 
 ### **PySide6 GUI Implementation (Major Achievement)**
@@ -34,7 +34,7 @@
 - [x] **Tag-based input system** - Inline tags with colors and editing
 - [x] **Dynamic snippet popup** - Category blocks rearrange on window resize
 - [x] **Auto-expanding Additional Details** - 1-4 lines with scrollbar
-- [x] **Family preferences persistence** - Saves selections between sessions
+- [x] **Filter preferences persistence** - Saves selections between sessions
 - [x] **Real-time Ollama integration** - Dynamic model population and connection testing
 - [x] **Proper window resize behavior** - Only preview panel expands
 - [x] **Professional button layout** - 2px spacing with equal distribution
@@ -46,7 +46,7 @@
 - [x] **Clear All Fields** - Renamed and repositioned button
 - [x] **Seed-based randomization** - Deterministic random snippet selection
 - [x] **Tag color coding** - Different colors for different tag types
-- [x] **Dynamic snippet updates** - Real-time filtering when families change
+- [x] **Dynamic snippet updates** - Real-time filtering when filters change
 - [x] **Realize button** - Convert random tags to specific items with deterministic consistency
 - [x] **Font Awesome Icons** - Professional industry-standard icons throughout the interface
 - [x] **Compact UI Layout** - Optimized spacing and field heights for better tag visibility

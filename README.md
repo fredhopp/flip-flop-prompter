@@ -16,7 +16,7 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 
 ### **Core Functionality**
 - **LLM Integration**: Uses Ollama for local, free prompt refinement
-- **Content Family System**: PG, NSFW, and Hentai families with appropriate filtering
+- **Content Filter System**: PG, NSFW, and Hentai filters with appropriate filtering
 - **Snippet System**: Quick selection from categorized prompt elements
 - **Template System**: Save and load complete prompt configurations
 - **Real-time Preview**: See your prompt as you build it
@@ -78,7 +78,7 @@ python main.py          # Standard mode
 ## 📖 Usage
 
 ### **Basic Workflow**
-1. **Set Content Families**: Select appropriate content families (PG/NSFW/Hentai) for snippet filtering
+1. **Set Content Filters**: Select appropriate content filters (PG/NSFW/Hentai) for snippet filtering
 2. **Fill Fields**: Use the form fields to describe your image
 3. **Use Snippets**: Click snippet buttons for quick suggestions
 4. **Preview**: See your prompt in real-time
@@ -108,7 +108,7 @@ python main.py          # Standard mode
 ### **Snippets**
 - Click the "Snippets" button next to any field
 - Browse categories and click items to add/remove them
-- Snippets are filtered by selected families (PG/NSFW/Hentai)
+- Snippets are filtered by selected filters (PG/NSFW/Hentai)
 - Supports toggle behavior (click again to remove)
 - Categories and subcategories appear as random tags (orange/yellow)
 
@@ -164,11 +164,11 @@ The application creates a user data directory to store:
 - macOS: `~/Library/Application Support/FlipFlopPrompt/`
 - Linux: `~/.config/FlipFlopPrompt/`
 
-### **Content Families**
+### **Content Filters**
 - **PG**: Family-friendly content
 - **NSFW**: Adult content (non-explicit)
 - **Hentai**: Explicit adult content
-- **Dynamic Filtering**: Snippets are filtered based on selected families
+- **Dynamic Filtering**: Snippets are filtered based on selected filters
 
 ### **LLM Models**
 The application supports various Ollama models:

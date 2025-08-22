@@ -13,7 +13,7 @@ class HistoryEntry:
     timestamp: str
     field_data: Dict[str, Any]  # All field values
     seed: int
-    families: List[str]
+    filters: List[str]
     llm_model: str
     target_model: str
     final_prompt: str = ""  # The generated final prompt
@@ -28,14 +28,14 @@ class HistoryManager:
         self.entries: List[HistoryEntry] = []
         self.current_index = -1  # -1 means no current entry
     
-    def add_entry(self, field_data: Dict[str, Any], seed: int, families: List[str], 
+    def add_entry(self, field_data: Dict[str, Any], seed: int, filters: List[str], 
                   llm_model: str, target_model: str, final_prompt: str = "", summary_text: str = "") -> None:
         """Add a new entry to history."""
         entry = HistoryEntry(
             timestamp=datetime.now().isoformat(),
             field_data=field_data,
             seed=seed,
-            families=families,
+            filters=filters,
             llm_model=llm_model,
             target_model=target_model,
             final_prompt=final_prompt,

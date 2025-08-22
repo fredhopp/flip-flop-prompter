@@ -168,24 +168,24 @@ class TextFieldWidget(FieldWidget):
         # Get field name for snippet lookup
         field_name = self._get_field_name_from_label(self.label_text)
         
-        # Get selected families from main window (if available)
+        # Get selected filters from main window (if available)
         main_window = None
         widget = self
         
         # Walk up the widget hierarchy to find the main window
         while widget and not main_window:
             widget = widget.parent()
-            if hasattr(widget, '_get_selected_families'):
+            if hasattr(widget, '_get_selected_filters'):
                 main_window = widget
                 break
         
         if main_window:
-            selected_families = main_window._get_selected_families()
+            selected_filters = main_window._get_selected_filters()
         else:
-            selected_families = ["PG"]  # Default
+            selected_filters = ["PG"]  # Default
         
         # Create and show snippet popup
-        popup = SnippetPopup(self, field_name, selected_families, self._on_snippet_select)
+        popup = SnippetPopup(self, field_name, selected_filters, self._on_snippet_select)
         popup.show_popup()
     
     def _on_snippet_select(self, snippet: str):

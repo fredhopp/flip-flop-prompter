@@ -164,17 +164,17 @@ class MainWindow(QMainWindow):
         filters_menu = menubar.addMenu("Filters")
         
         # Initialize filters (checkboxes)
-        self.family_actions = {}
-        families = ["PG", "NSFW", "Hentai"]
+        self.filter_actions = {}
+        filters = ["PG", "NSFW", "Hentai"]
         
-        for family in families:
-            action = QAction(family, self)
+        for filter_name in filters:
+            action = QAction(filter_name, self)
             action.setCheckable(True)
-            if family == "PG":  # Default selection
+            if filter_name == "PG":  # Default selection
                 action.setChecked(True)
-            action.triggered.connect(lambda checked, f=family: self._on_family_changed(f, checked))
+            action.triggered.connect(lambda checked, f=filter_name: self._on_filter_changed(f, checked))
             filters_menu.addAction(action)
-            self.family_actions[family] = action
+            self.filter_actions[filter_name] = action
         
         # Themes menu (top-level)
         themes_menu = menubar.addMenu("Themes")
@@ -345,7 +345,7 @@ class MainWindow(QMainWindow):
     
     def _create_content_rating(self):
         """Create content rating selection widget."""
-        # Content rating is now handled by the Families menu
+        # Content rating is now handled by the Filters menu
         pass
     
     def _create_button_frame(self):
@@ -738,8 +738,8 @@ class MainWindow(QMainWindow):
             self.llm_instructions_widget.clear()
         
         # Reset filters to default
-        for family, action in self.family_actions.items():
-            action.setChecked(family == "PG")
+        for filter_name, action in self.filter_actions.items():
+            action.setChecked(filter_name == "PG")
         
         # Reset model to default
         if hasattr(self, 'model_widget'):
@@ -797,7 +797,7 @@ class MainWindow(QMainWindow):
             "details_tags": [tag.to_dict() for tag in self.details_widget.get_tags()] if hasattr(self, 'details_widget') else [],
             "llm_instructions_tags": [tag.to_dict() for tag in self.llm_instructions_widget.get_tags()] if hasattr(self, 'llm_instructions_widget') else [],
             "seed": self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0,
-            "filters": self._get_selected_families(),
+            "filters": self._get_selected_filters(),
             "model": self.model_widget.get_value() if hasattr(self, 'model_widget') else "seedream",
             "llm": self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-r1:8b",
             "debug_enabled": self.debug_enabled,
@@ -896,12 +896,12 @@ class MainWindow(QMainWindow):
                 filters_data = template_data.get("filters", template_data.get("families", []))
                 if filters_data:
                     # Reset all filters first
-                    for family, action in self.family_actions.items():
+                    for filter_name, action in self.filter_actions.items():
                         action.setChecked(False)
                     # Set filters from template
-                    for family in filters_data:
-                        if family in self.family_actions:
-                            self.family_actions[family].setChecked(True)
+                    for filter_name in filters_data:
+                        if filter_name in self.filter_actions:
+                            self.filter_actions[filter_name].setChecked(True)
                 if hasattr(self, 'model_widget') and "model" in template_data:
                     self.model_widget.set_value(template_data["model"])
                 if hasattr(self, 'llm_widget') and "llm" in template_data:
@@ -959,10 +959,10 @@ class MainWindow(QMainWindow):
                 self._show_error_message("LLM instructions required")
                 return
             
-            # Get LLM model and families (use first selected family for backward compatibility)
+            # Get LLM model and filters (use first selected filter for backward compatibility)
             llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
-            selected_families = self._get_selected_families()
-            content_rating = selected_families[0] if selected_families else "PG"
+            selected_filters = self._get_selected_filters()
+            content_rating = selected_filters[0] if selected_filters else "PG"
             
             # Start progress tracking
             self._start_progress_tracking(llm_model, "seedream")
@@ -1279,12 +1279,12 @@ class MainWindow(QMainWindow):
         # Update preview
         self._update_preview()
     
-    def _get_selected_families(self):
-        """Get list of currently selected families."""
+    def _get_selected_filters(self):
+        """Get list of currently selected filters."""
         selected = []
-        for family, action in self.family_actions.items():
+        for filter_name, action in self.filter_actions.items():
             if action.isChecked():
-                selected.append(family)
+                selected.append(filter_name)
         return selected  # Return empty list if none selected - no default fallback
     
     def _on_seed_changed(self):
@@ -1295,14 +1295,14 @@ class MainWindow(QMainWindow):
         # Save seed in preferences if needed
         self._save_preferences()
     
-    def _on_family_changed(self, family_name, checked):
-        """Handle family selection changes."""
-        # Log the family change
+    def _on_filter_changed(self, filter_name, checked):
+        """Handle filter selection changes."""
+        # Log the filter change
         if self.logger:
-            self.logger.log_gui_action(f"Family changed", f"{family_name}: {'checked' if checked else 'unchecked'}")
+            self.logger.log_gui_action(f"Filter changed", f"{filter_name}: {'checked' if checked else 'unchecked'}")
         
-        # Update snippet dropdowns with new family selection
-        self._update_snippet_families()
+        # Update snippet dropdowns with new filter selection
+        self._update_snippet_filters()
         
         # Refresh all open snippet popups
         self._refresh_open_snippet_popups()
@@ -1329,25 +1329,25 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Success", "Prompt copied to clipboard!")
         self._show_status_message("Prompt copied to clipboard")
     
-    def _update_snippet_families(self):
-        """Update snippet dropdowns based on selected families."""
-        # Get selected families
-        selected_families = self._get_selected_families()
+    def _update_snippet_filters(self):
+        """Update snippet dropdowns based on selected filters."""
+        # Get selected filters
+        selected_filters = self._get_selected_filters()
         
         # Update all snippet widgets - this will refresh when snippet popups are opened
-        # The snippet popups will call _get_selected_families() when they open
+        # The snippet popups will call _get_selected_filters() when they open
         pass
     
     def _refresh_open_snippet_popups(self):
         """Refresh all currently open snippet popups."""
-        selected_families = self._get_selected_families()
+        selected_filters = self._get_selected_filters()
         
         # Remove closed popups from the list
         self.open_snippet_popups = [popup for popup in self.open_snippet_popups if popup.isVisible()]
         
         # Refresh each open popup
         for popup in self.open_snippet_popups:
-            popup.refresh_snippets(selected_families)
+            popup.refresh_snippets(selected_filters)
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""
@@ -1421,8 +1421,8 @@ class MainWindow(QMainWindow):
                 # Load filter preferences (handle both "filters" and "families" for backward compatibility)
                 selected_filters = prefs.get('filters', prefs.get('families', []))
                 if selected_filters:
-                    for family, action in self.family_actions.items():
-                        action.setChecked(family in selected_filters)
+                    for filter_name, action in self.filter_actions.items():
+                        action.setChecked(filter_name in selected_filters)
                 
                 # Load model preferences
                 if 'model' in prefs and hasattr(self, 'model_widget'):
@@ -1438,9 +1438,9 @@ class MainWindow(QMainWindow):
         try:
             # Get selected filters
             selected_filters = []
-            for family, action in self.family_actions.items():
+            for filter_name, action in self.filter_actions.items():
                 if action.isChecked():
-                    selected_filters.append(family)
+                    selected_filters.append(filter_name)
             
             prefs = {
                 'filters': selected_filters,
@@ -1691,10 +1691,10 @@ class MainWindow(QMainWindow):
                             print(f"DEBUG NAV: Restoring legacy text for field {field_name}: '{field_data}'")
                         widget.set_value(str(field_data))
             
-            # Restore families
-            for family in entry.families:
-                if family in self.family_actions:
-                    self.family_actions[family].setChecked(True)
+            # Restore filters
+            for filter_name in entry.filters:
+                if filter_name in self.filter_actions:
+                    self.filter_actions[filter_name].setChecked(True)
             
             # Restore seed
             if hasattr(self, 'seed_widget'):
@@ -1903,7 +1903,7 @@ class MainWindow(QMainWindow):
         entry = self.history_manager.get_current_entry()
         if entry:
             if self.debug_enabled:
-                print(f"DEBUG NAV: Restoring history entry - seed={entry.seed}, families={entry.families}, llm_model={entry.llm_model}")
+                print(f"DEBUG NAV: Restoring history entry - seed={entry.seed}, filters={entry.filters}, llm_model={entry.llm_model}")
                 print(f"DEBUG NAV: History entry field data: {list(entry.field_data.keys())}")
                 print(f"DEBUG NAV: History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'")
                 print(f"DEBUG NAV: _intentionally_navigating flag is: {self._intentionally_navigating}")
@@ -1936,9 +1936,9 @@ class MainWindow(QMainWindow):
                             widget.set_value(str(field_data))
                 
                 # Restore families
-                for family in entry.families:
-                    if family in self.family_actions:
-                        self.family_actions[family].setChecked(True)
+                for filter_name in entry.filters:
+                    if filter_name in self.filter_actions:
+                        self.filter_actions[filter_name].setChecked(True)
                 
                 # Restore seed
                 if hasattr(self, 'seed_widget'):
@@ -2049,11 +2049,11 @@ class MainWindow(QMainWindow):
                         'value': widget.get_value()
                     }
         
-        # Get selected families
-        selected_families = []
-        for family, action in self.family_actions.items():
+        # Get selected filters
+        selected_filters = []
+        for filter_name, action in self.filter_actions.items():
             if action.isChecked():
-                selected_families.append(family)
+                selected_filters.append(filter_name)
         
         # Get current seed
         seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
@@ -2068,7 +2068,7 @@ class MainWindow(QMainWindow):
         self.history_manager.add_entry(
             field_data=field_data,
             seed=seed,
-            families=selected_families,
+            filters=selected_filters,
             llm_model=llm_model,
             target_model="seedream",  # Hardcoded as per current implementation
             final_prompt=final_prompt,

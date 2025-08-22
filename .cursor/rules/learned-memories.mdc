@@ -72,7 +72,7 @@ taskkill //F //IM python.exe
 - **Snippets**: JSON files with unified key-value structure (name/content/description)
 - **Tag System**: Inline tags with colors (blue=snippets, purple=user text, orange=categories, yellow=subcategories)
 - **Randomization**: Seed-based deterministic random snippet selection with preview/realization consistency
-- **Families**: Dynamic filtering system with real-time snippet updates
+- **Filters**: Dynamic filtering system with real-time snippet updates
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 - **Logging**: Comprehensive GUI interaction logging with debug mode integration
 - **Theme System**: JSON-based light/dark themes with external file customization
@@ -193,7 +193,7 @@ taskkill //F //IM python.exe
 - **GUI not updating**: Check that change callbacks are properly connected
 - **Button styling**: Use PySide6 QPushButton with CSS stylesheets
 - **Tag colors not showing**: Check paintEvent implementation in InlineTagWidget
-- **Snippet popup issues**: Verify families filtering and dynamic updates
+- **Snippet popup issues**: Verify filters filtering and dynamic updates
 - **Startup performance**: MainWindow creation optimized to ~1.2s
 - **Process cleanup**: Use `taskkill //F //IM python.exe` to clean hanging processes
 

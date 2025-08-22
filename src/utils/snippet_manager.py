@@ -262,12 +262,12 @@ class SnippetManager:
     
     def _is_family_appropriate(self, snippet_family: str, requested_family: str) -> bool:
         """Check if a snippet's family is appropriate for the requested family filter."""
-        # Normalize families to lowercase for comparison
+        # Normalize filters to lowercase for comparison
         snippet_lower = snippet_family.lower()
         requested_lower = requested_family.lower()
         
-        # Families should only show content from their own family
-        # This is a filter, not a hierarchy - each family is independent
+        # Filters should only show content from their own filter
+        # This is a filter, not a hierarchy - each filter is independent
         return snippet_lower == requested_lower
     
     def reload_snippets(self):

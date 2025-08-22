@@ -381,7 +381,7 @@ class InlineTagInputWidget(QWidget):
         
         return ", ".join(tag_texts)
     
-    def generate_random_text(self, seed: int, snippet_manager, selected_families: List[str] = None) -> str:
+    def generate_random_text(self, seed: int, snippet_manager, selected_filters: List[str] = None) -> str:
         """Generate randomized text based on tags and seed."""
         import random
         result_texts = []
@@ -391,10 +391,10 @@ class InlineTagInputWidget(QWidget):
                 # Get random item from category
                 if len(tag.category_path) >= 1:
                     field_name = getattr(self, '_field_name', 'subjects')
-                    families = selected_families or ["PG"]
+                    filters = selected_filters or ["PG"]
                     category_items = []
-                    for family in families:
-                        items = snippet_manager.get_category_items(field_name, tag.category_path[0], family)
+                    for filter_name in filters:
+                        items = snippet_manager.get_category_items(field_name, tag.category_path[0], filter_name)
                         category_items.extend(items)
                     if category_items:
                         # Use the SAME deterministic seed logic as realization
@@ -407,11 +407,11 @@ class InlineTagInputWidget(QWidget):
                 # Get random item from subcategory
                 if len(tag.category_path) >= 2:
                     field_name = getattr(self, '_field_name', 'subjects')
-                    families = selected_families or ["PG"]
+                    filters = selected_filters or ["PG"]
                     subcategory_items = []
-                    for family in families:
+                    for filter_name in filters:
                         items = snippet_manager.get_subcategory_items(
-                            field_name, tag.category_path[0], tag.category_path[1], family
+                            field_name, tag.category_path[0], tag.category_path[1], filter_name
                         )
                         subcategory_items.extend(items)
                     if subcategory_items:

@@ -101,16 +101,16 @@ class TagFieldWidget(QWidget):
     
     def _show_snippets(self):
         """Show the snippet popup with category/subcategory buttons."""
-        # Get selected families from main window
-        selected_families = ["PG"]  # Default fallback
+        # Get selected filters from main window
+        selected_filters = ["PG"]  # Default fallback
         
-        # Try to find the main window to get selected families
+        # Try to find the main window to get selected filters
         main_window = self._find_main_window()
-        if main_window and hasattr(main_window, '_get_selected_families'):
-            selected_families = main_window._get_selected_families()
+        if main_window and hasattr(main_window, '_get_selected_filters'):
+            selected_filters = main_window._get_selected_filters()
         
         # Create and show snippet popup
-        popup = SnippetPopup(self, self.field_name, selected_families, self._on_snippet_selected)
+        popup = SnippetPopup(self, self.field_name, selected_filters, self._on_snippet_selected)
         
         # Track the popup in the main window
         if main_window and hasattr(main_window, 'open_snippet_popups'):
@@ -124,7 +124,7 @@ class TagFieldWidget(QWidget):
         """Find the main window by traversing up the widget hierarchy."""
         current = self
         while current:
-            if hasattr(current, '_get_selected_families'):
+            if hasattr(current, '_get_selected_filters'):
                 return current
             current = current.parent()
         return None
@@ -201,15 +201,15 @@ class TagFieldWidget(QWidget):
     
     def get_randomized_value(self, seed: int) -> str:
         """Get the randomized value based on current seed."""
-        # Get selected families from main window
-        selected_families = ["PG"]  # Default fallback
+        # Get selected filters from main window
+        selected_filters = ["PG"]  # Default fallback
         
-        # Try to find the main window to get selected families
+        # Try to find the main window to get selected filters
         main_window = self._find_main_window()
-        if main_window and hasattr(main_window, '_get_selected_families'):
-            selected_families = main_window._get_selected_families()
+        if main_window and hasattr(main_window, '_get_selected_filters'):
+            selected_filters = main_window._get_selected_filters()
         
-        return self.tag_input.generate_random_text(seed, snippet_manager, selected_families)
+        return self.tag_input.generate_random_text(seed, snippet_manager, selected_filters)
     
     def get_display_value(self) -> str:
         """Get the current display value (non-randomized)."""
@@ -239,7 +239,7 @@ class TagFieldWidget(QWidget):
         """Set tags (for template loading)."""
         self.tag_input.set_tags(tags)
     
-    def realize_category_tags(self, seed: int, selected_families: List[str]):
+    def realize_category_tags(self, seed: int, selected_filters: List[str]):
         """Realize category and subcategory tags to actual snippet items."""
         current_tags = self.tag_input.get_tags()
         new_tags = []
@@ -247,7 +247,7 @@ class TagFieldWidget(QWidget):
         for tag in current_tags:
             if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
                 # Generate a random snippet item for this category/subcategory
-                realized_item = self._generate_realized_item(tag, seed, selected_families)
+                realized_item = self._generate_realized_item(tag, seed, selected_filters)
                 if realized_item:
                     # Replace category/subcategory tag with realized snippet
                     new_tags.append(Tag(realized_item, TagType.SNIPPET))
@@ -259,7 +259,7 @@ class TagFieldWidget(QWidget):
         # Update the tag input with realized tags
         self.tag_input.set_tags(new_tags)
     
-    def _generate_realized_item(self, category_tag: Tag, seed: int, selected_families: List[str]) -> str:
+    def _generate_realized_item(self, category_tag: Tag, seed: int, selected_filters: List[str]) -> str:
         """Generate a realized snippet item for a category or subcategory tag."""
         import random
         
@@ -275,9 +275,9 @@ class TagFieldWidget(QWidget):
                 # Use the SAME logic as preview system: tag.category_path[0]
                 if len(category_tag.category_path) >= 1:
                     category_items = []
-                    families = selected_families or ["PG"]
-                    for family in families:
-                        items = snippet_manager.get_category_items(self.field_name, category_tag.category_path[0], family)
+                    filters = selected_filters or ["PG"]
+                    for filter_name in filters:
+                        items = snippet_manager.get_category_items(self.field_name, category_tag.category_path[0], filter_name)
                         category_items.extend(items)
                     
                     if category_items:
@@ -289,13 +289,13 @@ class TagFieldWidget(QWidget):
                 # Use the SAME logic as preview system: tag.category_path[0] and tag.category_path[1]
                 if len(category_tag.category_path) >= 2:
                     subcategory_items = []
-                    families = selected_families or ["PG"]
-                    for family in families:
+                    filters = selected_filters or ["PG"]
+                    for filter_name in filters:
                         items = snippet_manager.get_subcategory_items(
                             self.field_name, 
                             category_tag.category_path[0],  # Use category_path[0] like preview
                             category_tag.category_path[1],  # Use category_path[1] like preview
-                            family
+                            filter_name
                         )
                         subcategory_items.extend(items)
                     
@@ -512,8 +512,8 @@ class SeedFieldWidget(QWidget):
         # Get current seed for consistent realization
         current_seed = self.get_value()
         
-        # Get selected families for snippet filtering
-        selected_families = main_window._get_selected_families() if hasattr(main_window, '_get_selected_families') else ["PG"]
+        # Get selected filters for snippet filtering
+        selected_filters = main_window._get_selected_filters() if hasattr(main_window, '_get_selected_filters') else ["PG"]
         
         # Realize all field widgets
         field_widgets = [
@@ -526,7 +526,7 @@ class SeedFieldWidget(QWidget):
         
         for field_widget in field_widgets:
             if field_widget and hasattr(field_widget, 'realize_category_tags'):
-                field_widget.realize_category_tags(current_seed, selected_families)
+                field_widget.realize_category_tags(current_seed, selected_filters)
         
         # Emit change signal to update preview
         self.value_changed.emit()
@@ -535,7 +535,7 @@ class SeedFieldWidget(QWidget):
         """Find the main window by traversing up the widget hierarchy."""
         current = self
         while current:
-            if hasattr(current, '_get_selected_families'):
+            if hasattr(current, '_get_selected_filters'):
                 return current
             current = current.parent()
         return None
