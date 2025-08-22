@@ -355,31 +355,27 @@ class MainWindow(QMainWindow):
         button_layout.setContentsMargins(0, 10, 0, 10)
         button_layout.setSpacing(2)  # Small 2px gap between buttons
         
-        # Generate Prompt button
+        # Generate Prompt button (75% of space)
         self.generate_button = QPushButton("Generate Final Prompt")
         self.generate_button.clicked.connect(self._generate_prompt)
-        button_layout.addWidget(self.generate_button, 1)  # Equal stretch
+        button_layout.addWidget(self.generate_button, 3)  # 75% of space (3:1 ratio)
 
-        # Save Prompt button
-        self.save_button = QPushButton("Save Prompt")
-        self.save_button.clicked.connect(self._save_prompt)
-        button_layout.addWidget(self.save_button, 1)  # Equal stretch
-
-        # Copy to Clipboard button
-        self.copy_button = QPushButton("Copy to Clipboard")
-        self.copy_button.clicked.connect(self._copy_to_clipboard)
-        button_layout.addWidget(self.copy_button, 1)  # Equal stretch
-
-        # Clear All Fields button (moved to end)
+        # Clear All Fields button (25% of space)
         self.clear_button = QPushButton("Clear All Fields")
         self.clear_button.clicked.connect(self._clear_all_fields)
-        button_layout.addWidget(self.clear_button, 1)  # Equal stretch
+        button_layout.addWidget(self.clear_button, 1)  # 25% of space (1:3 ratio)
         
         self.main_layout.addWidget(button_frame)
     
     def _create_preview_panel(self):
         """Create the preview panel."""
         self.preview_panel = PreviewPanel()
+        
+        # Connect the new action button signals
+        self.preview_panel.copy_requested.connect(self._copy_to_clipboard)
+        self.preview_panel.save_requested.connect(self._save_prompt)
+        self.preview_panel.save_all_requested.connect(self._save_all_prompts)  # New method to implement
+        
         self.main_layout.addWidget(self.preview_panel)
     
     def _create_status_bar(self):
@@ -991,15 +987,9 @@ class MainWindow(QMainWindow):
             # Save to history with final prompt
             self._save_to_history(final_prompt)
             
-            # Navigate to the newly created history entry (1/X) so user can see the result
-            self._intentionally_navigating = True
-            try:
-                self.history_manager.navigate_forward()  # This will move from 0/X to 1/X
-                self._update_history_navigation()
-            finally:
-                # Clear flag after navigation completes - LONGER delay to cover field restoration
-                from PySide6.QtCore import QTimer
-                QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # NO AUTO-NAVIGATION: User stays on current position, can manually navigate to see result
+            if self.debug_enabled:
+                print(f"DEBUG NAV: LLM result saved to history - user stays on current position")
             
             # Update status bar
             self._update_status_bar()
@@ -1185,8 +1175,8 @@ class MainWindow(QMainWindow):
                 print("DEBUG NAV: Preview update skipped - transitioning")
             return
         
-        # SMART CACHING LOGIC: Handle field changes based on current position
-        if not force_update and not (hasattr(self, '_restoring_state') and self._restoring_state):
+        # SIMPLE FLAG-BASED LOGIC: Handle field changes based on current position
+        if not force_update and not (hasattr(self, '_restoring_state') and self._restoring_state) and not (hasattr(self, '_intentionally_navigating') and self._intentionally_navigating):
             current_pos, total_count = self.history_manager.get_navigation_info()
             
             if current_pos > 0:  # User is on history (1/X, 2/X, 3/X, etc.)
@@ -1194,8 +1184,8 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     print(f"DEBUG NAV: User modified fields on history position {current_pos}/{total_count} - caching as new 0/X")
                 
-                # Set flag to prevent recursive calls during the jump
-                self._intentionally_navigating = True
+                # Set restoring flag to prevent cascading during the entire operation
+                self._restoring_state = True
                 
                 try:
                     # Cache the current field state as the new 0/X
@@ -1204,7 +1194,7 @@ class MainWindow(QMainWindow):
                     # Jump to position 0 (current state) FIRST
                     self.history_manager.jump_to_position(0)
                     
-                    # Restore the cached current state
+                    # Restore the cached current state (signals are blocked, no cascading)
                     self._restore_cached_current_state()
                     
                     # Update navigation to show current state
@@ -1217,9 +1207,8 @@ class MainWindow(QMainWindow):
                     if self.debug_enabled:
                         print("DEBUG NAV: Completed smart jump to current state")
                 finally:
-                    # Clear flag after a longer delay to ensure all operations complete
-                    from PySide6.QtCore import QTimer
-                    QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+                    # Clear flag immediately (no timer needed)
+                    self._restoring_state = False
                 
                 return  # Exit early - preview will be updated after jump
             elif current_pos == 0:  # User is on 0/X (current state)
@@ -1395,6 +1384,8 @@ class MainWindow(QMainWindow):
             self.grading_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'details_widget'):
             self.details_widget.value_changed.connect(self._schedule_preview_update)
+        if hasattr(self, 'llm_instructions_widget'):
+            self.llm_instructions_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'seed_widget'):
             self.seed_widget.value_changed.connect(self._schedule_preview_update)
         
@@ -1486,9 +1477,8 @@ class MainWindow(QMainWindow):
             if self.history_manager.navigate_back():
                 self._update_history_navigation()
         finally:
-            # Clear flag after navigation completes
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # Clear flag immediately (no timer needed)
+            self._intentionally_navigating = False
     
     def _navigate_history_forward(self):
         """Navigate to next history entry."""
@@ -1498,9 +1488,8 @@ class MainWindow(QMainWindow):
             if self.history_manager.navigate_forward():
                 self._update_history_navigation()
         finally:
-            # Clear flag after navigation completes
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # Clear flag immediately (no timer needed)
+            self._intentionally_navigating = False
     
     def _delete_history_entry(self):
         """Delete current history entry."""
@@ -1509,9 +1498,8 @@ class MainWindow(QMainWindow):
             if self.history_manager.delete_current_entry():
                 self._update_history_navigation()
         finally:
-            # Clear flag after navigation completes
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # Clear flag immediately (no timer needed)
+            self._intentionally_navigating = False
     
     def _clear_history(self):
         """Clear all history entries."""
@@ -1520,9 +1508,8 @@ class MainWindow(QMainWindow):
             self.history_manager.clear_history()
             self._update_history_navigation()
         finally:
-            # Clear flag after navigation completes
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # Clear flag immediately (no timer needed)
+            self._intentionally_navigating = False
     
     def _jump_to_history_position(self, position: int):
         """Jump to specific history position."""
@@ -1532,9 +1519,8 @@ class MainWindow(QMainWindow):
             if self.history_manager.jump_to_position(position):
                 self._update_history_navigation()
         finally:
-            # Clear flag after navigation completes
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+            # Clear flag immediately (no timer needed)
+            self._intentionally_navigating = False
     
     def _should_jump_to_current_state(self) -> bool:
         """Check if we should jump back to current state (0/X) when field changes."""
@@ -1625,9 +1611,8 @@ class MainWindow(QMainWindow):
             # Unblock signals
             self._unblock_all_field_signals()
             
-            # Clear flag AFTER a small delay to ensure all signals are processed
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(100, lambda: setattr(self, '_restoring_state', False))
+            # Clear flag immediately (no timer needed)
+            self._restoring_state = False
     
     def _jump_to_current_state(self):
         """Jump back to current state (0/X) and load the cached state."""
@@ -1660,9 +1645,8 @@ class MainWindow(QMainWindow):
             if self.debug_enabled:
                 print("DEBUG NAV: Completed jump to current state")
         finally:
-            # Clear flag after a delay to ensure all operations complete
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(200, lambda: setattr(self, '_jumping_to_current', False))
+            # Clear flag immediately (no timer needed)
+            self._jumping_to_current = False
     
     def _load_history_entry_into_current_state(self, entry):
         """Load a history entry into the current state (0/X) for editing."""
@@ -1722,9 +1706,8 @@ class MainWindow(QMainWindow):
             # Unblock signals
             self._unblock_all_field_signals()
             
-            # Clear flag after a delay to ensure all signals are processed
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(200, lambda: setattr(self, '_restoring_state', False))
+            # Clear flag immediately (no timer needed)
+            self._restoring_state = False
             
             # Update preview to show the loaded state (force update to avoid recursion)
             self._update_preview(preserve_tab=True, force_update=True)
@@ -1733,8 +1716,9 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'preview_panel'):
                 self.preview_panel.tab_widget.setCurrentIndex(current_tab)
             
-            # Set current state styling
-            self.preview_panel.set_history_state(False)
+            # Set current state styling with total count
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            self.preview_panel.set_history_state(False, total_count)
     
     def _load_preview_into_fields(self):
         """Load the current preview content into the input fields."""
@@ -1966,9 +1950,8 @@ class MainWindow(QMainWindow):
                 # Unblock signals
                 self._unblock_all_field_signals()
                 
-                # Clear flag after a delay to ensure all signals are processed
-                from PySide6.QtCore import QTimer
-                QTimer.singleShot(200, lambda: setattr(self, '_restoring_state', False))
+                # Clear flag immediately (no timer needed)
+                self._restoring_state = False
                 
                 # Update preview once at the end (preserve tab selection during history restoration)
                 self._update_preview(preserve_tab=True, force_update=True)
@@ -2010,12 +1993,12 @@ class MainWindow(QMainWindow):
             if is_current_state:
                 print(f"DEBUG NAV: Showing CURRENT state (0/{total_count})")
                 # Set current state styling first to prevent flash
-                self.preview_panel.set_history_state(False)
+                self.preview_panel.set_history_state(False, total_count)
                 self._show_current_state()
             else:
                 print(f"DEBUG NAV: Showing HISTORY state ({current_pos}/{total_count})")
                 # Set history state styling first to prevent flash
-                self.preview_panel.set_history_state(True)
+                self.preview_panel.set_history_state(True, total_count)
                 # We're in history state, restore from history entry
                 self._restore_from_history_entry()
             
@@ -2099,4 +2082,9 @@ class MainWindow(QMainWindow):
         if not (hasattr(self, '_restoring_state') and self._restoring_state):
             if hasattr(self, '_preview_update_timer'):
                 self._preview_update_timer.start(100)  # 100ms debounce
+
+    def _save_all_prompts(self):
+        """Save all prompts (placeholder for future implementation)."""
+        # TODO: Implement save all prompts functionality
+        print("Save all prompts functionality not yet implemented")
 

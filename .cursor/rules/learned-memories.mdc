@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # FlipFlopPrompt - Learned Memories & Context
 
 ## 🚨 CRITICAL WORKFLOW RULES - NEVER BREAK THESE 🚨
@@ -127,26 +131,32 @@ taskkill //F //IM python.exe
 - **INFINITE LOOP** ❌
 
 **Solution Implemented**:
-1. ✅ **Smart Caching Logic**: Implemented correct caching behavior in `_update_preview()`
-2. ✅ **Position-Based Caching**: Cache when on 0/X, cache and jump when on history (1/X, 2/X, etc.)
-3. ✅ **Load vs Cache Separation**: `_jump_to_current_state()` now loads cached state instead of caching
-4. ✅ **Enhanced Flag System**: Added `_jumping_to_current` flag alongside `_restoring_state`
-5. ✅ **Comprehensive Signal Blocking**: Created `_block_all_field_signals()` and `_unblock_all_field_signals()` helper methods
-6. ✅ **Delayed Flag Clearing**: Used `QTimer.singleShot()` to clear flags after signal processing completes
-7. ✅ **Robust Update Prevention**: Enhanced `_update_preview()` to check both flags before triggering jumps
-8. ✅ **Consistent Signal Management**: Applied same robust signal blocking to `_load_history_entry_into_current_state()`
-9. ✅ **Intentional Navigation Protection**: Added `_intentionally_navigating` flag to prevent jump-to-current during intentional navigation
-10. ✅ **Complete Method Updates**: Fixed `_restore_from_history_entry()` to use robust signal blocking
+1. ✅ **No Auto-Navigation**: Completely removed automatic navigation to 1/X when LLM result returns
+2. ✅ **Complete Flag Protection**: Added `_intentionally_navigating` check to `_update_preview()` to prevent cascading during LLM result navigation
+3. ✅ **Simple Flag-Based Logic**: Replaced timing delays with immediate flag clearing
+4. ✅ **Smart Caching Logic**: Implemented correct caching behavior in `_update_preview()`
+5. ✅ **Position-Based Caching**: Cache when on 0/X, cache and jump when on history (1/X, 2/X, etc.)
+6. ✅ **Load vs Cache Separation**: `_jump_to_current_state()` now loads cached state instead of caching
+7. ✅ **Enhanced Flag System**: Added `_jumping_to_current` flag alongside `_restoring_state`
+8. ✅ **Comprehensive Signal Blocking**: Created `_block_all_field_signals()` and `_unblock_all_field_signals()` helper methods
+9. ✅ **Immediate Flag Clearing**: Removed all `QTimer.singleShot()` calls for flag clearing
+10. ✅ **Robust Update Prevention**: Enhanced `_update_preview()` to check both flags before triggering jumps
+11. ✅ **Consistent Signal Management**: Applied same robust signal blocking to `_load_history_entry_into_current_state()`
+12. ✅ **Intentional Navigation Protection**: Added `_intentionally_navigating` flag to prevent jump-to-current during intentional navigation
+13. ✅ **Complete Method Updates**: Fixed `_restore_from_history_entry()` to use robust signal blocking
+14. ✅ **LLM Instructions Connection**: Added missing connection for `llm_instructions_widget`
 
 **Key Technical Improvements**:
+- **No Auto-Navigation**: Eliminated automatic navigation to 1/X when LLM result returns - user stays on current position
+- **Simple Flag-Based Logic**: Eliminated all timing delays with immediate flag clearing
 - **Smart Caching Logic**: Position-based caching that caches on 0/X and caches+jumps on history positions
 - **Load vs Cache Separation**: Clear distinction between caching current state and loading cached state
 - **Triple Flag Protection**: `_restoring_state`, `_jumping_to_current`, and `_intentionally_navigating` flags prevent recursive calls
 - **Comprehensive Signal Blocking**: All field widgets have signals blocked during state restoration
-- **Extended Delayed Flag Reset**: 1000ms delay for `_intentionally_navigating` ensures all Qt signals are processed before clearing flags
+- **Immediate Flag Clearing**: No more timing delays - flags are cleared immediately after operations complete
 - **Intentional Navigation Detection**: Prevents jump-to-current logic during intentional history navigation
 - **Enhanced Debug Logging**: Added detailed logging to `_should_jump_to_current_state()` and `_restore_from_history_entry()` for better visibility
-- **Robust Timing**: Extended delays to prevent race conditions between signal processing and flag clearing
+- **Robust State Management**: No race conditions or timing dependencies
 - **LLM Result Navigation**: Fixed timing issue when LLM result returns and automatically navigates to history entry
 
 **Files Modified**:
@@ -169,6 +179,7 @@ taskkill //F //IM python.exe
 - ✅ Proper 0/X state caching and restoration
 - ✅ Family filtering and dynamic snippet updates work correctly
 - ✅ Tag colors and editing functionality preserved
+- ✅ Dynamic placeholder text showing actual count and navigation hints
 
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files

@@ -3,6 +3,15 @@
 
 A powerful AI image generation prompt builder with a clean, user-friendly interface. Create, refine, and save prompts for various AI image generation models.
 
+## 🤖 **AI-Assisted Development**
+
+**This project is developed with AI assistance using Cursor IDE and Claude Sonnet 4.**
+- **Primary AI Assistant**: Claude Sonnet 4 (via Cursor IDE)
+- **Development Environment**: Cursor IDE with AI code completion and assistance
+- **AI Integration**: Continuous AI assistance for code review, bug fixes, feature implementation, and documentation
+- **Development Approach**: Collaborative AI-human development with iterative refinement
+- **AI Contributions**: Code architecture, bug fixes, feature implementation, documentation, testing, and optimization
+
 ## ✨ Features
 
 ### **Core Functionality**

@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont, QPalette, QColor
 from typing import Optional
 from enum import Enum
+import qtawesome as qta  # Font Awesome icons for Qt
 from ..utils.theme_manager import theme_manager
 
 
@@ -31,6 +32,11 @@ class PreviewPanel(QWidget):
     history_clear_requested = Signal()
     load_preview_requested = Signal()
     history_jump_requested = Signal(int)  # Signal for jumping to specific history position
+    
+    # New signals for action buttons
+    copy_requested = Signal()
+    save_requested = Signal()
+    save_all_requested = Signal()
     
     def __init__(self):
         super().__init__()
@@ -110,14 +116,47 @@ class PreviewPanel(QWidget):
         nav_layout.setContentsMargins(0, 5, 0, 0)
         nav_layout.setSpacing(10)
         
+        # Left side: Action buttons with Font Awesome icons
+        # Copy to Clipboard button
+        self.copy_button = QPushButton()
+        self.copy_button.setIcon(qta.icon('fa5s.copy', color='white'))
+        self.copy_button.setFixedSize(35, 35)
+        self.copy_button.setToolTip("Copy to Clipboard")
+        self.copy_button.clicked.connect(self.copy_requested.emit)
+        
+        # Save Prompt button
+        self.save_button = QPushButton()
+        self.save_button.setIcon(qta.icon('fa5s.save', color='white'))
+        self.save_button.setFixedSize(35, 35)
+        self.save_button.setToolTip("Save Prompt")
+        self.save_button.clicked.connect(self.save_requested.emit)
+        
+        # Save All Prompts button
+        self.save_all_button = QPushButton()
+        self.save_all_button.setIcon(qta.icon('fa5s.folder-plus', color='white'))
+        self.save_all_button.setFixedSize(35, 35)
+        self.save_all_button.setToolTip("Save All Prompts")
+        self.save_all_button.clicked.connect(self.save_all_requested.emit)
+        
+        # Add left side buttons
+        nav_layout.addWidget(self.copy_button)
+        nav_layout.addWidget(self.save_button)
+        nav_layout.addWidget(self.save_all_button)
+        
+        # Add stretch to separate left and right sides
+        nav_layout.addStretch()
+        
+        # Right side: Navigation controls
         # Back button
-        self.back_button = QPushButton("←")
+        self.back_button = QPushButton()
+        self.back_button.setIcon(qta.icon('fa5s.arrow-left', color='white'))
         self.back_button.setFixedSize(35, 35)
         self.back_button.setToolTip("Go to previous prompt")
         self.back_button.clicked.connect(self.history_back_requested.emit)
         
         # Forward button
-        self.forward_button = QPushButton("→")
+        self.forward_button = QPushButton()
+        self.forward_button.setIcon(qta.icon('fa5s.arrow-right', color='white'))
         self.forward_button.setFixedSize(35, 35)
         self.forward_button.setToolTip("Go to next prompt")
         self.forward_button.clicked.connect(self.history_forward_requested.emit)
@@ -130,14 +169,16 @@ class PreviewPanel(QWidget):
         self.counter_input.returnPressed.connect(self._on_counter_submit)
         
         # Load button (hidden for now)
-        self.load_button = QPushButton("↻")
+        self.load_button = QPushButton()
+        self.load_button.setIcon(qta.icon('fa5s.redo-alt', color='white'))
         self.load_button.setFixedSize(35, 35)
         self.load_button.setToolTip("Restore preview into fields")
         self.load_button.clicked.connect(self.load_preview_requested.emit)
         self.load_button.setVisible(False)  # Hide the button
         
         # Delete button
-        self.delete_button = QPushButton("🗑")
+        self.delete_button = QPushButton()
+        self.delete_button.setIcon(qta.icon('fa5s.trash', color='white'))
         self.delete_button.setFixedSize(35, 35)
         self.delete_button.setToolTip("Delete current prompt")
         self.delete_button.clicked.connect(self.history_delete_requested.emit)
@@ -150,10 +191,7 @@ class PreviewPanel(QWidget):
         self.clear_button.clicked.connect(self.history_clear_requested.emit)
         self.clear_button.setEnabled(True)  # Enable for testing
         
-        # Add stretch to push controls to the left
-        nav_layout.addStretch()
-        
-        # Add buttons to layout
+        # Add right side buttons to layout
         nav_layout.addWidget(self.back_button)
         nav_layout.addWidget(self.forward_button)
         nav_layout.addWidget(self.counter_input)
@@ -406,7 +444,8 @@ class PreviewPanel(QWidget):
         """
         
         # Apply to all navigation widgets
-        for widget in [self.back_button, self.forward_button, self.counter_input, 
+        for widget in [self.copy_button, self.save_button, self.save_all_button,
+                      self.back_button, self.forward_button, self.counter_input, 
                       self.load_button, self.delete_button, self.clear_button]:
             widget.setStyleSheet(nav_style)
     
@@ -491,7 +530,7 @@ class PreviewPanel(QWidget):
             cursor.movePosition(cursor.MoveOperation.Start)
             self.summary_text.setTextCursor(cursor)
     
-    def set_history_state(self, is_history: bool):
+    def set_history_state(self, is_history: bool, total_count: int = 0):
         """Set the preview state to history mode."""
         if is_history:
             self.summary_state = PreviewState.HISTORY
@@ -506,10 +545,13 @@ class PreviewPanel(QWidget):
                 if not self.summary_text.toPlainText().startswith("Enter your prompt"):
                     self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
             
-            # For Final Prompt, always show placeholder in current state (0/X)
+            # For Final Prompt, show dynamic placeholder in current state (0/X)
             self.final_state = PreviewState.PLACEHOLDER
             if not self.final_text.toPlainText().startswith("Generate a final prompt"):
-                self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+                if total_count > 0:
+                    self.final_text.setPlainText(f"Generate a final prompt to see the LLM-refined version here... (Navigate to 1/{total_count} to see the latest LLM generation)")
+                else:
+                    self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
         
         self._apply_state_styling_debounced()
     
