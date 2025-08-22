@@ -96,10 +96,7 @@ class InlineTagWidget(QWidget):
                 border-radius: 8px !important;
                 margin: 1px !important;
             }}
-            QWidget:hover {{
-                background-color: {theme_colors["button_bg"]} !important;
-                border: 1px solid {theme_colors["button_bg"]} !important;
-            }}
+            /* Removed hover effect - no highlighting needed */
             QLabel {{
                 background-color: transparent;
                 border: none;

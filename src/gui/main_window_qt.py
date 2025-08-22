@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 import os
+from enum import Enum
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -23,6 +24,12 @@ from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
 from ..utils.logger import get_logger
 from ..utils.history_manager import HistoryManager
+
+
+class NavigationState(Enum):
+    CURRENT = "current"
+    HISTORY = "history"
+    TRANSITIONING = "transitioning"
 
 
 class MainWindow(QMainWindow):
@@ -42,8 +49,16 @@ class MainWindow(QMainWindow):
         self.debug_enabled = debug_enabled
         self.logger = get_logger()
         
-        # Flag to prevent cascading updates during history restoration
-        self._suppress_preview_updates = False
+        # Cache for 0/X state (current state)
+        self._cached_current_state = None
+        
+        # Flag to prevent recursive restoration
+        self._restoring_state = False
+        self._jumping_to_current = False
+        self._intentionally_navigating = False  # Flag to prevent jump-to-current during intentional navigation
+        
+        # Track blocked widgets during state restoration
+        self._blocked_widgets = []
         
         # Track open snippet popups for dynamic updates
         self.open_snippet_popups = []
@@ -92,6 +107,9 @@ class MainWindow(QMainWindow):
         
         # Initialize progress tracking
         self._init_progress_tracking()
+        
+        # Set navigation state
+        self.navigation_state = NavigationState.CURRENT
     
     def _get_prompt_engine(self):
         """Lazy load the prompt engine when first needed."""
@@ -974,8 +992,14 @@ class MainWindow(QMainWindow):
             self._save_to_history(final_prompt)
             
             # Navigate to the newly created history entry (1/X) so user can see the result
-            self.history_manager.navigate_forward()  # This will move from 0/X to 1/X
-            self._update_history_navigation()
+            self._intentionally_navigating = True
+            try:
+                self.history_manager.navigate_forward()  # This will move from 0/X to 1/X
+                self._update_history_navigation()
+            finally:
+                # Clear flag after navigation completes - LONGER delay to cover field restoration
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
             
             # Update status bar
             self._update_status_bar()
@@ -1150,36 +1174,76 @@ class MainWindow(QMainWindow):
             return ""
 
     def _update_preview(self, preserve_tab: bool = False, force_update: bool = False):
-        """Update the prompt preview with randomization support."""
+        """Update the prompt preview with smart caching logic."""
         # Don't update if preview panel doesn't exist yet
         if not hasattr(self, 'preview_panel'):
             return
         
-        # Don't update if we're suppressing updates during history restoration
-        if hasattr(self, '_suppress_preview_updates') and self._suppress_preview_updates and not force_update:
+        # Don't update if we're transitioning (prevents cascading)
+        if self.navigation_state == NavigationState.TRANSITIONING and not force_update:
+            if self.debug_enabled:
+                print("DEBUG NAV: Preview update skipped - transitioning")
             return
+        
+        # SMART CACHING LOGIC: Handle field changes based on current position
+        if not force_update and not (hasattr(self, '_restoring_state') and self._restoring_state):
+            current_pos, total_count = self.history_manager.get_navigation_info()
             
+            if current_pos > 0:  # User is on history (1/X, 2/X, 3/X, etc.)
+                # User modified fields while viewing history - cache current state as new 0/X and jump
+                if self.debug_enabled:
+                    print(f"DEBUG NAV: User modified fields on history position {current_pos}/{total_count} - caching as new 0/X")
+                
+                # Set flag to prevent recursive calls during the jump
+                self._intentionally_navigating = True
+                
+                try:
+                    # Cache the current field state as the new 0/X
+                    self._cache_current_state()
+                    
+                    # Jump to position 0 (current state) FIRST
+                    self.history_manager.jump_to_position(0)
+                    
+                    # Restore the cached current state
+                    self._restore_cached_current_state()
+                    
+                    # Update navigation to show current state
+                    self._update_history_navigation()
+                    
+                    # Switch to summary tab to show the editable current state
+                    if hasattr(self, 'preview_panel'):
+                        self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
+                        
+                    if self.debug_enabled:
+                        print("DEBUG NAV: Completed smart jump to current state")
+                finally:
+                    # Clear flag after a longer delay to ensure all operations complete
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
+                
+                return  # Exit early - preview will be updated after jump
+            elif current_pos == 0:  # User is on 0/X (current state)
+                # User modified fields on current state - update the cache
+                if self.debug_enabled:
+                    print("DEBUG NAV: User modified fields on 0/X - updating cache")
+                self._cache_current_state()
+        
         try:
-            # Check if we're in history mode and need to jump back to current state
-            # But only if this isn't a forced update (to avoid recursion)
-            if not force_update and self._should_jump_to_current_state():
-                self._jump_to_current_state()
-                return
-            
             # Generate preview text
             preview_text = self._generate_preview_text()
             
-            # Update preview panel - only if there's actual content, otherwise keep placeholder
+            if self.debug_enabled:
+                print(f"DEBUG NAV: Generated preview text: '{preview_text[:100]}{'...' if len(preview_text) > 100 else ''}'")
+            
+            # Update preview panel - only if there's actual content
             if preview_text.strip():
                 self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=preserve_tab)
-            # If preview_text is empty, don't update - let the placeholder remain
             
             # Update status bar
             self._update_status_bar()
             
         except Exception as e:
             print(f"Error updating preview: {e}")
-            # Show empty preview on error if preview panel exists
             if hasattr(self, 'preview_panel'):
                 self.preview_panel.update_preview("", is_final=False, preserve_tab=preserve_tab)
     
@@ -1296,43 +1360,54 @@ class MainWindow(QMainWindow):
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""
-        # Set up field widget callbacks using signals
+        # Initialize field_widgets dictionary for caching
+        self.field_widgets = {}
+        field_names = ['style', 'setting', 'weather', 'datetime', 'subjects', 'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions', 'seed']
+        
+        for field_name in field_names:
+            widget_attr = f'{field_name}_widget'
+            if hasattr(self, widget_attr):
+                self.field_widgets[field_name] = getattr(self, widget_attr)
+        
+        # Set up debounced preview update timer (Qt best practice)
+        self._preview_update_timer = QTimer()
+        self._preview_update_timer.setSingleShot(True)
+        self._preview_update_timer.timeout.connect(self._update_preview)
+        
+        # Connect field changes to debounced update (prevents signal cascading)
         if hasattr(self, 'style_widget'):
-            self.style_widget.value_changed.connect(self._update_preview)
+            self.style_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'setting_widget'):
-            self.setting_widget.value_changed.connect(self._update_preview)
+            self.setting_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'weather_widget'):
-            self.weather_widget.value_changed.connect(self._update_preview)
+            self.weather_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'datetime_widget'):
-            self.datetime_widget.value_changed.connect(self._update_preview)
+            self.datetime_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'subjects_widget'):
-            self.subjects_widget.value_changed.connect(self._update_preview)
+            self.subjects_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'pose_widget'):
-            self.pose_widget.value_changed.connect(self._update_preview)
+            self.pose_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'camera_widget'):
-            self.camera_widget.value_changed.connect(self._update_preview)
+            self.camera_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'framing_widget'):
-            self.framing_widget.value_changed.connect(self._update_preview)
+            self.framing_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'grading_widget'):
-            self.grading_widget.value_changed.connect(self._update_preview)
+            self.grading_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'details_widget'):
-            self.details_widget.value_changed.connect(self._update_preview)
-        if hasattr(self, 'llm_instructions_widget'):
-            self.llm_instructions_widget.value_changed.connect(self._update_preview)
+            self.details_widget.value_changed.connect(self._schedule_preview_update)
         if hasattr(self, 'seed_widget'):
-            self.seed_widget.value_changed.connect(self._update_preview)
+            self.seed_widget.value_changed.connect(self._schedule_preview_update)
         
         # Connect preview panel history signals
         if hasattr(self, 'preview_panel'):
-                    self.preview_panel.history_back_requested.connect(self._navigate_history_back)
-        self.preview_panel.history_forward_requested.connect(self._navigate_history_forward)
-        self.preview_panel.history_delete_requested.connect(self._delete_history_entry)
-        self.preview_panel.history_clear_requested.connect(self._clear_history)
-        self.preview_panel.load_preview_requested.connect(self._load_preview_into_fields)
-        self.preview_panel.history_jump_requested.connect(self._jump_to_history_position)
+            self.preview_panel.history_back_requested.connect(self._navigate_history_back)
+            self.preview_panel.history_forward_requested.connect(self._navigate_history_forward)
+            self.preview_panel.history_delete_requested.connect(self._delete_history_entry)
+            self.preview_panel.history_clear_requested.connect(self._clear_history)
+            self.preview_panel.load_preview_requested.connect(self._load_preview_into_fields)
+            self.preview_panel.history_jump_requested.connect(self._jump_to_history_position)
         
         # Initial preview update - delay to ensure window is ready
-        from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self._update_preview)
     
     def _update_status_bar(self):
@@ -1405,77 +1480,229 @@ class MainWindow(QMainWindow):
     
     def _navigate_history_back(self):
         """Navigate to previous history entry."""
-        if self.history_manager.navigate_back():
-            self._update_history_navigation()
+        print(f"DEBUG NAV: User clicked BACK button")
+        self._intentionally_navigating = True
+        try:
+            if self.history_manager.navigate_back():
+                self._update_history_navigation()
+        finally:
+            # Clear flag after navigation completes
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _navigate_history_forward(self):
         """Navigate to next history entry."""
-        if self.history_manager.navigate_forward():
-            self._update_history_navigation()
+        print(f"DEBUG NAV: User clicked FORWARD button")
+        self._intentionally_navigating = True
+        try:
+            if self.history_manager.navigate_forward():
+                self._update_history_navigation()
+        finally:
+            # Clear flag after navigation completes
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _delete_history_entry(self):
         """Delete current history entry."""
-        if self.history_manager.delete_current_entry():
-            self._update_history_navigation()
+        self._intentionally_navigating = True
+        try:
+            if self.history_manager.delete_current_entry():
+                self._update_history_navigation()
+        finally:
+            # Clear flag after navigation completes
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _clear_history(self):
         """Clear all history entries."""
-        self.history_manager.clear_history()
-        self._update_history_navigation()
+        self._intentionally_navigating = True
+        try:
+            self.history_manager.clear_history()
+            self._update_history_navigation()
+        finally:
+            # Clear flag after navigation completes
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _jump_to_history_position(self, position: int):
         """Jump to specific history position."""
-        if self.history_manager.jump_to_position(position):
-            self._update_history_navigation()
+        print(f"DEBUG NAV: User manually entered position {position}")
+        self._intentionally_navigating = True
+        try:
+            if self.history_manager.jump_to_position(position):
+                self._update_history_navigation()
+        finally:
+            # Clear flag after navigation completes
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _should_jump_to_current_state(self) -> bool:
         """Check if we should jump back to current state (0/X) when field changes."""
+        # Don't jump if we're intentionally navigating to history entries
+        if hasattr(self, '_intentionally_navigating') and self._intentionally_navigating:
+            if self.debug_enabled:
+                print("DEBUG NAV: Skipping jump to current - intentionally navigating")
+            return False
+        
         # Only jump if we're in history mode (not on 0/X)
         current_pos, total_count = self.history_manager.get_navigation_info()
-        return current_pos > 0  # 0 = current state, 1+ = history entries
+        should_jump = current_pos > 0  # 0 = current state, 1+ = history entries
+        
+        if self.debug_enabled:
+            print(f"DEBUG NAV: _should_jump_to_current_state: current_pos={current_pos}, total_count={total_count}, should_jump={should_jump}")
+        
+        return should_jump
+    
+    def _block_all_field_signals(self):
+        """Block signals from all field widgets to prevent cascading updates."""
+        self._blocked_widgets = []
+        for field_key, widget in self.field_widgets.items():
+            if hasattr(widget, 'blockSignals'):
+                widget.blockSignals(True)
+                self._blocked_widgets.append(widget)
+        if self.debug_enabled:
+            print(f"DEBUG NAV: Blocked signals for {len(self._blocked_widgets)} widgets")
+    
+    def _unblock_all_field_signals(self):
+        """Unblock signals from all field widgets."""
+        for widget in self._blocked_widgets:
+            if hasattr(widget, 'blockSignals'):
+                widget.blockSignals(False)
+        self._blocked_widgets = []
+        if self.debug_enabled:
+            print("DEBUG NAV: Unblocked all field widget signals")
+    
+    def _cache_current_state(self):
+        """Cache the current field state as 0/X state."""
+        if self.debug_enabled:
+            print("DEBUG NAV: Caching current state")
+        
+        # Get current field state
+        field_data = {}
+        for field_key, widget in self.field_widgets.items():
+            if hasattr(widget, 'get_tags'):
+                field_data[field_key] = widget.get_tags()
+            elif hasattr(widget, 'toPlainText'):
+                field_data[field_key] = widget.toPlainText()
+        
+        self._cached_current_state = field_data
+        
+        if self.debug_enabled:
+            print(f"DEBUG NAV: Cached {len(field_data)} fields")
+    
+    def _restore_cached_current_state(self):
+        """Restore the cached 0/X state to the fields."""
+        if not self._cached_current_state or self._restoring_state:
+            if self.debug_enabled:
+                if not self._cached_current_state:
+                    print("DEBUG NAV: No cached current state to restore")
+                else:
+                    print("DEBUG NAV: Already restoring state, skipping")
+            return
+        
+        if self.debug_enabled:
+            print("DEBUG NAV: Restoring cached current state")
+        
+        # Set flag to prevent recursive calls
+        self._restoring_state = True
+        
+        # Block ALL field widget signals during restoration
+        self._block_all_field_signals()
+        
+        try:
+            for field_key, field_data in self._cached_current_state.items():
+                if field_key in self.field_widgets:
+                    widget = self.field_widgets[field_key]
+                    
+                    if hasattr(widget, 'set_tags') and isinstance(field_data, list):
+                        widget.set_tags(field_data)
+                    elif hasattr(widget, 'setPlainText') and isinstance(field_data, str):
+                        widget.setPlainText(field_data)
+                    
+                    if self.debug_enabled:
+                        print(f"DEBUG NAV: Restored field {field_key}: {type(field_data)}")
+        finally:
+            # Unblock signals
+            self._unblock_all_field_signals()
+            
+            # Clear flag AFTER a small delay to ensure all signals are processed
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(100, lambda: setattr(self, '_restoring_state', False))
     
     def _jump_to_current_state(self):
-        """Jump back to current state (0/X) when user modifies fields in history mode."""
-        # If we're on a history entry, load that state into the current state
-        if self.history_manager.current_index >= 0:
-            # Get the current history entry
-            entry = self.history_manager.get_current_entry()
-            if entry:
-                # Load this history state into the current state (0/X)
-                self._load_history_entry_into_current_state(entry)
+        """Jump back to current state (0/X) and load the cached state."""
+        # Prevent recursive calls
+        if hasattr(self, '_jumping_to_current') and self._jumping_to_current:
+            if self.debug_enabled:
+                print("DEBUG NAV: Already jumping to current state, skipping")
+            return
         
-        # Jump to position 0 (current state)
-        self.history_manager.jump_to_position(0)
-        self._update_history_navigation()
+        # Set flag to prevent recursive calls
+        self._jumping_to_current = True
         
-        # Switch to summary tab to show the editable current state
-        if hasattr(self, 'preview_panel'):
-            self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
+        try:
+            if self.debug_enabled:
+                print("DEBUG NAV: Starting jump to current state")
+            
+            # Jump to position 0 (current state) FIRST
+            self.history_manager.jump_to_position(0)
+            
+            # Load the cached current state (don't cache, just restore)
+            self._restore_cached_current_state()
+            
+            # Update navigation to show current state (this will call _show_current_state)
+            self._update_history_navigation()
+            
+            # Switch to summary tab to show the editable current state
+            if hasattr(self, 'preview_panel'):
+                self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
+                
+            if self.debug_enabled:
+                print("DEBUG NAV: Completed jump to current state")
+        finally:
+            # Clear flag after a delay to ensure all operations complete
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(200, lambda: setattr(self, '_jumping_to_current', False))
     
     def _load_history_entry_into_current_state(self, entry):
         """Load a history entry into the current state (0/X) for editing."""
         # Preserve current tab selection
         current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
         
-        # Suppress preview updates during restoration to prevent cascading updates
-        self._suppress_preview_updates = True
+        # Set flag to prevent recursive calls during restoration
+        self._restoring_state = True
+        
+        # Block ALL field widget signals during restoration
+        self._block_all_field_signals()
         
         try:
             # Restore field data
+            if self.debug_enabled:
+                print(f"DEBUG NAV: Starting field restoration for {len(entry.field_data)} fields")
             for field_name, field_data in entry.field_data.items():
+                if self.debug_enabled:
+                    print(f"DEBUG NAV: Processing field {field_name}: {type(field_data)}")
                 if hasattr(self, f'{field_name}_widget'):
                     widget = getattr(self, f'{field_name}_widget')
+                    if self.debug_enabled:
+                        print(f"DEBUG NAV: Found widget for {field_name}")
                     
                     if isinstance(field_data, dict) and field_data.get('type') == 'tags':
                         # Restore tags
                         from ..gui.tag_widgets_qt import Tag, TagType
                         tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
+                        if self.debug_enabled:
+                            print(f"DEBUG NAV: Restoring {len(tags)} tags for field {field_name}: {[tag.text for tag in tags]}")
                         widget.set_tags(tags)
                     elif isinstance(field_data, dict) and field_data.get('type') == 'text':
                         # Restore plain text
+                        if self.debug_enabled:
+                            print(f"DEBUG NAV: Restoring text for field {field_name}: '{field_data['value']}'")
                         widget.set_value(field_data['value'])
                     else:
                         # Legacy format - treat as plain text
+                        if self.debug_enabled:
+                            print(f"DEBUG NAV: Restoring legacy text for field {field_name}: '{field_data}'")
                         widget.set_value(str(field_data))
             
             # Restore families
@@ -1492,8 +1719,12 @@ class MainWindow(QMainWindow):
                 self.llm_widget.set_value(entry.llm_model)
             
         finally:
-            # Re-enable preview updates
-            self._suppress_preview_updates = False
+            # Unblock signals
+            self._unblock_all_field_signals()
+            
+            # Clear flag after a delay to ensure all signals are processed
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(200, lambda: setattr(self, '_restoring_state', False))
             
             # Update preview to show the loaded state (force update to avoid recursion)
             self._update_preview(preserve_tab=True, force_update=True)
@@ -1502,8 +1733,8 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'preview_panel'):
                 self.preview_panel.tab_widget.setCurrentIndex(current_tab)
             
-            # Ensure background colors are set correctly for current state
-            self.preview_panel._update_background_for_state(True)
+            # Set current state styling
+            self.preview_panel.set_history_state(False)
     
     def _load_preview_into_fields(self):
         """Load the current preview content into the input fields."""
@@ -1537,27 +1768,33 @@ class MainWindow(QMainWindow):
         
         print(f"DEBUG LOAD: All parsed fields: {field_values}")
         
-        # Suppress preview updates during loading to prevent cascading updates
-        self._suppress_preview_updates = True
+        # Get snippet manager for matching existing snippets
+        from ..utils.snippet_manager import snippet_manager
+        
+        # Map field names to widget names and their corresponding snippet field names
+        field_mapping = {
+            'Style': ('style', 'style'),
+            'Setting': ('setting', 'setting'), 
+            'Weather': ('weather', 'weather'),
+            'Date/Time': ('datetime', 'datetime'),
+            'Subjects': ('subjects', 'subjects'),
+            'Pose/Action': ('pose', 'subjects_pose_and_action'),  # Widget: pose, Snippet field: subjects_pose_and_action
+            'Camera': ('camera', 'camera'),
+            'Camera Framing and Action': ('framing', 'camera_framing_and_action'),  # Widget: framing, Snippet field: camera_framing_and_action
+            'Color Grading & Mood': ('grading', 'color_grading_&_mood'),  # Widget: grading, Snippet field: color_grading_&_mood
+            'Details': ('details', 'details')
+        }
+        
+        # Block signals during loading to prevent cascading updates
+        blocked_widgets = []
+        for display_name, (widget_name, snippet_field_name) in field_mapping.items():
+            if display_name in field_values and hasattr(self, f'{widget_name}_widget'):
+                widget = getattr(self, f'{widget_name}_widget')
+                if hasattr(widget, 'blockSignals'):
+                    widget.blockSignals(True)
+                    blocked_widgets.append(widget)
         
         try:
-            # Get snippet manager for matching existing snippets
-            from ..utils.snippet_manager import snippet_manager
-            
-            # Map field names to widget names and their corresponding snippet field names
-            field_mapping = {
-                'Style': ('style', 'style'),
-                'Setting': ('setting', 'setting'), 
-                'Weather': ('weather', 'weather'),
-                'Date/Time': ('datetime', 'datetime'),
-                'Subjects': ('subjects', 'subjects'),
-                'Pose/Action': ('pose', 'subjects_pose_and_action'),  # Widget: pose, Snippet field: subjects_pose_and_action
-                'Camera': ('camera', 'camera'),
-                'Camera Framing and Action': ('framing', 'camera_framing_and_action'),  # Widget: framing, Snippet field: camera_framing_and_action
-                'Color Grading & Mood': ('grading', 'color_grading_&_mood'),  # Widget: grading, Snippet field: color_grading_&_mood
-                'Details': ('details', 'details')
-            }
-            
             for display_name, (widget_name, snippet_field_name) in field_mapping.items():
                 if display_name in field_values and hasattr(self, f'{widget_name}_widget'):
                     widget = getattr(self, f'{widget_name}_widget')
@@ -1611,8 +1848,9 @@ class MainWindow(QMainWindow):
                         widget.set_value(value)
         
         finally:
-            # Re-enable preview updates
-            self._suppress_preview_updates = False
+            # Unblock signals
+            for widget in blocked_widgets:
+                widget.blockSignals(False)
             
             # Update preview to reflect the loaded values
             self._update_preview()
@@ -1678,11 +1916,20 @@ class MainWindow(QMainWindow):
         """Restore fields from current history entry."""
         entry = self.history_manager.get_current_entry()
         if entry:
+            if self.debug_enabled:
+                print(f"DEBUG NAV: Restoring history entry - seed={entry.seed}, families={entry.families}, llm_model={entry.llm_model}")
+                print(f"DEBUG NAV: History entry field data: {list(entry.field_data.keys())}")
+                print(f"DEBUG NAV: History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'")
+                print(f"DEBUG NAV: _intentionally_navigating flag is: {self._intentionally_navigating}")
+            
             # Preserve current tab selection
             current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
             
-            # Suppress preview updates during restoration to prevent cascading updates
-            self._suppress_preview_updates = True
+            # Set flag to prevent recursive calls during restoration
+            self._restoring_state = True
+            
+            # Block ALL field widget signals during restoration
+            self._block_all_field_signals()
             
             try:
                 # Restore field data
@@ -1716,14 +1963,20 @@ class MainWindow(QMainWindow):
                     self.llm_widget.set_value(entry.llm_model)
                 
             finally:
-                # Re-enable preview updates
-                self._suppress_preview_updates = False
+                # Unblock signals
+                self._unblock_all_field_signals()
+                
+                # Clear flag after a delay to ensure all signals are processed
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(200, lambda: setattr(self, '_restoring_state', False))
                 
                 # Update preview once at the end (preserve tab selection during history restoration)
                 self._update_preview(preserve_tab=True, force_update=True)
                 
                 # Restore the final prompt if it exists
                 if entry.final_prompt:
+                    if self.debug_enabled:
+                        print(f"DEBUG NAV: Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'") 
                     self.preview_panel.final_text.setPlainText(entry.final_prompt)
                     # Set regular font for generated content
                     font = self.preview_panel.final_text.font()
@@ -1738,8 +1991,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'preview_panel'):
                     self.preview_panel.tab_widget.setCurrentIndex(current_tab)
                 
-                # Ensure background colors are set correctly for history state
-                self.preview_panel._update_background_for_state(False)
+                # History state styling is already set above
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
@@ -1749,13 +2001,21 @@ class MainWindow(QMainWindow):
             current_pos, total_count = self.history_manager.get_navigation_info()
             has_history = self.history_manager.has_history()
             
+            print(f"DEBUG NAV: Navigation update - current_pos={current_pos}, total_count={total_count}, is_current_state={current_pos == 0}")
+            
             # Check if we're in current state (0) or history state (1+)
             is_current_state = current_pos == 0
             
-            # If we're in current state, show the current field state
+            # Set styling immediately based on state to prevent flashing
             if is_current_state:
+                print(f"DEBUG NAV: Showing CURRENT state (0/{total_count})")
+                # Set current state styling first to prevent flash
+                self.preview_panel.set_history_state(False)
                 self._show_current_state()
             else:
+                print(f"DEBUG NAV: Showing HISTORY state ({current_pos}/{total_count})")
+                # Set history state styling first to prevent flash
+                self.preview_panel.set_history_state(True)
                 # We're in history state, restore from history entry
                 self._restore_from_history_entry()
             
@@ -1765,20 +2025,20 @@ class MainWindow(QMainWindow):
     
     def _show_current_state(self):
         """Show the current state of the fields (not from history)."""
-        # Manually update preview text without calling _update_preview to avoid background color reset
+        # If we have a cached current state, restore it first
+        if self._cached_current_state:
+            if self.debug_enabled:
+                print("DEBUG NAV: Restoring cached current state in _show_current_state")
+            self._restore_cached_current_state()
+        
+        # Generate preview text
         preview_text = self._generate_preview_text()
-        self.preview_panel.summary_text.setPlainText(preview_text)
         
-        # Set the final prompt tab to show the placeholder message with italic formatting
-        self.preview_panel.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+        print(f"DEBUG NAV: Current state preview text: '{preview_text[:100]}{'...' if len(preview_text) > 100 else ''}'")
         
-        # Set italic font for placeholder
-        font = self.preview_panel.final_text.font()
-        font.setItalic(True)
-        self.preview_panel.final_text.setFont(font)
-        
-        # Apply current state styling (this will set the correct background colors)
-        self.preview_panel._update_background_for_state(True)
+        # Update preview panel with current state (only if we have content)
+        if preview_text.strip():
+            self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=True)
     
     def _save_to_history(self, final_prompt: str = ""):
         """Save current state to history."""
@@ -1816,6 +2076,9 @@ class MainWindow(QMainWindow):
         # Get LLM model
         llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-coder:6.7b"
         
+        # Generate summary text at the time of saving
+        summary_text = self._generate_preview_text()
+        
         # Add to history
         self.history_manager.add_entry(
             field_data=field_data,
@@ -1823,10 +2086,17 @@ class MainWindow(QMainWindow):
             families=selected_families,
             llm_model=llm_model,
             target_model="seedream",  # Hardcoded as per current implementation
-            final_prompt=final_prompt
+            final_prompt=final_prompt,
+            summary_text=summary_text
         )
         
         # Update navigation controls
         self._update_history_navigation()
     
+    def _schedule_preview_update(self):
+        """Schedule a debounced preview update (Qt best practice to prevent signal cascading)."""
+        # Only schedule if not currently restoring state
+        if not (hasattr(self, '_restoring_state') and self._restoring_state):
+            if hasattr(self, '_preview_update_timer'):
+                self._preview_update_timer.start(100)  # 100ms debounce
 

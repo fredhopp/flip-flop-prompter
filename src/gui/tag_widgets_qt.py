@@ -151,11 +151,7 @@ class TagWidget(QWidget):
                 margin: 1px !important;
                 color: {text_color} !important;
             }}
-            QWidget#tagWidget:hover {{
-                background-color: {theme_colors["button_bg"]} !important;
-                border: 1px solid {theme_colors["button_bg"]} !important;
-                color: {theme_colors["button_fg"]} !important;
-            }}
+            /* Removed hover effect - no highlighting needed */
         """
         
         # Remove button styling

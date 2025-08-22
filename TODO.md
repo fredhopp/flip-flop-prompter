@@ -181,6 +181,14 @@
 - [ ] **Add keyboard shortcuts** - Common operations like Ctrl+S, Ctrl+N
 - [ ] **Add tooltips** - Help text for fields and buttons
 - [ ] **Add status bar** - Show current status and operations
+- [ ] **Expand command-line options** - Add more startup options for better user control
+  - [ ] `--theme <theme_name>` - Start with a specific theme (light/dark)
+  - [ ] `--config <path>` - Use a custom config file
+  - [ ] `--log-level <level>` - Set specific logging level (debug/info/warning/error)
+  - [ ] `--no-splash` - Skip splash screen
+  - [ ] `--reset-preferences` - Reset all user preferences on startup
+  - [ ] `--portable` - Run in portable mode (no user data persistence)
+  - [ ] `--help` - Show detailed help with all available options
 
 ### **Low Priority**
 - [ ] **Add export formats** - Export to different formats (JSON, YAML, etc.)

@@ -17,6 +17,7 @@ class HistoryEntry:
     llm_model: str
     target_model: str
     final_prompt: str = ""  # The generated final prompt
+    summary_text: str = ""  # The summary preview text at time of saving
 
 
 class HistoryManager:
@@ -28,7 +29,7 @@ class HistoryManager:
         self.current_index = -1  # -1 means no current entry
     
     def add_entry(self, field_data: Dict[str, Any], seed: int, families: List[str], 
-                  llm_model: str, target_model: str, final_prompt: str = "") -> None:
+                  llm_model: str, target_model: str, final_prompt: str = "", summary_text: str = "") -> None:
         """Add a new entry to history."""
         entry = HistoryEntry(
             timestamp=datetime.now().isoformat(),
@@ -37,7 +38,8 @@ class HistoryManager:
             families=families,
             llm_model=llm_model,
             target_model=target_model,
-            final_prompt=final_prompt
+            final_prompt=final_prompt,
+            summary_text=summary_text
         )
         
         # Add to beginning of list (most recent first)
