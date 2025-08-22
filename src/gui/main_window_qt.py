@@ -160,10 +160,10 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
-        # Families menu (replacing content rating)
-        families_menu = menubar.addMenu("Families")
+        # Filters menu (replacing content rating)
+        filters_menu = menubar.addMenu("Filters")
         
-        # Initialize families (checkboxes)
+        # Initialize filters (checkboxes)
         self.family_actions = {}
         families = ["PG", "NSFW", "Hentai"]
         
@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
             if family == "PG":  # Default selection
                 action.setChecked(True)
             action.triggered.connect(lambda checked, f=family: self._on_family_changed(f, checked))
-            families_menu.addAction(action)
+            filters_menu.addAction(action)
             self.family_actions[family] = action
         
         # Themes menu (top-level)
@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
         self.main_widget = QWidget()
         self.main_layout = QVBoxLayout(self.main_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
-        self.main_layout.setSpacing(5)
+        self.main_layout.setSpacing(2)  # Reduced from 5 to 2 for more compact layout
         
         # Set scroll area widget
         scroll_area.setWidget(self.main_widget)
@@ -331,7 +331,7 @@ class MainWindow(QMainWindow):
         # Create horizontal layout for model widgets
         model_row = QWidget()
         model_layout = QHBoxLayout(model_row)
-        model_layout.setContentsMargins(0, 5, 0, 5)
+        model_layout.setContentsMargins(0, 2, 0, 2)  # Reduced from 5 to 2
         model_layout.setSpacing(20)
         
         # LLM Model  
@@ -352,7 +352,7 @@ class MainWindow(QMainWindow):
         """Create button frame with action buttons."""
         button_frame = QWidget()
         button_layout = QHBoxLayout(button_frame)
-        button_layout.setContentsMargins(0, 10, 0, 10)
+        button_layout.setContentsMargins(0, 5, 0, 5)  # Reduced from 10 to 5
         button_layout.setSpacing(2)  # Small 2px gap between buttons
         
         # Generate Prompt button (75% of space)
@@ -737,7 +737,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'llm_instructions_widget'):
             self.llm_instructions_widget.clear()
         
-        # Reset families to default
+        # Reset filters to default
         for family, action in self.family_actions.items():
             action.setChecked(family == "PG")
         
@@ -797,7 +797,7 @@ class MainWindow(QMainWindow):
             "details_tags": [tag.to_dict() for tag in self.details_widget.get_tags()] if hasattr(self, 'details_widget') else [],
             "llm_instructions_tags": [tag.to_dict() for tag in self.llm_instructions_widget.get_tags()] if hasattr(self, 'llm_instructions_widget') else [],
             "seed": self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0,
-            "families": self._get_selected_families(),
+            "filters": self._get_selected_families(),
             "model": self.model_widget.get_value() if hasattr(self, 'model_widget') else "seedream",
             "llm": self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-r1:8b",
             "debug_enabled": self.debug_enabled,
@@ -892,12 +892,14 @@ class MainWindow(QMainWindow):
                         self.pose_widget.set_value(template_data["pose"])
                 
                 # Common settings (both formats)
-                if "families" in template_data:
-                    # Reset all families first
+                # Handle both "filters" (new) and "families" (old) for backward compatibility
+                filters_data = template_data.get("filters", template_data.get("families", []))
+                if filters_data:
+                    # Reset all filters first
                     for family, action in self.family_actions.items():
                         action.setChecked(False)
-                    # Set families from template
-                    for family in template_data["families"]:
+                    # Set filters from template
+                    for family in filters_data:
                         if family in self.family_actions:
                             self.family_actions[family].setChecked(True)
                 if hasattr(self, 'model_widget') and "model" in template_data:
@@ -1416,11 +1418,11 @@ class MainWindow(QMainWindow):
                 with open(prefs_file, 'r', encoding='utf-8') as f:
                     prefs = json.load(f)
                 
-                # Load family preferences
-                if 'families' in prefs:
-                    selected_families = prefs['families']
+                # Load filter preferences (handle both "filters" and "families" for backward compatibility)
+                selected_filters = prefs.get('filters', prefs.get('families', []))
+                if selected_filters:
                     for family, action in self.family_actions.items():
-                        action.setChecked(family in selected_families)
+                        action.setChecked(family in selected_filters)
                 
                 # Load model preferences
                 if 'model' in prefs and hasattr(self, 'model_widget'):
@@ -1434,14 +1436,14 @@ class MainWindow(QMainWindow):
     def _save_preferences(self):
         """Save current preferences."""
         try:
-            # Get selected families
-            selected_families = []
+            # Get selected filters
+            selected_filters = []
             for family, action in self.family_actions.items():
                 if action.isChecked():
-                    selected_families.append(family)
+                    selected_filters.append(family)
             
             prefs = {
-                'families': selected_families,
+                'filters': selected_filters,
                 'theme': 'light'
             }
             

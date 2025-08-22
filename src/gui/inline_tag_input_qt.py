@@ -177,12 +177,12 @@ class InlineTagInputWidget(QWidget):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setFixedHeight(30)
+        self.scroll_area.setFixedHeight(40)  # Increased from 30 to 40 to better accommodate tags
         
         # Content widget for tags and input
         self.content_widget = QWidget()
         self.content_layout = QHBoxLayout(self.content_widget)
-        self.content_layout.setContentsMargins(4, 2, 4, 2)
+        self.content_layout.setContentsMargins(4, 2, 20, 2)  # Increased right margin from 15 to 20 to provide more space for scrollbar
         self.content_layout.setSpacing(2)
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         

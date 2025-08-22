@@ -79,6 +79,9 @@ taskkill //F //IM python.exe
 - **Realize Functionality**: Convert random category/subcategory tags to specific snippet items
 - **History System**: Session-only prompt history with 0/X state caching and navigation
 - **Preview Panel**: State-based preview system with Summary/Final Prompt tabs and history navigation
+- **Font Awesome Icons**: Professional industry-standard icons throughout the interface
+- **Compact UI Layout**: Optimized spacing and field heights for better tag visibility
+- **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with tooltips
 
 ## Key Technical Decisions
 - **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
@@ -93,6 +96,9 @@ taskkill //F //IM python.exe
 - **State Caching**: 0/X state is cached and restored when navigating back from history
 - **Preview States**: Enum-based state management (PLACEHOLDER, PREVIEW, FINAL, HISTORY)
 - **Signal Blocking**: Used to prevent cascading updates during field restoration
+- **Icon System**: Font Awesome icons with qtawesome library and graceful fallback
+- **UI Compactness**: Optimized spacing (0px margins, 2px main layout spacing) for better density
+- **Tag Visibility**: Increased field heights (40px) and improved scrollbar spacing (20px right margin)
 
 ## File Organization
 - **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
@@ -197,6 +203,10 @@ taskkill //F //IM python.exe
 - **Optimization Implemented**: Lazy loading for PromptEngine, LLM components, and snippet manager
 
 ## Recent Major Changes (August 2025)
+- **Font Awesome Icons Implementation**: Professional industry-standard icons throughout the interface using qtawesome library
+- **UI Compactness Improvements**: Optimized spacing between field titles and fields, reduced main layout spacing for better density
+- **Enhanced Tag Visibility**: Increased field heights (30px → 40px) and improved scrollbar spacing (15px → 20px right margin) to prevent tag cropping
+- **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with Font Awesome list icons and helpful tooltips
 - **Realize Functionality**: Convert random category/subcategory tags to specific snippet items with deterministic consistency
 - **Randomization Consistency**: Fixed preview and realization to produce identical results using same seed logic
 - **Dark Theme Implementation**: Complete light/dark theme system with persistence and keyboard shortcuts (Ctrl+T)

@@ -48,6 +48,10 @@
 - [x] **Tag color coding** - Different colors for different tag types
 - [x] **Dynamic snippet updates** - Real-time filtering when families change
 - [x] **Realize button** - Convert random tags to specific items with deterministic consistency
+- [x] **Font Awesome Icons** - Professional industry-standard icons throughout the interface
+- [x] **Compact UI Layout** - Optimized spacing and field heights for better tag visibility
+- [x] **Icon-Only Snippets Buttons** - Clean, space-efficient snippet selection with tooltips
+- [x] **Enhanced Tag Visibility** - Increased field heights and improved scrollbar spacing
 
 ### **JSON Structure Refactoring (Major Achievement)**
 - [x] **Unified snippet structure** - All JSON files use consistent key-value format
@@ -121,6 +125,12 @@
   - [x] Optimize GUI initialization (reduce widget creation overhead)
   - [x] Consider async loading for non-critical components
   - [x] Profile and optimize import times
+- [ ] **Rename "Families" to "Filters"** - Update terminology throughout the application
+  - [ ] Change menu "Families" to "Filters"  
+  - [ ] Edit all snippet JSON files to use "filter" instead of "family" (e.g., "family": "PG" becomes "filter": "PG")
+  - [ ] Update all code that reads snippets to account for the field name change
+  - [ ] Update UI text and labels to reflect "Filters" terminology
+  - [ ] Update documentation and comments to use "Filters" terminology
 - [ ] **Implement batch processing system** - Handle multiple prompts efficiently
   - [ ] Design batch processing interface
   - [ ] Implement batch prompt generation

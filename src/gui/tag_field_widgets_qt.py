@@ -10,6 +10,15 @@ from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont, QColor, QIcon
 from pathlib import Path
 from typing import Callable, Optional, List
+
+# Try to import qtawesome, fallback to text if not available
+try:
+    import qtawesome as qta
+    FONTAWESOME_AVAILABLE = True
+except ImportError:
+    FONTAWESOME_AVAILABLE = False
+    print("Warning: qtawesome not available, using text icons")
+
 from .tag_widgets_qt import Tag, TagType
 from .inline_tag_input_qt import InlineTagInputWidget
 from .snippet_widgets_qt import SnippetPopup
@@ -32,8 +41,8 @@ class TagFieldWidget(QWidget):
         
         # Create layout
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 2, 0, 2)
-        self.layout.setSpacing(2)
+        self.layout.setContentsMargins(0, 0, 0, 0)  # Reduced from 1 to 0 for tighter spacing
+        self.layout.setSpacing(0)  # Reduced from 1 to 0 for minimal spacing between title and field
         
         # Create widgets
         self._create_widgets()
@@ -52,7 +61,7 @@ class TagFieldWidget(QWidget):
         # Create horizontal layout for tag container and snippet button
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(5)
+        input_layout.setSpacing(10)  # Increased from 5 to 10 to prevent scrollbar overlap
         
         # Create inline tag input
         self.tag_input = InlineTagInputWidget(self.placeholder)
@@ -62,9 +71,12 @@ class TagFieldWidget(QWidget):
         # Set field name for randomization
         self.tag_input._field_name = self.field_name
         
-        # Create snippet button
-        self.snippet_button = QPushButton("Snippets")
-        self.snippet_button.setMinimumWidth(90)
+        # Create snippet button with icon only
+        self.snippet_button = QPushButton()
+        if FONTAWESOME_AVAILABLE:
+            self.snippet_button.setIcon(qta.icon('fa5s.list', color='white'))
+        self.snippet_button.setFixedSize(35, 35)  # Same size as other action buttons
+        self.snippet_button.setToolTip("Snippets - Browse and select predefined content")
         self.snippet_button.clicked.connect(self._show_snippets)
         
         input_layout.addWidget(self.tag_input, 1)  # Give most space to tag input
@@ -313,7 +325,7 @@ class TagTextAreaWidget(TagFieldWidget):
         
         # After parent initialization, set minimum height for text area appearance
         if hasattr(self, 'tag_input'):
-            self.tag_input.setMinimumHeight(60)  # Reduced from 80 to be less prominent
+            self.tag_input.setMinimumHeight(50)  # Reduced from 60 to be more compact
 
 
 class SeedFieldWidget(QWidget):

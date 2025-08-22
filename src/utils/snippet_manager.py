@@ -91,8 +91,8 @@ class SnippetManager:
         """Process a single snippet data entry."""
         field = snippet_data.get("field")
         
-        # Handle both old "rating" field and new "family" field for backward compatibility
-        family = snippet_data.get("family", snippet_data.get("rating", "PG"))
+        # Handle both old "family" field and new "filter" field for backward compatibility
+        family = snippet_data.get("filter", snippet_data.get("family", "PG"))
         llm_rating = snippet_data.get("LLM_rating", snippet_data.get("rating", "PG"))
         
         categories = snippet_data.get("categories", {})
@@ -187,7 +187,7 @@ class SnippetManager:
         
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
+                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
                 
                 # Check if this snippet's family is appropriate for the requested family filter
                 if self._is_family_appropriate(snippet_family, content_rating):
@@ -346,7 +346,7 @@ class SnippetManager:
         # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
+                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
                 
                 if self._is_family_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})
@@ -392,7 +392,7 @@ class SnippetManager:
         # Find snippets for this field and family
         for key, snippet_data in self.all_snippets.items():
             if snippet_data.get("field") == field_name:
-                snippet_family = snippet_data.get("family", snippet_data.get("rating", "PG"))
+                snippet_family = snippet_data.get("filter", snippet_data.get("family", "PG"))
                 
                 if self._is_family_appropriate(snippet_family, content_rating):
                     categories = snippet_data.get("categories", {})

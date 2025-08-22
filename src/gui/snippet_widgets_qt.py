@@ -674,7 +674,8 @@ class SnippetPopup(QDialog):
             # Find the snippet button in the parent widget
             snippet_button = None
             for child in self.parent().findChildren(QPushButton):
-                if child.text() == "Snippets":
+                # Look for snippet button by tooltip or by being the last button in the layout
+                if (child.toolTip() and "Snippets" in child.toolTip()) or child.text() == "Snippets":
                     snippet_button = child
                     break
             

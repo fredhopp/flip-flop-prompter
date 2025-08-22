@@ -29,6 +29,9 @@ A powerful AI image generation prompt builder with a clean, user-friendly interf
 - **Real-time Preview**: Live preview with deterministic randomization
 - **Realize Functionality**: Convert random category tags to specific snippet items
 - **Professional Design**: Modern scrollbars, responsive layout, and optimized spacing
+- **Font Awesome Icons**: Professional industry-standard icons throughout the interface
+- **Compact Layout**: Optimized spacing and field heights for better tag visibility
+- **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with tooltips
 
 ### **Data Management**
 - **User Data Folders**: Automatic organization of snippets, templates, and preferences
