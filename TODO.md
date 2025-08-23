@@ -252,6 +252,7 @@
 - [ ] Window sizing could be more responsive
 - [ ] Some text may be cut off in smaller windows
 - [ ] Menu styling could be improved
+- [ ] Batch frame composition: slight grey halo/incorrect bg around Size/Seed widgets in light/dark themes. Track and fix by unifying palette roles and subcontrol styling without losing native arrows.
 
 ## 🚀 **Future Enhancements**
 

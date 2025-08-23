@@ -13,7 +13,8 @@ from typing import List, Dict
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QFrame, QMenuBar, QMenu, QMessageBox, QFileDialog,
-    QScrollArea, QSizePolicy, QPushButton, QProgressBar, QStatusBar
+    QScrollArea, QSizePolicy, QPushButton, QProgressBar, QStatusBar,
+    QLineEdit, QComboBox, QCheckBox, QSpinBox
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QAction, QFont
@@ -358,11 +359,202 @@ class MainWindow(QMainWindow):
         model_layout.addWidget(self.llm_widget)
         self.main_layout.addWidget(model_row)
         
-        # Full-width Generate button below LLM model, above preview
+        # Batch row: left (50%) generate button, right (50%) batch controls
+        batch_row = QWidget()
+        batch_row.setObjectName("batchRow")
+        batch_layout = QHBoxLayout(batch_row)
+        batch_layout.setContentsMargins(0, 4, 0, 4)
+        batch_layout.setSpacing(10)
+
+        # Left: Generate button (expands to half width within layout)
         self.generate_button = QPushButton("Generate Final Prompt")
         self.generate_button.clicked.connect(self._generate_prompt)
         self.generate_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.main_layout.addWidget(self.generate_button)
+        batch_layout.addWidget(self.generate_button, 1)
+
+        # Right: batch controls container
+        batch_controls = QFrame()
+        batch_controls.setObjectName("batchControls")
+        batch_controls_layout = QHBoxLayout(batch_controls)
+        batch_controls_layout.setContentsMargins(0, 0, 0, 0)
+        # Larger spacing between the Size and Seed groups for clarity
+        batch_controls_layout.setSpacing(28)
+        batch_controls.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        # Batch checkbox (fixed width)
+        self.batch_checkbox = QCheckBox("Batch")
+        self.batch_checkbox.setObjectName("batchCheckBox")
+        self.batch_checkbox.setChecked(False)
+        self.batch_checkbox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        batch_controls_layout.addWidget(self.batch_checkbox)
+
+        # Size group: tight spacing between label and spinbox
+        size_group = QWidget()
+        size_layout = QHBoxLayout(size_group)
+        size_layout.setContentsMargins(0, 0, 0, 0)
+        size_layout.setSpacing(6)  # small gap between label and control
+        size_label = QLabel("Size:")
+        size_layout.addWidget(size_label)
+        self.batch_size_input = QSpinBox()
+        self.batch_size_input.setMinimum(1)
+        self.batch_size_input.setMaximum(9999)
+        self.batch_size_input.setValue(5)
+        self.batch_size_input.setFixedWidth(80)
+        # Ensure arrows visible
+        try:
+            from PySide6.QtWidgets import QAbstractSpinBox
+            self.batch_size_input.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        except Exception:
+            pass
+        self.batch_size_input.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        size_layout.addWidget(self.batch_size_input)
+        batch_controls_layout.addWidget(size_group)
+
+        # Seed group: tight spacing between label and combobox
+        seed_group = QWidget()
+        seed_layout = QHBoxLayout(seed_group)
+        seed_layout.setContentsMargins(0, 0, 0, 0)
+        seed_layout.setSpacing(6)  # small gap between label and control
+        seed_label = QLabel("Seed:")
+        seed_layout.addWidget(seed_label)
+        self.seed_mode_combo = QComboBox()
+        self.seed_mode_combo.addItems(["fixed", "increment", "decrement", "randomize"])
+        self.seed_mode_combo.setCurrentText("increment")
+        self.seed_mode_combo.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        seed_layout.addWidget(self.seed_mode_combo)
+        batch_controls_layout.addWidget(seed_group)
+
+        # Make right side occupy equal space
+        batch_layout.addWidget(batch_controls, 1)
+
+        # Enable/disable size and seed controls when Batch is checked
+        self.batch_checkbox.toggled.connect(self._on_batch_toggled)
+        self._on_batch_toggled(self.batch_checkbox.isChecked())
+
+        # Add batch row to main layout
+        self.main_layout.addWidget(batch_row)
+        # Keep a reference for styling updates
+        self.batch_controls = batch_controls
+
+        # Style batch controls according to theme and active state
+        self._apply_batch_styling()
+
+    def _on_batch_toggled(self, checked: bool):
+        """Enable/disable Size and Seed controls when Batch is checked."""
+        # When Batch is checked, controls should be active; otherwise inactive
+        if hasattr(self, 'batch_size_input'):
+            self.batch_size_input.setDisabled(not checked)
+        if hasattr(self, 'seed_mode_combo'):
+            self.seed_mode_combo.setDisabled(not checked)
+        # Update styling
+        self._apply_batch_styling()
+
+    def _apply_batch_styling(self):
+        """Apply visual styling for batch controls based on checkbox state and theme."""
+        try:
+            colors = theme_manager.get_theme_colors()
+        except Exception:
+            colors = {
+                "batch_active_outline": "#0066cc",
+                "batch_inactive_bg": "#f2f2f2",
+                "batch_dim_fg": "#888888",
+            }
+        active = self.batch_checkbox.isChecked() if hasattr(self, 'batch_checkbox') else False
+        # Determine frame background used for inner controls
+        frame_bg = colors.get('text_bg', '#ffffff') if active else colors.get('batch_inactive_bg', '#f2f2f2')
+        # Row background and outline + checkbox indicator color
+        if hasattr(self, 'batch_controls') and self.batch_controls is not None:
+            if active:
+                self.batch_controls.setStyleSheet(
+                    f"""
+                    #batchControls {{
+                        background-color: {colors.get('text_bg', '#ffffff')};
+                        border: 2px solid {colors.get('batch_active_outline','#0066cc')};
+                        border-radius: 8px;
+                        padding: 6px;
+                    }}
+                    #batchControls QCheckBox#batchCheckBox,
+                    #batchControls QComboBox {{
+                        background-color: {frame_bg};
+                    }}
+                    #batchControls QLabel {{
+                        background-color: {frame_bg};
+                    }}
+                    QCheckBox#batchCheckBox::indicator {{
+                        width: 14px; height: 14px; border: 1px solid {colors.get('batch_active_outline','#0066cc')}; border-radius: 3px; background: transparent;
+                    }}
+                    QCheckBox#batchCheckBox::indicator:checked {{
+                        background-color: {colors.get('batch_active_outline','#0066cc')};
+                        border: 1px solid {colors.get('batch_active_outline','#0066cc')};
+                    }}
+                    """
+                )
+            else:
+                self.batch_controls.setStyleSheet(
+                    f"""
+                    #batchControls {{
+                        background-color: {colors.get('batch_inactive_bg','#f2f2f2')};
+                        border: 1px solid {colors.get('tag_border','#cccccc')};
+                        border-radius: 8px;
+                        padding: 6px;
+                    }}
+                    #batchControls QCheckBox#batchCheckBox,
+                    #batchControls QComboBox {{
+                        background-color: {frame_bg};
+                    }}
+                    #batchControls QLabel {{
+                        background-color: {frame_bg};
+                    }}
+                    QCheckBox#batchCheckBox::indicator {{
+                        width: 14px; height: 14px; border: 1px solid {colors.get('tag_border','#cccccc')}; border-radius: 3px; background: {colors.get('batch_inactive_bg','#f2f2f2')};
+                    }}
+                    QCheckBox#batchCheckBox::indicator:checked {{
+                        background-color: {colors.get('batch_active_outline','#0066cc')};
+                        border: 1px solid {colors.get('batch_active_outline','#0066cc')};
+                    }}
+                    """
+                )
+        # Dim labels and controls when inactive
+        dim_fg = colors.get('batch_dim_fg', '#888888')
+        normal_fg = colors.get('text_fg', '#000000')
+        if hasattr(self, 'seed_mode_combo'):
+            # Keep native arrow; set explicit bg to frame color so no halo
+            self.seed_mode_combo.setStyleSheet(
+                f"""
+                QComboBox {{
+                    color: {dim_fg if not active else normal_fg};
+                    background-color: {frame_bg};
+                    border: 1px solid {colors.get('tag_border','#cccccc')};
+                    border-radius: 4px;
+                    padding: 2px 6px;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {frame_bg};
+                    border: 1px solid {colors.get('tag_border','#cccccc')};
+                    selection-background-color: {colors.get('batch_active_outline','#0066cc')};
+                    selection-color: {colors.get('text_bg','#ffffff')};
+                }}
+                """
+            )
+        if hasattr(self, 'batch_size_input'):
+            # Remove all stylesheets so native arrows render correctly
+            try:
+                self.batch_size_input.setStyleSheet("")
+            except Exception:
+                pass
+            # Align palette roles so native-drawn parts match the frame background
+            try:
+                from PySide6.QtGui import QPalette, QColor
+                pal = self.batch_size_input.palette()
+                qcol = QColor(frame_bg)
+                for role in (QPalette.Base, QPalette.Button, QPalette.Window):
+                    pal.setColor(role, qcol)
+                # Text colors for active/inactive
+                pal.setColor(QPalette.Text, QColor(normal_fg if active else dim_fg))
+                pal.setColor(QPalette.Disabled, QPalette.Text, QColor(dim_fg))
+                self.batch_size_input.setPalette(pal)
+            except Exception:
+                pass
     
     def _create_content_rating(self):
         """Create content rating selection widget."""
@@ -1076,6 +1268,10 @@ class MainWindow(QMainWindow):
             
             # Refresh all tag containers
             self._refresh_tag_containers()
+            
+            # Refresh batch controls styling to new theme
+            if hasattr(self, '_apply_batch_styling'):
+                self._apply_batch_styling()
             
             # Log the theme change
             if self.logger:
