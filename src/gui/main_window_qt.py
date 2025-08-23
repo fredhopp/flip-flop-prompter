@@ -331,27 +331,38 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(self.llm_instructions_widget)
     
     def _create_model_selection_row(self):
-        """Create seed field and model selection widgets."""
-        # Add seed field first
-        self.seed_widget = SeedFieldWidget(
-            change_callback=self._on_seed_changed
-        )
-        self.main_layout.addWidget(self.seed_widget)
+        """Create seed row (with Clear button), LLM model row, and full-width Generate button."""
+        # Seed row: left = seed/randomize/realize block, right = Clear All Fields button
+        self.seed_widget = SeedFieldWidget(change_callback=self._on_seed_changed)
+        seed_row = QWidget()
+        seed_layout = QHBoxLayout(seed_row)
+        seed_layout.setContentsMargins(0, 2, 0, 2)
+        seed_layout.setSpacing(10)
+        seed_layout.addWidget(self.seed_widget, 0)
+        seed_layout.addStretch(1)
         
-        # Create horizontal layout for model widgets
+        # Clear All Fields button (right-aligned, size-to-content)
+        self.clear_button = QPushButton("Clear All Fields")
+        self.clear_button.clicked.connect(self._clear_all_fields)
+        self.clear_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        seed_layout.addWidget(self.clear_button, 0, Qt.AlignmentFlag.AlignRight)
+        
+        self.main_layout.addWidget(seed_row)
+        
+        # LLM Model row
         model_row = QWidget()
         model_layout = QHBoxLayout(model_row)
-        model_layout.setContentsMargins(0, 2, 0, 2)  # Reduced from 5 to 2
+        model_layout.setContentsMargins(0, 2, 0, 2)
         model_layout.setSpacing(20)
-        
-        # LLM Model  
-        self.llm_widget = LLMSelectionWidget(
-            change_callback=self._on_llm_changed
-        )
+        self.llm_widget = LLMSelectionWidget(change_callback=self._on_llm_changed)
         model_layout.addWidget(self.llm_widget)
-        
-        # Add to main layout
         self.main_layout.addWidget(model_row)
+        
+        # Full-width Generate button below LLM model, above preview
+        self.generate_button = QPushButton("Generate Final Prompt")
+        self.generate_button.clicked.connect(self._generate_prompt)
+        self.generate_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.main_layout.addWidget(self.generate_button)
     
     def _create_content_rating(self):
         """Create content rating selection widget."""
@@ -359,23 +370,8 @@ class MainWindow(QMainWindow):
         pass
     
     def _create_button_frame(self):
-        """Create button frame with action buttons."""
-        button_frame = QWidget()
-        button_layout = QHBoxLayout(button_frame)
-        button_layout.setContentsMargins(0, 5, 0, 5)  # Reduced from 10 to 5
-        button_layout.setSpacing(2)  # Small 2px gap between buttons
-        
-        # Generate Prompt button (75% of space)
-        self.generate_button = QPushButton("Generate Final Prompt")
-        self.generate_button.clicked.connect(self._generate_prompt)
-        button_layout.addWidget(self.generate_button, 3)  # 75% of space (3:1 ratio)
-
-        # Clear All Fields button (25% of space)
-        self.clear_button = QPushButton("Clear All Fields")
-        self.clear_button.clicked.connect(self._clear_all_fields)
-        button_layout.addWidget(self.clear_button, 1)  # 25% of space (1:3 ratio)
-        
-        self.main_layout.addWidget(button_frame)
+        """Deprecated: Buttons are placed in seed/model rows now."""
+        return
     
     def _create_preview_panel(self):
         """Create the preview panel."""
