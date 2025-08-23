@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 import os
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -397,7 +397,7 @@ class MainWindow(QMainWindow):
         size_layout.addWidget(size_label)
         self.batch_size_input = QSpinBox()
         self.batch_size_input.setMinimum(1)
-        self.batch_size_input.setMaximum(9999)
+        self.batch_size_input.setMaximum(100)  # Limit to 100 for batch processing
         self.batch_size_input.setValue(5)
         self.batch_size_input.setFixedWidth(80)
         # Ensure arrows visible
@@ -441,11 +441,18 @@ class MainWindow(QMainWindow):
 
     def _on_batch_toggled(self, checked: bool):
         """Enable/disable Size and Seed controls when Batch is checked."""
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: _on_batch_toggled() called with checked={checked}")
+        
         # When Batch is checked, controls should be active; otherwise inactive
         if hasattr(self, 'batch_size_input'):
             self.batch_size_input.setDisabled(not checked)
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: batch_size_input disabled: {not checked}")
         if hasattr(self, 'seed_mode_combo'):
             self.seed_mode_combo.setDisabled(not checked)
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: seed_mode_combo disabled: {not checked}")
         # Update styling
         self._apply_batch_styling()
 
@@ -1155,6 +1162,37 @@ class MainWindow(QMainWindow):
     
     def _generate_prompt(self):
         """Generate the final prompt using the LLM."""
+        # Add verbose debug logging for batch processing
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: _generate_prompt() called")
+            print(f"DEBUG BATCH: batch_checkbox exists: {hasattr(self, 'batch_checkbox')}")
+            if hasattr(self, 'batch_checkbox'):
+                print(f"DEBUG BATCH: batch_checkbox checked: {self.batch_checkbox.isChecked()}")
+                print(f"DEBUG BATCH: batch_checkbox object: {self.batch_checkbox}")
+                print(f"DEBUG BATCH: batch_checkbox state: {self.batch_checkbox.checkState()}")
+                print(f"DEBUG BATCH: batch_size_input value: {self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 'N/A'}")
+                print(f"DEBUG BATCH: seed_mode_combo value: {self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else 'N/A'}")
+        
+        # Check if batch processing is enabled
+        batch_enabled = hasattr(self, 'batch_checkbox') and self.batch_checkbox.isChecked()
+        
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: batch_enabled = {batch_enabled}")
+        
+        if batch_enabled:
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Calling _generate_batch_prompts()")
+            self._generate_batch_prompts()
+        else:
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Calling _generate_single_prompt()")
+            self._generate_single_prompt()
+
+    def _generate_single_prompt(self):
+        """Generate a single prompt using the LLM."""
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: _generate_single_prompt() called")
+        
         # Initialize variables outside try block to avoid UnboundLocalError
         llm_model = "gemma3:4b"  # Default fallback
         model = "seedream"  # Default model
@@ -1207,8 +1245,18 @@ class MainWindow(QMainWindow):
             # Generate prompt using the engine
             final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled)
             
+            if self.debug_enabled:
+                print(f"DEBUG SINGLE: Received final prompt (length: {len(final_prompt)})")
+                print(f"DEBUG SINGLE: Final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'")
+            
             # Calculate generation time
             generation_time = (datetime.now() - start_time).total_seconds()
+            
+            # Generate summary text using the current seed
+            summary_text = self._generate_preview_text_with_seed(seed)
+            
+            if self.debug_enabled:
+                print(f"DEBUG SINGLE: Summary: '{summary_text}'")
             
             # Log successful generation
             if self.logger:
@@ -1221,7 +1269,13 @@ class MainWindow(QMainWindow):
             self.preview_panel.update_preview(final_prompt, is_final=True, preserve_tab=False)
             
             # Save to history with final prompt
-            self._save_to_history(final_prompt)
+            self._save_to_history(final_prompt, summary_text, seed)
+            
+            # Get current history state after saving
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            
+            if self.debug_enabled:
+                print(f"DEBUG SINGLE: Saved to history (state: {current_pos}/{total_count})")
             
             # NO AUTO-NAVIGATION: User stays on current position, can manually navigate to see result
             if self.debug_enabled:
@@ -1243,6 +1297,160 @@ class MainWindow(QMainWindow):
             
             QMessageBox.critical(self, "Error", f"Failed to generate prompt: {str(e)}")
             self._show_error_message(f"Failed to generate prompt: {str(e)}")
+            import traceback
+            traceback.print_exc()  # For debugging
+
+    def _generate_batch_prompts(self):
+        """Generate multiple prompts in batch using different seeds."""
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: _generate_batch_prompts() called")
+        
+        # Initialize variables outside try block to avoid UnboundLocalError
+        llm_model = "gemma3:4b"  # Default fallback
+        model = "seedream"  # Default model
+        # Get first available filter as fallback 
+        first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
+        content_rating = first_filter if first_filter else "PG"  # Ultimate fallback
+        
+        try:
+            # Log the batch generation attempt
+            if self.logger:
+                self.logger.log_gui_action("Generate batch prompts", "Starting batch prompt generation")
+            
+            # Get batch parameters
+            batch_size = self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 5
+            seed_mode = self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else "increment"
+            base_seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+            
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Batch parameters - size: {batch_size}, mode: {seed_mode}, base_seed: {base_seed}")
+            
+            # Validate that LLM instructions are selected
+            llm_instructions = self.llm_instructions_widget.get_llm_instruction_content() if hasattr(self, 'llm_instructions_widget') else ""
+            if not llm_instructions.strip():
+                QMessageBox.warning(self, "LLM Instructions Required", 
+                    "Please select an LLM instruction from the 'LLM Instructions' field before generating batch prompts.\n\n"
+                    "This ensures the LLM knows how to process your prompt data correctly.")
+                self._show_error_message("LLM instructions required")
+                return
+            
+            # Get LLM model and filters
+            llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
+            selected_filters = self._get_selected_filters()
+            content_rating = selected_filters[0] if selected_filters else first_filter
+            
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Using LLM model: {llm_model}")
+                print(f"DEBUG BATCH: Using content rating: {content_rating}")
+                print(f"DEBUG BATCH: Starting batch generation loop for {batch_size} prompts")
+            
+            # Start progress tracking for batch
+            self._start_progress_tracking(llm_model, "seedream")
+            
+            # Record start time
+            start_time = datetime.now()
+            
+            # Generate batch prompts sequentially
+            for i in range(batch_size):
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Starting iteration {i+1}/{batch_size}")
+                
+                # Calculate seed for this iteration
+                if seed_mode == "fixed":
+                    current_seed = base_seed
+                elif seed_mode == "increment":
+                    current_seed = base_seed + i
+                elif seed_mode == "decrement":
+                    current_seed = max(0, base_seed - i)  # Clamp to 0 minimum
+                elif seed_mode == "randomize":
+                    import random
+                    random.seed(base_seed + i)  # Use base_seed + i as seed for reproducible randomness
+                    current_seed = random.randint(0, 999999)
+                else:
+                    current_seed = base_seed + i  # Default to increment
+                
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Iteration {i+1} - calculated seed: {current_seed}")
+                
+                # Update status for this iteration
+                self._show_status_message(f"Generating {i+1}/{batch_size} prompts (seed: {current_seed})...")
+                
+                # Create PromptData object with current seed
+                prompt_data = PromptData(
+                    style=self.style_widget.get_randomized_value(current_seed) if hasattr(self, 'style_widget') else "",
+                    setting=self.setting_widget.get_randomized_value(current_seed) if hasattr(self, 'setting_widget') else "",
+                    weather=self.weather_widget.get_randomized_value(current_seed) if hasattr(self, 'weather_widget') else "",
+                    date_time=self.datetime_widget.get_randomized_value(current_seed) if hasattr(self, 'datetime_widget') else "",
+                    subjects=self.subjects_widget.get_randomized_value(current_seed) if hasattr(self, 'subjects_widget') else "",
+                    pose_action=self.pose_widget.get_randomized_value(current_seed) if hasattr(self, 'pose_widget') else "",
+                    camera=self.camera_widget.get_randomized_value(current_seed) if hasattr(self, 'camera_widget') else "",
+                    framing_action=self.framing_widget.get_randomized_value(current_seed) if hasattr(self, 'framing_widget') else "",
+                    grading=self.grading_widget.get_randomized_value(current_seed) if hasattr(self, 'grading_widget') else "",
+                    details=self.details_widget.get_randomized_value(current_seed) if hasattr(self, 'details_widget') else "",
+                    llm_instructions=llm_instructions
+                )
+                
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Iteration {i+1} - calling prompt engine.generate_prompt()")
+                
+                # Generate prompt using the engine
+                final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled)
+                
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Iteration {i+1} - received final prompt (length: {len(final_prompt)})")
+                    print(f"DEBUG BATCH: Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'")
+                
+                # Generate summary text for this iteration using the current seed (before saving to history)
+                summary_text = self._generate_preview_text_with_seed(current_seed)
+                
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Iteration {i+1} - summary: '{summary_text}'")
+                
+                # Save to history with final prompt (each gets individual history entry)
+                self._save_to_history(final_prompt, summary_text, current_seed)
+                
+                # Get current history state after saving
+                current_pos, total_count = self.history_manager.get_navigation_info()
+                
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Iteration {i+1} - saved to history (state: {current_pos}/{total_count})")
+                
+                # Update progress
+                progress = (i + 1) / batch_size * 100
+                self.status_label.setText(f"Batch progress: {progress:.0f}% ({i+1}/{batch_size})")
+            
+            # Calculate total generation time
+            generation_time = (datetime.now() - start_time).total_seconds()
+            
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Batch generation completed - {batch_size} prompts in {generation_time:.2f}s")
+            
+            # Log successful batch generation
+            if self.logger:
+                self.logger.log_gui_action("Generate batch prompts", f"Success - {generation_time:.2f}s - {batch_size} prompts - Model: {llm_model}")
+            
+            # Stop progress tracking
+            self._stop_progress_tracking(generation_time)
+            
+            # Update status bar
+            self._update_status_bar()
+            
+            # Show success message
+            self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s")
+            
+        except Exception as e:
+            # Stop progress tracking on error
+            self._stop_progress_tracking()
+            
+            if self.debug_enabled:
+                print(f"DEBUG BATCH: Error in batch generation: {str(e)}")
+            
+            # Log the error
+            if self.logger:
+                self.logger.log_error(f"Failed to generate batch prompts: {str(e)}", "Generate batch prompts")
+            
+            QMessageBox.critical(self, "Error", f"Failed to generate batch prompts: {str(e)}")
+            self._show_error_message(f"Failed to generate batch prompts: {str(e)}")
             import traceback
             traceback.print_exc()  # For debugging
     
@@ -1528,13 +1736,10 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error refreshing filter menus: {e}")
     
-    def _generate_preview_text(self) -> str:
-        """Generate preview text from current field values."""
+    def _generate_preview_text_with_seed(self, seed: int) -> str:
+        """Generate preview text from current field values using a specific seed."""
         try:
-            # Get current seed for randomization
-            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
-            
-            # Collect randomized field values
+            # Collect randomized field values using the provided seed
             field_values = {
                 "Style": self.style_widget.get_randomized_value(seed) if hasattr(self, 'style_widget') else "",
                 "Setting": self.setting_widget.get_randomized_value(seed) if hasattr(self, 'setting_widget') else "",
@@ -1559,6 +1764,20 @@ class MainWindow(QMainWindow):
                 return "\n".join(preview_lines)
             else:
                 return ""  # Empty preview will show placeholder
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Error generating preview text with seed {seed}: {e}")
+            return ""
+
+    def _generate_preview_text(self) -> str:
+        """Generate preview text from current field values."""
+        try:
+            # Get current seed for randomization
+            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+            
+            # Use the seed-specific method
+            return self._generate_preview_text_with_seed(seed)
                 
         except Exception as e:
             if self.logger:
@@ -1624,7 +1843,7 @@ class MainWindow(QMainWindow):
             preview_text = self._generate_preview_text()
             
             if self.debug_enabled:
-                print(f"DEBUG NAV: Generated preview text: '{preview_text[:100]}{'...' if len(preview_text) > 100 else ''}'")
+                print(f"DEBUG NAV: Generated preview text: '{preview_text}'")
             
             # Update preview panel - only if there's actual content
             if preview_text.strip():
@@ -2314,6 +2533,7 @@ class MainWindow(QMainWindow):
                 print(f"DEBUG NAV: Restoring history entry - seed={entry.seed}, filters={entry.filters}, llm_model={entry.llm_model}")
                 print(f"DEBUG NAV: History entry field data: {list(entry.field_data.keys())}")
                 print(f"DEBUG NAV: History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'")
+                print(f"DEBUG NAV: History entry summary: '{entry.summary_text}'")
                 print(f"DEBUG NAV: _intentionally_navigating flag is: {self._intentionally_navigating}")
             
             # Preserve current tab selection
@@ -2427,13 +2647,13 @@ class MainWindow(QMainWindow):
         # Generate preview text
         preview_text = self._generate_preview_text()
         
-        print(f"DEBUG NAV: Current state preview text: '{preview_text[:100]}{'...' if len(preview_text) > 100 else ''}'")
+        print(f"DEBUG NAV: Current state preview text: '{preview_text}'")
         
         # Update preview panel with current state (only if we have content)
         if preview_text.strip():
             self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=True)
     
-    def _save_to_history(self, final_prompt: str = ""):
+    def _save_to_history(self, final_prompt: str = "", summary_text: str = "", seed: Optional[int] = None):
         """Save current state to history."""
         # Get current field data
         field_data = {}
@@ -2463,14 +2683,16 @@ class MainWindow(QMainWindow):
             if action.isChecked():
                 selected_filters.append(filter_name)
         
-        # Get current seed
-        seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+        # Get seed - use provided seed or current UI seed
+        if seed is None:
+            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
         
         # Get LLM model
         llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-coder:6.7b"
         
-        # Generate summary text at the time of saving
-        summary_text = self._generate_preview_text()
+        # Use provided summary text or generate if not provided
+        if not summary_text:
+            summary_text = self._generate_preview_text()
         
         # Add to history
         self.history_manager.add_entry(

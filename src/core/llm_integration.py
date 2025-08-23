@@ -64,12 +64,20 @@ class OllamaProvider(LLMProvider):
     def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt using Ollama."""
         
+        # Add verbose debug logging
+        if debug_enabled:
+            print(f"DEBUG OLLAMA: refine_prompt() called")
+            print(f"DEBUG OLLAMA: model_name: {model_name}")
+            print(f"DEBUG OLLAMA: target_model: {target_model}")
+            print(f"DEBUG OLLAMA: content_rating: {content_rating}")
+        
         # Create debug folder with timestamp if debug is enabled
         debug_folder = None
         if debug_enabled:
             timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
             debug_folder = self.debug_dir / timestamp
             debug_folder.mkdir(exist_ok=True)
+            print(f"DEBUG OLLAMA: Created debug folder: {debug_folder}")
         
         # Check if custom LLM instructions are provided
         if prompt_data.llm_instructions.strip():
@@ -132,11 +140,32 @@ class OllamaProvider(LLMProvider):
             }
         }
         
+        if debug_enabled:
+            print(f"DEBUG OLLAMA: Preparing to call Ollama API")
+            print(f"DEBUG OLLAMA: API endpoint: {self.base_url}/api/chat")
+            print(f"DEBUG OLLAMA: Model: {self.model_name}")
+            print(f"DEBUG OLLAMA: Payload keys: {list(payload.keys())}")
+        
         try:
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Making POST request to Ollama API...")
+            
             response = self.session.post(f"{self.base_url}/api/chat", json=payload)
+            
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Received response - status: {response.status_code}")
+            
             response.raise_for_status()
             result = response.json()
+            
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Parsed JSON response")
+                print(f"DEBUG OLLAMA: Response keys: {list(result.keys())}")
+            
             raw_content = result["message"]["content"].strip()
+            
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Extracted raw content (length: {len(raw_content)})")
             
             # Save raw LLM output if debug is enabled
             if debug_enabled and debug_folder:
@@ -144,11 +173,21 @@ class OllamaProvider(LLMProvider):
             
             # Clean and save final prompt
             final_prompt = self._clean_prompt_output(raw_content)
+            
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Cleaned final prompt (length: {len(final_prompt)})")
+            
             if debug_enabled and debug_folder:
                 self._save_debug_file(debug_folder, "04_final_prompt.txt", final_prompt)
             
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Returning final prompt")
+            
             return final_prompt
         except Exception as e:
+            if debug_enabled:
+                print(f"DEBUG OLLAMA: Error occurred: {str(e)}")
+            
             # Save error information if debug is enabled
             if debug_enabled and debug_folder:
                 error_info = f"Error: {str(e)}\nPayload: {json.dumps(payload, indent=2)}"
