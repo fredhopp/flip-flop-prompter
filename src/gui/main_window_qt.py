@@ -59,6 +59,8 @@ class MainWindow(QMainWindow):
         self._restoring_state = False
         self._jumping_to_current = False
         self._intentionally_navigating = False  # Flag to prevent jump-to-current during intentional navigation
+        self._generating_prompt = False  # Flag to prevent navigation updates during generation
+        self._just_finished_generation = False  # Flag to handle post-generation navigation updates
         
         # Track blocked widgets during state restoration
         self._blocked_widgets = []
@@ -1173,135 +1175,16 @@ class MainWindow(QMainWindow):
                 print(f"DEBUG BATCH: batch_size_input value: {self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 'N/A'}")
                 print(f"DEBUG BATCH: seed_mode_combo value: {self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else 'N/A'}")
         
-        # Check if batch processing is enabled
-        batch_enabled = hasattr(self, 'batch_checkbox') and self.batch_checkbox.isChecked()
-        
+        # Unified approach: always call _generate_batch_prompts()
+        # Single submission is treated as batch of 1 with "fixed" seed mode
         if self.debug_enabled:
-            print(f"DEBUG BATCH: batch_enabled = {batch_enabled}")
-        
-        if batch_enabled:
-            if self.debug_enabled:
-                print(f"DEBUG BATCH: Calling _generate_batch_prompts()")
-            self._generate_batch_prompts()
-        else:
-            if self.debug_enabled:
-                print(f"DEBUG BATCH: Calling _generate_single_prompt()")
-            self._generate_single_prompt()
+            print(f"DEBUG BATCH: Calling _generate_batch_prompts() (unified approach)")
+        self._generate_batch_prompts()
 
-    def _generate_single_prompt(self):
-        """Generate a single prompt using the LLM."""
-        if self.debug_enabled:
-            print(f"DEBUG BATCH: _generate_single_prompt() called")
-        
-        # Initialize variables outside try block to avoid UnboundLocalError
-        llm_model = "gemma3:4b"  # Default fallback
-        model = "seedream"  # Default model
-        # Get first available filter as fallback 
-        first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
-        content_rating = first_filter if first_filter else "PG"  # Ultimate fallback
-        
-        try:
-            # Log the generation attempt
-            if self.logger:
-                self.logger.log_gui_action("Generate prompt", "Starting prompt generation")
-            
-            # Get current seed for randomization
-            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
-            
-            # Create PromptData object from consolidated field values
-            prompt_data = PromptData(
-                style=self.style_widget.get_randomized_value(seed) if hasattr(self, 'style_widget') else "",
-                setting=self.setting_widget.get_randomized_value(seed) if hasattr(self, 'setting_widget') else "",
-                weather=self.weather_widget.get_randomized_value(seed) if hasattr(self, 'weather_widget') else "",
-                date_time=self.datetime_widget.get_randomized_value(seed) if hasattr(self, 'datetime_widget') else "",
-                subjects=self.subjects_widget.get_randomized_value(seed) if hasattr(self, 'subjects_widget') else "",
-                pose_action=self.pose_widget.get_randomized_value(seed) if hasattr(self, 'pose_widget') else "",
-                camera=self.camera_widget.get_randomized_value(seed) if hasattr(self, 'camera_widget') else "",
-                framing_action=self.framing_widget.get_randomized_value(seed) if hasattr(self, 'framing_widget') else "",
-                grading=self.grading_widget.get_randomized_value(seed) if hasattr(self, 'grading_widget') else "",
-                details=self.details_widget.get_randomized_value(seed) if hasattr(self, 'details_widget') else "",
-                llm_instructions=self.llm_instructions_widget.get_llm_instruction_content() if hasattr(self, 'llm_instructions_widget') else ""
-            )
-            
-            # Validate that LLM instructions are selected
-            if not prompt_data.llm_instructions.strip():
-                QMessageBox.warning(self, "LLM Instructions Required", 
-                    "Please select an LLM instruction from the 'LLM Instructions' field before generating a prompt.\n\n"
-                    "This ensures the LLM knows how to process your prompt data correctly.")
-                self._show_error_message("LLM instructions required")
-                return
-            
-            # Get LLM model and filters (use first selected filter for backward compatibility)
-            llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
-            selected_filters = self._get_selected_filters()
-            content_rating = selected_filters[0] if selected_filters else first_filter
-            
-            # Start progress tracking
-            self._start_progress_tracking(llm_model, "seedream")
-            
-            # Record start time
-            start_time = datetime.now()
-            
-            # Generate prompt using the engine
-            final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled)
-            
-            if self.debug_enabled:
-                print(f"DEBUG SINGLE: Received final prompt (length: {len(final_prompt)})")
-                print(f"DEBUG SINGLE: Final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'")
-            
-            # Calculate generation time
-            generation_time = (datetime.now() - start_time).total_seconds()
-            
-            # Generate summary text using the current seed
-            summary_text = self._generate_preview_text_with_seed(seed)
-            
-            if self.debug_enabled:
-                print(f"DEBUG SINGLE: Summary: '{summary_text}'")
-            
-            # Log successful generation
-            if self.logger:
-                self.logger.log_gui_action("Generate prompt", f"Success - {generation_time:.2f}s - Model: {llm_model}")
-            
-            # Stop progress tracking with actual duration
-            self._stop_progress_tracking(generation_time)
-            
-            # Update preview with final prompt and auto-switch to Final Prompt tab
-            self.preview_panel.update_preview(final_prompt, is_final=True, preserve_tab=False)
-            
-            # Save to history with final prompt
-            self._save_to_history(final_prompt, summary_text, seed)
-            
-            # Get current history state after saving
-            current_pos, total_count = self.history_manager.get_navigation_info()
-            
-            if self.debug_enabled:
-                print(f"DEBUG SINGLE: Saved to history (state: {current_pos}/{total_count})")
-            
-            # NO AUTO-NAVIGATION: User stays on current position, can manually navigate to see result
-            if self.debug_enabled:
-                print(f"DEBUG NAV: LLM result saved to history - user stays on current position")
-            
-            # Update status bar
-            self._update_status_bar()
-            
-            # Show success message
-            self._show_status_message(f"Prompt generated successfully in {generation_time:.2f}s")
-            
-        except Exception as e:
-            # Stop progress tracking on error
-            self._stop_progress_tracking()
-            
-            # Log the error
-            if self.logger:
-                self.logger.log_error(f"Failed to generate prompt: {str(e)}", "Generate prompt")
-            
-            QMessageBox.critical(self, "Error", f"Failed to generate prompt: {str(e)}")
-            self._show_error_message(f"Failed to generate prompt: {str(e)}")
-            import traceback
-            traceback.print_exc()  # For debugging
+
 
     def _generate_batch_prompts(self):
-        """Generate multiple prompts in batch using different seeds."""
+        """Generate multiple prompts in batch using different seeds - unified approach for single and batch."""
         if self.debug_enabled:
             print(f"DEBUG BATCH: _generate_batch_prompts() called")
         
@@ -1312,14 +1195,33 @@ class MainWindow(QMainWindow):
         first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
         content_rating = first_filter if first_filter else "PG"  # Ultimate fallback
         
+        # INFINITE LOOP PROTECTION: Set processing flag (NO navigation)
+        self._generating_prompt = True
+        
+        if self.debug_enabled:
+            print(f"DEBUG BATCH: Staying on current position during generation")
+        
         try:
-            # Log the batch generation attempt
+            # Log the generation attempt
             if self.logger:
-                self.logger.log_gui_action("Generate batch prompts", "Starting batch prompt generation")
+                self.logger.log_gui_action("Generate prompts", "Starting prompt generation")
             
-            # Get batch parameters
-            batch_size = self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 5
-            seed_mode = self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else "increment"
+            # UNIFIED APPROACH: Determine if this is single or batch
+            batch_enabled = hasattr(self, 'batch_checkbox') and self.batch_checkbox.isChecked()
+            
+            if batch_enabled:
+                # Actual batch processing
+                batch_size = self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 5
+                seed_mode = self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else "increment"
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Batch mode - size: {batch_size}, mode: {seed_mode}")
+            else:
+                # Single submission treated as batch of 1 with "fixed" seed mode
+                batch_size = 1
+                seed_mode = "fixed"  # Always use current seed unchanged for single submission
+                if self.debug_enabled:
+                    print(f"DEBUG BATCH: Single mode (batch of 1) - size: {batch_size}, mode: {seed_mode}")
+            
             base_seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
             
             if self.debug_enabled:
@@ -1423,34 +1325,51 @@ class MainWindow(QMainWindow):
             generation_time = (datetime.now() - start_time).total_seconds()
             
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Batch generation completed - {batch_size} prompts in {generation_time:.2f}s")
+                print(f"DEBUG BATCH: Generation completed - {batch_size} prompts in {generation_time:.2f}s")
             
-            # Log successful batch generation
+            # Log successful generation
             if self.logger:
-                self.logger.log_gui_action("Generate batch prompts", f"Success - {generation_time:.2f}s - {batch_size} prompts - Model: {llm_model}")
+                self.logger.log_gui_action("Generate prompts", f"Success - {generation_time:.2f}s - {batch_size} prompts - Model: {llm_model}")
             
             # Stop progress tracking
             self._stop_progress_tracking(generation_time)
+            
+            # INFINITE LOOP PROTECTION: Clear processing flag and set post-generation flag
+            self._generating_prompt = False
+            self._just_finished_generation = True
+            
+            # Update navigation controls (history count) without triggering full restoration
+            self._update_history_navigation()
+            
+            # Clear post-generation flag
+            self._just_finished_generation = False
             
             # Update status bar
             self._update_status_bar()
             
             # Show success message
-            self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s")
+            if batch_size == 1:
+                self._show_status_message(f"Prompt generated successfully in {generation_time:.2f}s")
+            else:
+                self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s")
             
         except Exception as e:
             # Stop progress tracking on error
             self._stop_progress_tracking()
             
+            # INFINITE LOOP PROTECTION: Clear processing flag on error
+            self._generating_prompt = False
+            self._just_finished_generation = False
+            
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Error in batch generation: {str(e)}")
+                print(f"DEBUG BATCH: Error in generation: {str(e)}")
             
             # Log the error
             if self.logger:
-                self.logger.log_error(f"Failed to generate batch prompts: {str(e)}", "Generate batch prompts")
+                self.logger.log_error(f"Failed to generate prompts: {str(e)}", "Generate prompts")
             
-            QMessageBox.critical(self, "Error", f"Failed to generate batch prompts: {str(e)}")
-            self._show_error_message(f"Failed to generate batch prompts: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to generate prompts: {str(e)}")
+            self._show_error_message(f"Failed to generate prompts: {str(e)}")
             import traceback
             traceback.print_exc()  # For debugging
     
@@ -2619,6 +2538,15 @@ class MainWindow(QMainWindow):
             # Check if we're in current state (0) or history state (1+)
             is_current_state = current_pos == 0
             
+            # POST-GENERATION HANDLING: Only update navigation controls, don't restore state
+            if self._just_finished_generation:
+                if self.debug_enabled:
+                    print(f"DEBUG NAV: Post-generation update - only updating navigation controls")
+                self.preview_panel.update_navigation_controls(
+                    can_go_back, can_go_forward, current_pos, total_count, has_history, is_current_state
+                )
+                return
+            
             # Set styling immediately based on state to prevent flashing
             if is_current_state:
                 print(f"DEBUG NAV: Showing CURRENT state (0/{total_count})")
@@ -2705,8 +2633,11 @@ class MainWindow(QMainWindow):
             summary_text=summary_text
         )
         
-        # Update navigation controls
-        self._update_history_navigation()
+        # Update navigation controls - but skip during generation to prevent infinite loops
+        if not getattr(self, '_generating_prompt', False):
+            self._update_history_navigation()
+        elif self.debug_enabled:
+            print(f"DEBUG BATCH: Skipping navigation update during generation")
     
     def _schedule_preview_update(self):
         """Schedule a debounced preview update (Qt best practice to prevent signal cascading)."""
