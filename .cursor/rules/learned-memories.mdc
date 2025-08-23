@@ -73,6 +73,7 @@ taskkill //F //IM python.exe
 - **Tag System**: Inline tags with colors (blue=snippets, purple=user text, orange=categories, yellow=subcategories)
 - **Randomization**: Seed-based deterministic random snippet selection with preview/realization consistency
 - **Filters**: Dynamic filtering system with real-time snippet updates
+ - **Filters**: Dynamic filtering system with real-time snippet updates; snippet popup merges same-named categories across selected filters and shows all contributing filters (e.g., "Human (PG, NSFW)")
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 - **Logging**: Comprehensive GUI interaction logging with debug mode integration
 - **Theme System**: JSON-based light/dark themes with external file customization

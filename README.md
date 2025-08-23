@@ -111,6 +111,7 @@ python main.py          # Standard mode
 - Snippets are filtered by selected filters (PG/NSFW/Hentai)
 - Supports toggle behavior (click again to remove)
 - Categories and subcategories appear as random tags (orange/yellow)
+ - Categories are merged across selected filters; labels show all contributing filters in parentheses (e.g., Human (PG, NSFW))
 
 ### **Templates**
 - **Save Template**: File → Save Template (saves current state)
