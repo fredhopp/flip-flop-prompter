@@ -2008,6 +2008,25 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event."""
+        # Unload Ollama model to free up VRAM
+        try:
+            if hasattr(self, 'llm_widget'):
+                current_model = self.llm_widget.get_value()
+                print(f"DEBUG OLLAMA: Unloading model '{current_model}' on application close")
+                
+                # Get prompt engine and unload model
+                prompt_engine = self._get_prompt_engine()
+                if prompt_engine:
+                    success = prompt_engine.unload_llm_model(current_model)
+                    if success:
+                        print(f"DEBUG OLLAMA: Successfully unloaded model '{current_model}'")
+                    else:
+                        print(f"DEBUG OLLAMA: Failed to unload model '{current_model}'")
+                else:
+                    print("DEBUG OLLAMA: No prompt engine available for model unloading")
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Error during model unloading: {str(e)}")
+        
         # Save window size to preferences
         theme_manager.set_preference("window_width", self.width())
         theme_manager.set_preference("window_height", self.height())

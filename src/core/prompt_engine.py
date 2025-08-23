@@ -80,6 +80,12 @@ class PromptEngine:
         if self.llm_manager:
             self.llm_manager.update_llm_model(model_name)
     
+    def unload_llm_model(self, model_name: str = None) -> bool:
+        """Unload the current LLM model to free up VRAM."""
+        if self.llm_manager:
+            return self.llm_manager.unload_model(model_name)
+        return False
+    
     def validate_prompt_data(self, prompt_data: PromptData) -> List[str]:
         """
         Validate prompt data and return list of validation errors.

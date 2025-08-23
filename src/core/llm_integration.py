@@ -61,6 +61,25 @@ class OllamaProvider(LLMProvider):
         except:
             return []
     
+    def unload_model(self, model_name: str = None) -> bool:
+        """Unload a model from Ollama to free up VRAM."""
+        try:
+            # Use current model if no specific model provided
+            target_model = model_name or self.model_name
+            
+            # Call Ollama API to unload the model
+            response = self.session.delete(f"{self.base_url}/api/delete", json={"name": target_model})
+            
+            if response.status_code == 200:
+                print(f"DEBUG OLLAMA: Successfully unloaded model: {target_model}")
+                return True
+            else:
+                print(f"DEBUG OLLAMA: Failed to unload model {target_model}: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Error unloading model {target_model}: {str(e)}")
+            return False
+    
     def refine_prompt(self, prompt_data: PromptData, model_name: str, target_model: str, content_rating: str = "PG", debug_enabled: bool = False) -> str:
         """Refine prompt using Ollama."""
         
@@ -609,3 +628,15 @@ class LLMManager:
         if self.providers["ollama"]:
             return self.providers["ollama"].get_available_models()
         return []
+    
+    def unload_model(self, model_name: str = None) -> bool:
+        """Unload the current model from the active provider to free up VRAM."""
+        if not self.active_provider:
+            print("DEBUG OLLAMA: No active provider to unload model from")
+            return False
+        
+        try:
+            return self.active_provider.unload_model(model_name)
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Error unloading model from provider: {str(e)}")
+            return False
