@@ -62,20 +62,46 @@ class OllamaProvider(LLMProvider):
             return []
     
     def unload_model(self, model_name: str = None) -> bool:
-        """Unload a model from Ollama to free up VRAM."""
+        """Unload a model from Ollama VRAM using keep_alive=0."""
         try:
             # Use current model if no specific model provided
             target_model = model_name or self.model_name
             
-            # Call Ollama API to unload the model
-            response = self.session.delete(f"{self.base_url}/api/delete", json={"name": target_model})
+            print(f"DEBUG OLLAMA: Attempting to unload model from VRAM: {target_model}")
+            
+            # Method 1: Try /api/generate with keep_alive=0
+            payload = {
+                "model": target_model,
+                "prompt": "",
+                "keep_alive": 0
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/generate", json=payload)
             
             if response.status_code == 200:
-                print(f"DEBUG OLLAMA: Successfully unloaded model: {target_model}")
+                print(f"DEBUG OLLAMA: Successfully unloaded model from VRAM: {target_model}")
                 return True
-            else:
-                print(f"DEBUG OLLAMA: Failed to unload model {target_model}: {response.status_code}")
-                return False
+            
+            # Method 2: Try /api/chat with keep_alive=0
+            print(f"DEBUG OLLAMA: Method 1 failed, trying chat API...")
+            payload = {
+                "model": target_model,
+                "messages": [{"role": "user", "content": ""}],
+                "keep_alive": 0
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/chat", json=payload)
+            
+            if response.status_code == 200:
+                print(f"DEBUG OLLAMA: Successfully unloaded model from VRAM using chat API: {target_model}")
+                return True
+            
+            # If both methods fail, this is likely the known Ollama VRAM bug
+            print(f"DEBUG OLLAMA: Failed to unload model {target_model} - known Ollama VRAM issue")
+            print(f"DEBUG OLLAMA: Model may be stuck in VRAM. Consider restarting Ollama service.")
+            print(f"DEBUG OLLAMA: Response: {response.status_code} - {response.text}")
+            return False
+            
         except Exception as e:
             print(f"DEBUG OLLAMA: Error unloading model {target_model}: {str(e)}")
             return False
