@@ -26,7 +26,7 @@ from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFie
 from .tag_widgets_qt import TagType
 from .snippet_widgets_qt import ContentRatingWidget, LLMSelectionWidget
 from .preview_panel_qt import PreviewPanel
-from ..core.data_models import PromptData
+from ..core.data_models import PromptData, PromptState
 from ..utils.theme_manager import theme_manager
 from ..utils.logger import get_logger
 from ..utils.history_manager import HistoryManager
@@ -2904,4 +2904,106 @@ class MainWindow(QMainWindow):
         """Save all prompts (placeholder for future implementation)."""
         # TODO: Implement save all prompts functionality
         info(r"Save all prompts functionality not yet implemented", LogArea.GENERAL)
+
+    def capture_current_state(self) -> PromptState:
+        """Capture the current application state as a PromptState object."""
+        if self.debug_enabled:
+            info(r"DEBUG NAV: Capturing current state as PromptState", LogArea.GENERAL)
+        
+        # Collect field values and tags
+        field_values = {}
+        field_tags = {}
+        
+        for field_key, widget in self.field_widgets.items():
+            if hasattr(widget, 'get_value'):
+                field_values[field_key] = widget.get_value()
+            elif hasattr(widget, 'toPlainText'):
+                field_values[field_key] = widget.toPlainText()
+            
+            if hasattr(widget, 'get_tags'):
+                field_tags[field_key] = widget.get_tags()
+        
+        # Get current metadata
+        seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
+        filters = self._get_selected_filters()
+        llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else ""
+        target_model = "seedream"  # Default target model
+        
+        # Get current generated content
+        summary_text = ""
+        final_prompt = ""
+        if hasattr(self, 'preview_panel'):
+            summary_text = self.preview_panel.get_summary_text()
+            final_prompt = self.preview_panel.get_final_prompt()
+        
+        # Create PromptState
+        prompt_state = PromptState(
+            field_values=field_values,
+            field_tags=field_tags,
+            seed=seed,
+            filters=filters,
+            llm_model=llm_model,
+            target_model=target_model,
+            summary_text=summary_text,
+            final_prompt=final_prompt
+        )
+        
+        if self.debug_enabled:
+            debug(r"Captured PromptState with {len(field_values)} fields and {len(field_tags)} tag sets", LogArea.NAVIGATION)
+        
+        return prompt_state
+    
+    def restore_from_prompt_state(self, prompt_state: PromptState):
+        """Restore the application state from a PromptState object."""
+        if self.debug_enabled:
+            info(r"DEBUG NAV: Restoring from PromptState", LogArea.GENERAL)
+        
+        # Set flag to prevent recursive calls
+        self._restoring_state = True
+        
+        # Block ALL field widget signals during restoration
+        self._block_all_field_signals()
+        
+        try:
+            # Restore field values and tags
+            for field_key, widget in self.field_widgets.items():
+                if field_key in prompt_state.field_values:
+                    value = prompt_state.field_values[field_key]
+                    if hasattr(widget, 'set_value'):
+                        widget.set_value(value)
+                    elif hasattr(widget, 'setPlainText'):
+                        widget.setPlainText(value)
+                
+                if field_key in prompt_state.field_tags:
+                    tags = prompt_state.field_tags[field_key]
+                    if hasattr(widget, 'set_tags'):
+                        widget.set_tags(tags)
+            
+            # Restore metadata
+            if hasattr(self, 'seed_widget'):
+                self.seed_widget.set_value(prompt_state.seed)
+            
+            # Restore filters
+            self._set_selected_filters(prompt_state.filters)
+            
+            # Restore LLM model
+            if hasattr(self, 'llm_widget'):
+                self.llm_widget.set_value(prompt_state.llm_model)
+            
+            # Restore generated content
+            if hasattr(self, 'preview_panel'):
+                if prompt_state.summary_text:
+                    self.preview_panel.set_summary_text(prompt_state.summary_text)
+                if prompt_state.final_prompt:
+                    self.preview_panel.set_final_prompt(prompt_state.final_prompt)
+            
+            if self.debug_enabled:
+                debug(r"Restored PromptState with {len(prompt_state.field_values)} fields", LogArea.NAVIGATION)
+                
+        finally:
+            # Unblock signals
+            self._unblock_all_field_signals()
+            
+            # Clear flag immediately (no timer needed)
+            self._restoring_state = False
 

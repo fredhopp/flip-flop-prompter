@@ -99,6 +99,10 @@ taskkill //F //IM python.exe
 - **UI Compactness**: Optimized spacing (0px margins, 2px main layout spacing) for better density
 - **Tag Visibility**: Increased field heights (40px) and improved scrollbar spacing (20px right margin)
 - **Preference Persistence**: Fixed issue where Ollama preferences were being overwritten during app startup - removed automatic save call in `_load_preferences()` that was resetting user choices
+- **Unified State Management**: Implemented `PromptState` dataclass to encapsulate all prompt-related state (field values, tags, metadata, timestamps, generated content) for simplified history management and state persistence
+- **Tag Serialization**: Added `to_dict()` and `from_dict()` methods to `Tag` class to support PromptState serialization/deserialization
+- **History Integration**: Updated `HistoryManager` to use `PromptState` objects instead of separate `HistoryEntry` class for better data consistency
+- **State Capture Methods**: Added `capture_current_state()` and `restore_from_prompt_state()` methods to `MainWindow` for seamless integration with existing state management
 
 ## File Organization
 - **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)

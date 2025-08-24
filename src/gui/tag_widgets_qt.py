@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QSize, QRect
 from PySide6.QtGui import QFont, QPalette, QPixmap, QPainter, QIcon
-from typing import List, Callable, Optional, Dict
+from typing import List, Callable, Optional, Dict, Any
 from enum import Enum
 import random
 
@@ -44,6 +44,29 @@ class Tag:
     
     def __hash__(self):
         return hash(self.id)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert tag to dictionary for serialization."""
+        return {
+            'text': self.text,
+            'tag_type': self.tag_type.value,
+            'category_path': self.category_path,
+            'data': self.data,
+            'is_missing': self.is_missing,
+            'id': self.id
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Tag':
+        """Create tag from dictionary."""
+        tag_type = TagType(data['tag_type'])
+        return cls(
+            text=data['text'],
+            tag_type=tag_type,
+            category_path=data.get('category_path', []),
+            data=data.get('data'),
+            is_missing=data.get('is_missing', False)
+        )
     
     def check_if_missing(self, field_name: str) -> bool:
         """Check if this tag references a missing category/subcategory."""

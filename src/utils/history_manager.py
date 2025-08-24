@@ -5,42 +5,21 @@ History manager for storing and navigating through generated prompts.
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-
-
-@dataclass
-class HistoryEntry:
-    """Represents a single history entry."""
-    timestamp: str
-    field_data: Dict[str, Any]  # All field values
-    seed: int
-    filters: List[str]
-    llm_model: str
-    target_model: str
-    final_prompt: str = ""  # The generated final prompt
-    summary_text: str = ""  # The summary preview text at time of saving
+from ..core.data_models import PromptState
 
 
 class HistoryManager:
-    """Manages prompt history storage and navigation (session-only, no persistence)."""
+    """Manages prompt history storage and navigation using PromptState (session-only, no persistence)."""
     
     def __init__(self, max_entries: int = 100):
         self.max_entries = max_entries
-        self.entries: List[HistoryEntry] = []
+        self.entries: List[PromptState] = []
         self.current_index = -1  # -1 means no current entry
     
-    def add_entry(self, field_data: Dict[str, Any], seed: int, filters: List[str], 
-                  llm_model: str, target_model: str, final_prompt: str = "", summary_text: str = "") -> None:
+    def add_entry(self, prompt_state: PromptState) -> None:
         """Add a new entry to history."""
-        entry = HistoryEntry(
-            timestamp=datetime.now().isoformat(),
-            field_data=field_data,
-            seed=seed,
-            filters=filters,
-            llm_model=llm_model,
-            target_model=target_model,
-            final_prompt=final_prompt,
-            summary_text=summary_text
-        )
+        # Create a copy to avoid reference issues
+        entry = prompt_state.copy()
         
         # Add to beginning of list (most recent first)
         self.entries.insert(0, entry)
@@ -52,7 +31,23 @@ class HistoryManager:
         # Reset current index to current state (not in history)
         self.current_index = -1
     
-    def get_current_entry(self) -> Optional[HistoryEntry]:
+    def add_entry_from_components(self, field_values: Dict[str, Any], field_tags: Dict[str, List[Any]], 
+                                  seed: int, filters: List[str], llm_model: str, target_model: str, 
+                                  final_prompt: str = "", summary_text: str = "") -> None:
+        """Add a new entry from individual components (backward compatibility)."""
+        prompt_state = PromptState(
+            field_values=field_values,
+            field_tags=field_tags,
+            seed=seed,
+            filters=filters,
+            llm_model=llm_model,
+            target_model=target_model,
+            final_prompt=final_prompt,
+            summary_text=summary_text
+        )
+        self.add_entry(prompt_state)
+    
+    def get_current_entry(self) -> Optional[PromptState]:
         """Get the current history entry."""
         if 0 <= self.current_index < len(self.entries):
             return self.entries[self.current_index]
@@ -144,5 +139,15 @@ class HistoryManager:
     def has_history(self) -> bool:
         """Check if there are any history entries."""
         return len(self.entries) > 0
+    
+    def get_all_entries(self) -> List[PromptState]:
+        """Get all history entries."""
+        return self.entries.copy()
+    
+    def get_entry_at_position(self, position: int) -> Optional[PromptState]:
+        """Get entry at specific position (1-based)."""
+        if 1 <= position <= len(self.entries):
+            return self.entries[position - 1]
+        return None
     
 
