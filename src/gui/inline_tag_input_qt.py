@@ -12,7 +12,7 @@ from PySide6.QtGui import QFont, QPainter, QPen, QBrush, QColor, QFontMetrics
 from typing import List, Callable, Optional
 from .tag_widgets_qt import Tag, TagType
 import sys
-from ..utils.logger import get_logger
+from ..utils.logger import get_logger, debug, LogArea
 
 
 class InlineTagWidget(QWidget):
@@ -515,11 +515,11 @@ class InlineTagInputWidget(QWidget):
             pass
         
         if debug_enabled:
-            print(f"DEBUG REFRESH: Refreshing tags for field '{field_name}' with {len(self.tags)} tags")
+            debug(r"Refreshing tags for field '{field_name}' with {len(self.tags)} tags", LogArea.REFRESH)
         
         for tag in self.tags:
             if debug_enabled:
-                print(f"DEBUG REFRESH: Processing tag '{tag.text}' (type: {tag.tag_type.value})")
+                debug(r"Processing tag '{tag.text}' (type: {tag.tag_type.value})", LogArea.REFRESH)
             
             if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY, TagType.SNIPPET]:
                 # Check if the tag is still missing
@@ -527,10 +527,10 @@ class InlineTagInputWidget(QWidget):
                 tag.is_missing = tag.check_if_missing(field_name)
                 
                 if debug_enabled:
-                    print(f"DEBUG REFRESH: Tag '{tag.text}' state: {'missing' if tag.is_missing else 'valid'}")
+                    debug(r"Tag '{tag.text}' state: {'missing' if tag.is_missing else 'valid'}", LogArea.REFRESH)
                 
                 if debug_enabled and old_missing_state != tag.is_missing:
-                    print(f"DEBUG REFRESH: Tag '{tag.text}' changed from {'missing' if old_missing_state else 'valid'} to {'missing' if tag.is_missing else 'valid'}")
+                    debug(r"Tag '{tag.text}' changed from {'missing' if old_missing_state else 'valid'} to {'missing' if tag.is_missing else 'valid'}", LogArea.REFRESH)
                 
                 # If the missing state changed, update the tag widget
                 if old_missing_state != tag.is_missing:
@@ -544,11 +544,11 @@ class InlineTagInputWidget(QWidget):
                                 widget._setup_tooltip()
                                 widget.update()  # Force repaint
                                 if debug_enabled:
-                                    print(f"DEBUG REFRESH: Updated widget for tag '{tag.text}'")
+                                    debug(r"Updated widget for tag '{tag.text}'", LogArea.REFRESH)
                                 break
             elif tag.tag_type == TagType.USER_TEXT:
                 if debug_enabled:
-                    print(f"DEBUG REFRESH: User-defined tag '{tag.text}' - no validation needed")
+                    debug(r"User-defined tag '{tag.text}' - no validation needed", LogArea.REFRESH)
     
     def refresh_theme(self):
         """Refresh the styling when theme changes."""

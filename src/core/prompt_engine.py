@@ -33,7 +33,7 @@ class PromptEngine:
             'hailuo': HailuoAdapter()
         }
     
-    def generate_prompt(self, model: str, prompt_data: PromptData, content_rating: str = "PG", debug_enabled: bool = False) -> str:
+    def generate_prompt(self, model: str, prompt_data: PromptData, content_rating: str = "PG", debug_enabled: bool = False, llm_model: str = None) -> str:
         """
         Generate a formatted prompt for the specified model.
 
@@ -42,6 +42,7 @@ class PromptEngine:
             prompt_data: Prompt components data
             content_rating: Content rating (PG, NSFW, Hentai)
             debug_enabled: Whether to enable debug file generation
+            llm_model: Specific LLM model to use for refinement (optional)
 
         Returns:
             Formatted prompt string
@@ -52,7 +53,8 @@ class PromptEngine:
         # Try LLM refinement first if available
         if self.use_llm and self.llm_manager and self.llm_manager.is_available():
             try:
-                return self.llm_manager.refine_prompt(prompt_data, model, model, content_rating, debug_enabled)
+                # Pass the llm_model parameter to refine_prompt
+                return self.llm_manager.refine_prompt(prompt_data, llm_model, model, content_rating, debug_enabled)
             except Exception as e:
                 # Fall back to adapter if LLM fails
                 print(f"LLM refinement failed, using adapter: {str(e)}")

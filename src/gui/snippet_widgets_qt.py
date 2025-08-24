@@ -465,7 +465,7 @@ class LLMSelectionWidget(QWidget):
         super().__init__()
         
         self.change_callback = change_callback
-        self.current_llm = theme_manager.get_preference("llm_model", "gemma3:4b")
+        self.current_llm = theme_manager.get_preference("llm_model", None)
         self.ollama_available = False
         self.available_models = []
         
@@ -492,10 +492,8 @@ class LLMSelectionWidget(QWidget):
         self.label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
         layout.addWidget(self.label)
         
-        # Create combobox with default models (will be updated after connection check)
+        # Create combobox (will be populated after connection check)
         self.llm_combo = QComboBox()
-        self.llm_combo.addItems(["gemma3:4b", "huihui_ai/dolphin3-abliterated:8b", "deepseek-r1:8b", "qwen3:8b"])
-        self.llm_combo.setCurrentText(self.current_llm)
         self.llm_combo.currentTextChanged.connect(self._on_llm_changed)
         layout.addWidget(self.llm_combo)
         
@@ -543,6 +541,34 @@ class LLMSelectionWidget(QWidget):
         except Exception as e:
             self._show_error(f"Ollama error: {str(e)}")
     
+    def is_model_available(self, model_name: str) -> bool:
+        """Check if a specific model is available."""
+        return model_name in self.available_models
+    
+    def validate_and_set_model(self, model_name: str) -> bool:
+        """Validate a model and set it if available, show error if not."""
+        if not self.ollama_available:
+            return False
+        
+        if model_name in self.available_models:
+            # Model is available, set it
+            self.llm_combo.setCurrentText(model_name)
+            self.current_llm = model_name
+            return True
+        else:
+            # Model is not available, set to first available
+            if self.available_models:
+                self.llm_combo.setCurrentText(self.available_models[0])
+                self.current_llm = self.available_models[0]
+            
+            return False
+    
+    def refresh_connection(self):
+        """Refresh Ollama connection and models."""
+        print(f"DEBUG OLLAMA: Refreshing LLM models...")
+        self._check_ollama_connection()
+        print(f"DEBUG OLLAMA: Refresh complete - available models: {self.available_models}")
+    
     def _show_error(self, message: str):
         """Show error message instead of combobox."""
         self.ollama_available = False
@@ -585,10 +611,11 @@ class LLMSelectionWidget(QWidget):
         if self.ollama_available and llm in self.available_models:
             self.llm_combo.setCurrentText(llm)
             self.current_llm = llm
-    
-    def refresh_connection(self):
-        """Refresh Ollama connection and models."""
-        self._check_ollama_connection()
+        elif self.ollama_available:
+            # Model not available, validate and show error
+            self.validate_and_set_model(llm)
+
+
 
 
 class SnippetPopup(QDialog):

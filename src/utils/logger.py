@@ -7,7 +7,33 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from enum import Enum
 from ..utils.theme_manager import theme_manager
+
+
+class LogLevel(Enum):
+    """Log levels for the application."""
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+class LogArea(Enum):
+    """Log areas for different parts of the application."""
+    GENERAL = "GENERAL"
+    OLLAMA = "OLLAMA"
+    NAVIGATION = "NAVIGATION"
+    BATCH = "BATCH"
+    SNIPPETS = "SNIPPETS"
+    FILTERS = "FILTERS"
+    PREVIEW = "PREVIEW"
+    HISTORY = "HISTORY"
+    GUI = "GUI"
+    LLM = "LLM"
+    REFRESH = "REFRESH"
+    LOAD = "LOAD"
+    ERROR = "ERROR"
 
 
 class FlipFlopLogger:
@@ -140,3 +166,28 @@ def initialize_logger(debug_enabled: bool = False) -> FlipFlopLogger:
 def get_logger() -> Optional[FlipFlopLogger]:
     """Get the global logger instance."""
     return flipflop_logger
+
+
+# Global helper functions for easy logging
+def debug(message: str, area: LogArea = LogArea.GENERAL):
+    """Log a debug message."""
+    if flipflop_logger:
+        flipflop_logger.log_debug(f"[{area.value}] {message}")
+
+
+def info(message: str, area: LogArea = LogArea.GENERAL):
+    """Log an info message."""
+    if flipflop_logger:
+        flipflop_logger.log_info(f"[{area.value}] {message}")
+
+
+def warning(message: str, area: LogArea = LogArea.GENERAL):
+    """Log a warning message."""
+    if flipflop_logger:
+        flipflop_logger.log_warning(f"[{area.value}] {message}")
+
+
+def error(message: str, area: LogArea = LogArea.ERROR):
+    """Log an error message."""
+    if flipflop_logger:
+        flipflop_logger.log_error(f"[{area.value}] {message}")

@@ -1,6 +1,3 @@
----
-alwaysApply: true
----
 
 # FlipFlopPrompt - Learned Memories & Context
 
@@ -232,9 +229,66 @@ taskkill //F //IM python.exe
 2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
 3. **High Priority**: ✅ **COMPLETED** - Tag validation system implementation
 4. **High Priority**: ✅ **COMPLETED** - Fix snippet tag validation (snippet items now correctly reflect filter state)
-5. **Next**: Implement batch processing system
-6. **Future**: Expand snippet subcategories and add prompt history navigation
-7. **Future**: AI service integrations and advanced features
+5. **High Priority**: ✅ **COMPLETED** - Fix LLM request functionality (LLM queries now work correctly with proper model selection)
+6. **Next**: Implement `PromptState` class for unified state management (major refactor)
+7. **Future**: Expand snippet subcategories and add prompt history navigation
+8. **Future**: AI service integrations and advanced features
+
+## 🚨 RECENTLY RESOLVED CRITICAL ISSUES (August 2025) 🚨
+
+### ✅ **LLM REQUEST FUNCTIONALITY - RESOLVED**
+**Problem**: LLM queries were not being submitted to Ollama, resulting in raw summaries being stored in history instead of refined prompts.
+
+**Root Cause**: The `OllamaProvider.model_name` was set to `None` by default, but when `refine_prompt()` was called, it tried to use `self.model_name` in the API payload, which caused the request to fail.
+
+**Solution Implemented**:
+- ✅ Modified `OllamaProvider.refine_prompt()` to prioritize the `model_name` parameter passed to it
+- ✅ Added validation to raise a `ValueError` if `llm_model` is `None`
+- ✅ Updated the call chain in `PromptEngine.generate_prompt()` to pass the selected LLM model explicitly
+- ✅ Updated `MainWindow._generate_batch_prompts()` to validate and pass the selected LLM model
+
+**Files Modified**:
+- `src/core/llm_integration.py`: `OllamaProvider.refine_prompt()` now uses parameter model name
+- `src/core/prompt_engine.py`: `generate_prompt()` passes `llm_model` parameter
+- `src/gui/main_window_qt.py`: `_generate_batch_prompts()` validates and passes LLM model
+
+**Status**: ✅ **FULLY RESOLVED** - LLM requests now work correctly with proper model selection and validation
+
+### 🔄 **PLANNED MAJOR REFACTOR: PromptState Class**
+**Goal**: Create a unified `PromptState` class to encapsulate all prompt-related state for better management of current and history states.
+
+**Incremental Implementation Plan**:
+1. **Phase 1**: Create `PromptState` dataclass with all current state attributes
+   - Fields: `style`, `setting`, `weather`, `date_time`, `subjects`, `pose_action`, `camera`, `framing_action`, `grading`, `details`, `llm_instructions`, `seed`, `summary`, `final_prompt`
+   - Methods: `from_widgets()`, `to_widgets()`, `to_history_entry()`, `from_history_entry()`
+
+2. **Phase 2**: Update `MainWindow` to use `PromptState` for current state
+   - Replace individual widget state management with single `PromptState` instance
+   - Update `_save_to_history()` to use `PromptState.to_history_entry()`
+   - Update `_restore_from_history_entry()` to use `PromptState.from_history_entry()`
+
+3. **Phase 3**: Update `HistoryManager` to work with `PromptState`
+   - Modify `HistoryEntry` to use `PromptState` internally
+   - Update navigation methods to work with new structure
+   - Ensure backward compatibility with existing history data
+
+4. **Phase 4**: Refactor preview panel and caching logic
+   - Update preview generation to use `PromptState`
+   - Simplify caching logic with unified state object
+   - Remove redundant state tracking variables
+
+**Benefits**:
+- Unified state management
+- Easier debugging and state inspection
+- Reduced code duplication
+- Better separation of concerns
+- Simplified history navigation logic
+
+**Files to Modify**:
+- `src/core/data_models.py`: Add `PromptState` class
+- `src/gui/main_window_qt.py`: Major refactor to use `PromptState`
+- `src/utils/history_manager.py`: Update to work with `PromptState`
+- `src/gui/preview_panel_qt.py`: Update preview generation
 
 ## User Preferences & Context
 - **Prefer bash commands over manual instructions**
@@ -299,5 +353,8 @@ Snippet tags now correctly reflect filter state and turn red when filters are un
 **Status**: Active Development - Tag validation system complete; batch processing is next priority
 description:
 globs:
+alwaysApply: false
+---
+
 alwaysApply: false
 ---

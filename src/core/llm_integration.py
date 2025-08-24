@@ -30,7 +30,7 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama local LLM provider."""
     
-    def __init__(self, model_name: str = "gemma3:4b", base_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = None, base_url: str = "http://localhost:11434"):
         self.model_name = model_name
         self.base_url = base_url
         self.session = requests.Session()
@@ -40,21 +40,32 @@ class OllamaProvider(LLMProvider):
         self.debug_dir.mkdir(parents=True, exist_ok=True)
     
     def is_available(self) -> bool:
-        """Check if Ollama service is running."""
+        """Check if Ollama is running and model is available."""
         try:
-            print(f"DEBUG OLLAMA: Checking service availability from {self.base_url}/api/version")
-            response = self.session.get(f"{self.base_url}/api/version")
-            print(f"DEBUG OLLAMA: Service availability check response status: {response.status_code}")
+            print(f"DEBUG OLLAMA: Checking availability from {self.base_url}/api/tags")
+            response = self.session.get(f"{self.base_url}/api/tags")
+            print(f"DEBUG OLLAMA: Availability check response status: {response.status_code}")
             
             if response.status_code == 200:
-                print(f"DEBUG OLLAMA: Ollama service is running")
-                return True
-            else:
-                print(f"DEBUG OLLAMA: Service availability check failed with status: {response.status_code}")
-                return False
+                data = response.json()
+                print(f"DEBUG OLLAMA: Availability check response data keys: {list(data.keys())}")
+                models = data.get("models", [])
+                print(f"DEBUG OLLAMA: Availability check models: {models}")
                 
+                # Check if any model contains our target model name
+                if self.model_name is None:
+                    # If no model specified, just check if Ollama is running
+                    print(f"DEBUG OLLAMA: No model specified, checking if Ollama is running")
+                    return True
+                else:
+                    model_found = any(self.model_name in model.get("name", "") for model in models)
+                    print(f"DEBUG OLLAMA: Model '{self.model_name}' found: {model_found}")
+                    return model_found
+            else:
+                print(f"DEBUG OLLAMA: Availability check failed - status {response.status_code}: {response.text}")
+            return False
         except Exception as e:
-            print(f"DEBUG OLLAMA: Exception in service availability check: {str(e)}")
+            print(f"DEBUG OLLAMA: Exception in availability check: {str(e)}")
             return False
     
     def get_available_models(self) -> List[str]:
@@ -134,9 +145,19 @@ class OllamaProvider(LLMProvider):
         # Add verbose debug logging
         if debug_enabled:
             print(f"DEBUG OLLAMA: refine_prompt() called")
-            print(f"DEBUG OLLAMA: model_name: {model_name}")
+            print(f"DEBUG OLLAMA: model_name parameter: {model_name}")
+            print(f"DEBUG OLLAMA: self.model_name: {self.model_name}")
             print(f"DEBUG OLLAMA: target_model: {target_model}")
             print(f"DEBUG OLLAMA: content_rating: {content_rating}")
+        
+        # Use the model_name parameter if provided, otherwise use self.model_name
+        # If both are None, we can't proceed
+        llm_model = model_name if model_name is not None else self.model_name
+        if llm_model is None:
+            raise ValueError("No LLM model specified. Please select a model in the LLM Model field.")
+        
+        if debug_enabled:
+            print(f"DEBUG OLLAMA: Using LLM model: {llm_model}")
         
         # Create debug folder with timestamp if debug is enabled
         debug_folder = None
@@ -194,7 +215,7 @@ class OllamaProvider(LLMProvider):
         
         # Call Ollama API
         payload = {
-            "model": self.model_name,
+            "model": llm_model,  # Use the validated model name
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -210,7 +231,7 @@ class OllamaProvider(LLMProvider):
         if debug_enabled:
             print(f"DEBUG OLLAMA: Preparing to call Ollama API")
             print(f"DEBUG OLLAMA: API endpoint: {self.base_url}/api/chat")
-            print(f"DEBUG OLLAMA: Model: {self.model_name}")
+            print(f"DEBUG OLLAMA: Model: {llm_model}")
             print(f"DEBUG OLLAMA: Payload keys: {list(payload.keys())}")
         
         try:
@@ -623,7 +644,7 @@ Make it sound natural and professional, not like a list of components.
 class LLMManager:
     """Manager for LLM providers."""
     
-    def __init__(self, preferred_provider: str = "auto", llm_model: str = "gemma3:4b"):
+    def __init__(self, preferred_provider: str = "auto", llm_model: str = None):
         self.preferred_provider = preferred_provider
         self.llm_model = llm_model
         self.providers = {
@@ -652,6 +673,7 @@ class LLMManager:
         if not self.active_provider:
             raise Exception("No LLM provider available. Install Ollama to use LLM features.")
         
+        # Pass the model_name parameter to the provider's refine_prompt method
         return self.active_provider.refine_prompt(prompt_data, model_name, target_model, content_rating, debug_enabled)
     
     def get_provider_info(self) -> Dict[str, Any]:
@@ -674,15 +696,22 @@ class LLMManager:
     def get_available_models(self) -> List[str]:
         """Get available models from the active provider."""
         print(f"DEBUG OLLAMA: LLMManager.get_available_models() called")
+        print(f"DEBUG OLLAMA: Checking if Ollama service is running...")
         
-        # Direct call to OllamaProvider.get_available_models() without redundant service check
+        # Check if Ollama service is running (don't check for specific model)
         try:
-            models = self.providers["ollama"].get_available_models()
-            print(f"DEBUG OLLAMA: LLMManager returning models: {models}")
-            return models
+            response = self.providers["ollama"].session.get(f"{self.providers['ollama'].base_url}/api/tags")
+            if response.status_code == 200:
+                print(f"DEBUG OLLAMA: Ollama service is running, getting models...")
+                models = self.providers["ollama"].get_available_models()
+                print(f"DEBUG OLLAMA: LLMManager returning models: {models}")
+                return models
+            else:
+                print(f"DEBUG OLLAMA: Ollama service not responding - status {response.status_code}")
         except Exception as e:
-            print(f"DEBUG OLLAMA: Error getting models from Ollama: {str(e)}")
-            return []
+            print(f"DEBUG OLLAMA: Ollama service not available: {str(e)}")
+        
+        return []
     
     def unload_model(self, model_name: str = None) -> bool:
         """Unload the current model from the active provider to free up VRAM."""

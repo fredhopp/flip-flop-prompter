@@ -102,6 +102,10 @@ class MainWindow(QMainWindow):
         # Load user preferences
         self._load_preferences()
         
+        # Auto-start Ollama if preference is set
+        if hasattr(self, 'auto_start_ollama_action') and self.auto_start_ollama_action.isChecked():
+            self._auto_start_ollama()
+        
         # Set initial theme checkmark
         current_theme = theme_manager.get_current_theme()
         self._update_theme_checkmarks(current_theme)
@@ -251,6 +255,20 @@ class MainWindow(QMainWindow):
         refresh_models_action = QAction("Refresh Models", self)
         refresh_models_action.triggered.connect(self._refresh_llm_models)
         ollama_menu.addAction(refresh_models_action)
+        
+        # Add separator
+        ollama_menu.addSeparator()
+        
+        # Ollama preferences
+        self.auto_start_ollama_action = QAction("Start Ollama on Startup", self)
+        self.auto_start_ollama_action.setCheckable(True)
+        self.auto_start_ollama_action.triggered.connect(self._toggle_auto_start_ollama)
+        ollama_menu.addAction(self.auto_start_ollama_action)
+        
+        self.kill_ollama_on_exit_action = QAction("Kill Ollama on Exit", self)
+        self.kill_ollama_on_exit_action.setCheckable(True)
+        self.kill_ollama_on_exit_action.triggered.connect(self._toggle_kill_ollama_on_exit)
+        ollama_menu.addAction(self.kill_ollama_on_exit_action)
     
     def _create_central_widget(self):
         """Create the central widget with scroll area."""
@@ -1069,6 +1087,9 @@ class MainWindow(QMainWindow):
                 # Import Tag class for loading
                 from .tag_widgets_qt import Tag
                 
+                # Track issues for single popup
+                issues = []
+                
                 # Check format version
                 format_version = template_data.get("format_version", "1.0")
                 
@@ -1138,7 +1159,11 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'model_widget') and "model" in template_data:
                     self.model_widget.set_value(template_data["model"])
                 if hasattr(self, 'llm_widget') and "llm" in template_data:
-                    self.llm_widget.set_value(template_data["llm"])
+                    # Validate LLM model from template
+                    llm_model = template_data["llm"]
+                    if not self.llm_widget.validate_and_set_model(llm_model):
+                        # Model not available, add to issues list
+                        issues.append(f"LLM model '{llm_model}' not found - using '{self.llm_widget.get_value()}' instead")
                 
                 # Load debug mode setting
                 if "debug_enabled" in template_data:
@@ -1152,7 +1177,18 @@ class MainWindow(QMainWindow):
                 # Refresh existing tags to update visual state after template loading
                 self._refresh_existing_tags()
                 
-                QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
+                # Show single popup with any issues
+                if issues:
+                    # Show warning with issues in red
+                    message = f"Template loaded from {Path(file_path).name}\n\n"
+                    message += "Issues found:\n"
+                    for issue in issues:
+                        message += f"• {issue}\n"
+                    QMessageBox.warning(self, "Template Loaded with Issues", message)
+                else:
+                    # Show success message
+                    QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
+                
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
@@ -1213,7 +1249,7 @@ class MainWindow(QMainWindow):
             print(f"DEBUG BATCH: _generate_batch_prompts() called")
         
         # Initialize variables outside try block to avoid UnboundLocalError
-        llm_model = "gemma3:4b"  # Default fallback
+        llm_model = None  # No default fallback - let the widget handle it
         model = "seedream"  # Default model
         # Get first available filter as fallback 
         first_filter = list(self.filter_actions.keys())[0] if self.filter_actions else None
@@ -1261,7 +1297,7 @@ class MainWindow(QMainWindow):
                 return
             
             # Get LLM model and filters
-            llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "gemma3:4b"
+            llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else None
             selected_filters = self._get_selected_filters()
             content_rating = selected_filters[0] if selected_filters else first_filter
             
@@ -1269,6 +1305,14 @@ class MainWindow(QMainWindow):
                 print(f"DEBUG BATCH: Using LLM model: {llm_model}")
                 print(f"DEBUG BATCH: Using content rating: {content_rating}")
                 print(f"DEBUG BATCH: Starting batch generation loop for {batch_size} prompts")
+            
+            # Validate LLM model is available
+            if not llm_model:
+                QMessageBox.warning(self, "LLM Model Required", 
+                    "Please select an LLM model from the 'LLM Model' field before generating prompts.\n\n"
+                    "This is required for AI-powered prompt refinement.")
+                self._show_error_message("LLM model required")
+                return
             
             # Start progress tracking for batch
             self._start_progress_tracking(llm_model, "seedream")
@@ -1317,10 +1361,10 @@ class MainWindow(QMainWindow):
                 )
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - calling prompt engine.generate_prompt()")
+                    print(f"DEBUG BATCH: Iteration {i+1} - calling prompt engine.generate_prompt() with model: {llm_model}")
                 
-                # Generate prompt using the engine
-                final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled)
+                # Generate prompt using the engine - pass the LLM model explicitly
+                final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled, llm_model)
                 
                 if self.debug_enabled:
                     print(f"DEBUG BATCH: Iteration {i+1} - received final prompt (length: {len(final_prompt)})")
@@ -1999,6 +2043,12 @@ class MainWindow(QMainWindow):
                     self.model_widget.set_value(prefs['model'])
                 if 'llm_model' in prefs and hasattr(self, 'llm_widget'):
                     self.llm_widget.set_value(prefs['llm_model'])
+                
+                # Load Ollama preferences
+                if 'auto_start_ollama' in prefs and hasattr(self, 'auto_start_ollama_action'):
+                    self.auto_start_ollama_action.setChecked(prefs['auto_start_ollama'])
+                if 'kill_ollama_on_exit' in prefs and hasattr(self, 'kill_ollama_on_exit_action'):
+                    self.kill_ollama_on_exit_action.setChecked(prefs['kill_ollama_on_exit'])
                     
         except Exception as e:
             print(f"Warning: Could not load preferences: {e}")
@@ -2023,12 +2073,61 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'llm_widget'):
                 prefs['llm_model'] = self.llm_widget.get_value()
             
+            # Add Ollama preferences if available
+            if hasattr(self, 'auto_start_ollama_action'):
+                prefs['auto_start_ollama'] = self.auto_start_ollama_action.isChecked()
+            if hasattr(self, 'kill_ollama_on_exit_action'):
+                prefs['kill_ollama_on_exit'] = self.kill_ollama_on_exit_action.isChecked()
+            
             prefs_file = self.user_data_dir / "preferences.json"
             with open(prefs_file, 'w', encoding='utf-8') as f:
                 json.dump(prefs, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
             print(f"Warning: Could not save preferences: {e}")
+
+    def _toggle_auto_start_ollama(self):
+        """Toggle auto-start Ollama on startup preference."""
+        if hasattr(self, 'auto_start_ollama_action'):
+            self._save_preferences()
+    
+    def _toggle_kill_ollama_on_exit(self):
+        """Toggle kill Ollama on exit preference."""
+        if hasattr(self, 'kill_ollama_on_exit_action'):
+            self._save_preferences()
+    
+    def _auto_start_ollama(self):
+        """Auto-start Ollama on application startup if preference is set."""
+        try:
+            # Check if Ollama is already running
+            if self._is_ollama_running():
+                print("DEBUG OLLAMA: Ollama is already running, skipping auto-start")
+                return
+            
+            print("DEBUG OLLAMA: Auto-starting Ollama...")
+            
+            # Start Ollama in background
+            def start_ollama_thread():
+                try:
+                    subprocess.Popen(["ollama", "serve"], 
+                                   stdout=subprocess.DEVNULL, 
+                                   stderr=subprocess.DEVNULL)
+                    time.sleep(3)  # Wait for startup
+                    
+                    # Update UI on main thread
+                    QTimer.singleShot(0, self._on_ollama_started)
+                except Exception as e:
+                    print(f"DEBUG OLLAMA: Auto-start failed: {str(e)}")
+            
+            # Start in background thread
+            thread = threading.Thread(target=start_ollama_thread, daemon=True)
+            thread.start()
+            
+            # Show status
+            self.statusBar().showMessage("Auto-starting Ollama...")
+            
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Error during auto-start: {str(e)}")
 
     def _start_ollama(self):
         """Start Ollama server in background."""
@@ -2078,7 +2177,8 @@ class MainWindow(QMainWindow):
     def _refresh_llm_models(self):
         """Refresh the LLM model list."""
         if hasattr(self, 'llm_widget'):
-            self.llm_widget._check_ollama_connection()
+            print(f"DEBUG OLLAMA: User requested model refresh")
+            self.llm_widget.refresh_connection()
             self.statusBar().showMessage("Models refreshed.")
 
     def _is_ollama_running(self):
@@ -2096,7 +2196,8 @@ class MainWindow(QMainWindow):
         
         # Refresh LLM models
         if hasattr(self, 'llm_widget'):
-            self.llm_widget._check_ollama_connection()
+            print(f"DEBUG OLLAMA: Ollama started, refreshing models...")
+            self.llm_widget.refresh_connection()
         
         QMessageBox.information(self, "Ollama", "Ollama started successfully!")
 
@@ -2133,7 +2234,7 @@ class MainWindow(QMainWindow):
             print(f"DEBUG OLLAMA: Error during model unloading: {str(e)}")
         
         # Kill Ollama on exit if user preference is set
-        if theme_manager.get_preference("kill_ollama_on_exit", True):
+        if hasattr(self, 'kill_ollama_on_exit_action') and self.kill_ollama_on_exit_action.isChecked():
             try:
                 self._kill_ollama()
             except Exception as e:

@@ -12,6 +12,7 @@ from typing import Optional
 from enum import Enum
 import qtawesome as qta  # Font Awesome icons for Qt
 from ..utils.theme_manager import theme_manager
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class PreviewState(Enum):
@@ -477,13 +478,13 @@ class PreviewPanel(QWidget):
         """
         self.current_text = text
         
-        print(f"DEBUG NAV: update_preview called - text='{text[:100]}{'...' if len(text) > 100 else ''}', is_final={is_final}, preserve_tab={preserve_tab}")
+        debug(r"update_preview called - text='{text[:100]}{'...' if len(text) > 100 else ''}', is_final={is_final}, preserve_tab={preserve_tab}", LogArea.NAVIGATION)
         
         if is_final:
             # Update Final Prompt tab
             self.final_text.setPlainText(text)
             self.final_state = PreviewState.FINAL
-            print(f"DEBUG NAV: Updated final text, state={self.final_state}")
+            debug(r"Updated final text, state={self.final_state}", LogArea.NAVIGATION)
             
             # Set regular font for generated content
             font = self.final_text.font()
@@ -504,7 +505,7 @@ class PreviewPanel(QWidget):
                 # Restore placeholder text
                 self.summary_text.setPlainText("Enter your prompt components above to see a preview here...")
             
-            print(f"DEBUG NAV: Updated summary text, state={self.summary_state}")
+            debug(r"Updated summary text, state={self.summary_state}", LogArea.NAVIGATION)
             
             if not preserve_tab:
                 self.tab_widget.setCurrentIndex(0)  # Switch to Prompt Summary tab
