@@ -40,25 +40,47 @@ class OllamaProvider(LLMProvider):
         self.debug_dir.mkdir(parents=True, exist_ok=True)
     
     def is_available(self) -> bool:
-        """Check if Ollama is running and model is available."""
+        """Check if Ollama service is running."""
         try:
-            response = self.session.get(f"{self.base_url}/api/tags")
+            print(f"DEBUG OLLAMA: Checking service availability from {self.base_url}/api/version")
+            response = self.session.get(f"{self.base_url}/api/version")
+            print(f"DEBUG OLLAMA: Service availability check response status: {response.status_code}")
+            
             if response.status_code == 200:
-                models = response.json().get("models", [])
-                return any(self.model_name in model.get("name", "") for model in models)
-            return False
-        except:
+                print(f"DEBUG OLLAMA: Ollama service is running")
+                return True
+            else:
+                print(f"DEBUG OLLAMA: Service availability check failed with status: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Exception in service availability check: {str(e)}")
             return False
     
     def get_available_models(self) -> List[str]:
         """Get list of available models from Ollama."""
         try:
+            print(f"DEBUG OLLAMA: Getting available models from {self.base_url}/api/tags")
             response = self.session.get(f"{self.base_url}/api/tags")
+            print(f"DEBUG OLLAMA: Response status: {response.status_code}")
+            
             if response.status_code == 200:
-                models = response.json().get("models", [])
-                return [model.get("name", "") for model in models if model.get("name")]
+                data = response.json()
+                print(f"DEBUG OLLAMA: Response data keys: {list(data.keys())}")
+                models = data.get("models", [])
+                print(f"DEBUG OLLAMA: Raw models data: {models}")
+                print(f"DEBUG OLLAMA: Number of models in raw data: {len(models)}")
+                
+                model_names = [model.get("name", "") for model in models if model.get("name")]
+                print(f"DEBUG OLLAMA: Extracted model names: {model_names}")
+                print(f"DEBUG OLLAMA: Number of models extracted: {len(model_names)}")
+                print(f"DEBUG OLLAMA: About to return model names: {model_names}")
+                return model_names
+            else:
+                print(f"DEBUG OLLAMA: Failed to get models - status {response.status_code}: {response.text}")
             return []
-        except:
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Exception getting available models: {str(e)}")
             return []
     
     def unload_model(self, model_name: str = None) -> bool:
@@ -651,9 +673,16 @@ class LLMManager:
     
     def get_available_models(self) -> List[str]:
         """Get available models from the active provider."""
-        if self.providers["ollama"]:
-            return self.providers["ollama"].get_available_models()
-        return []
+        print(f"DEBUG OLLAMA: LLMManager.get_available_models() called")
+        
+        # Direct call to OllamaProvider.get_available_models() without redundant service check
+        try:
+            models = self.providers["ollama"].get_available_models()
+            print(f"DEBUG OLLAMA: LLMManager returning models: {models}")
+            return models
+        except Exception as e:
+            print(f"DEBUG OLLAMA: Error getting models from Ollama: {str(e)}")
+            return []
     
     def unload_model(self, model_name: str = None) -> bool:
         """Unload the current model from the active provider to free up VRAM."""
