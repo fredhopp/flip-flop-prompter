@@ -538,7 +538,7 @@ class LLMSelectionWidget(QWidget):
                 else:
                     self._show_error("No models found in Ollama")
             else:
-                self._show_error("Cannot connect to Ollama")
+                self._show_error("Cannot connect to Ollama - use Tools > Ollama > Start Ollama")
                 
         except Exception as e:
             self._show_error(f"Ollama error: {str(e)}")
