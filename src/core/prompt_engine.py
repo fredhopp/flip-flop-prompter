@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 from .data_models import PromptData
 from .model_adapters import ModelAdapter
 from .llm_integration import LLMManager
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class PromptEngine:
@@ -57,7 +58,7 @@ class PromptEngine:
                 return self.llm_manager.refine_prompt(prompt_data, llm_model, model, content_rating, debug_enabled)
             except Exception as e:
                 # Fall back to adapter if LLM fails
-                print(f"LLM refinement failed, using adapter: {str(e)}")
+                info(r"LLM refinement failed, using adapter: {str(e)}", LogArea.GENERAL)
 
         # Use model adapter as fallback
         adapter = self.model_adapters[model.lower()]

@@ -13,6 +13,7 @@ from typing import List, Callable, Optional
 from .tag_widgets_qt import Tag, TagType
 import sys
 from ..utils.logger import get_logger, debug, LogArea
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class InlineTagWidget(QWidget):
@@ -366,7 +367,7 @@ class InlineTagInputWidget(QWidget):
                 self.tags_changed.emit()
                 self.value_changed.emit()
         except Exception as e:
-            print(f"Error editing tag: {e}")
+            error(r"editing tag: {e}", LogArea.ERROR)
             # Reset state on error
             self.editing_tag = None
     

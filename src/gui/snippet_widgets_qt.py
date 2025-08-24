@@ -13,6 +13,7 @@ from typing import Callable, Optional, List, Dict
 from ..utils.snippet_manager import snippet_manager
 from ..utils.theme_manager import theme_manager
 from ..utils.logger import get_logger
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class FlowLayout(QLayout):
@@ -565,9 +566,9 @@ class LLMSelectionWidget(QWidget):
     
     def refresh_connection(self):
         """Refresh Ollama connection and models."""
-        print(f"DEBUG OLLAMA: Refreshing LLM models...")
+        debug(r"Refreshing LLM models...", LogArea.OLLAMA)
         self._check_ollama_connection()
-        print(f"DEBUG OLLAMA: Refresh complete - available models: {self.available_models}")
+        debug(r"Refresh complete - available models: {self.available_models}", LogArea.OLLAMA)
     
     def _show_error(self, message: str):
         """Show error message instead of combobox."""
@@ -733,7 +734,7 @@ class SnippetPopup(QDialog):
             from ..utils.theme_manager import theme_manager
             colors = theme_manager.get_theme_colors()
         except Exception as e:
-            print(f"Error getting theme colors: {e}")
+            error(r"getting theme colors: {e}", LogArea.ERROR)
             return
         
         # Force repaint of all buttons to ensure colors are applied
@@ -899,8 +900,8 @@ class SnippetPopup(QDialog):
             try:
                 colors = theme_manager.get_theme_colors()
             except Exception as e:
-                print(f"Error getting theme colors: {e}")
-                print("Using fallback colors for snippet popup")
+                error(r"getting theme colors: {e}", LogArea.ERROR)
+                info(r"Using fallback colors for snippet popup", LogArea.GENERAL)
                 # Use fallback colors that match the theme
                 colors = {
                     "tag_border": "#cccccc",

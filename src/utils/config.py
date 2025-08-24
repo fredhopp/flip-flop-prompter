@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class Config:
@@ -64,7 +65,7 @@ class Config:
                 self._merge_config(self.config, file_config)
                 
         except Exception as e:
-            print(f"Warning: Could not load config file: {e}")
+            warning(r"Could not load config file: {e}", LogArea.GENERAL)
     
     def _merge_config(self, base: Dict[str, Any], update: Dict[str, Any]):
         """Recursively merge configuration dictionaries."""
@@ -81,7 +82,7 @@ class Config:
             with open(self.config_file, 'w') as f:
                 json.dump(self.config, f, indent=2)
         except Exception as e:
-            print(f"Warning: Could not save config file: {e}")
+            warning(r"Could not save config file: {e}", LogArea.GENERAL)
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get a configuration value using dot notation."""

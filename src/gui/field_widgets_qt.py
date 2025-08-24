@@ -162,7 +162,14 @@ class TextFieldWidget(FieldWidget):
         self._trigger_change()
     
     def _show_snippets(self):
-        """Show snippet selection dialog."""
+        """Show snippet selection dialog - toggle behavior."""
+        # Check if we already have a popup open for this field
+        if hasattr(self, '_current_snippet_popup') and self._current_snippet_popup and self._current_snippet_popup.isVisible():
+            # Close the existing popup
+            self._current_snippet_popup.close()
+            self._current_snippet_popup = None
+            return
+        
         from .snippet_widgets_qt import SnippetPopup
         
         # Get field name for snippet lookup
@@ -186,7 +193,40 @@ class TextFieldWidget(FieldWidget):
         
         # Create and show snippet popup
         popup = SnippetPopup(self, field_name, selected_filters, self._on_snippet_select)
+        
+        # Store reference to current popup for this field
+        self._current_snippet_popup = popup
+        
+        # Track the popup in the main window
+        if main_window and hasattr(main_window, 'open_snippet_popups'):
+            main_window.open_snippet_popups.append(popup)
+            # Connect popup close signal to clear our reference
+            popup.finished.connect(self._on_snippet_popup_closed)
+        
         popup.show_popup()
+    
+    def _on_snippet_popup_closed(self):
+        """Handle snippet popup closure."""
+        # Clear our reference to the popup
+        if hasattr(self, '_current_snippet_popup'):
+            self._current_snippet_popup = None
+        
+        # Remove from main window tracking
+        main_window = None
+        widget = self
+        
+        # Walk up the widget hierarchy to find the main window
+        while widget and not main_window:
+            widget = widget.parent()
+            if hasattr(widget, '_get_selected_filters'):
+                main_window = widget
+                break
+        
+        if main_window and hasattr(main_window, 'open_snippet_popups'):
+            # Remove this popup from the main window's tracking list
+            for popup in main_window.open_snippet_popups[:]:  # Copy list to avoid modification during iteration
+                if not popup.isVisible():
+                    main_window.open_snippet_popups.remove(popup)
     
     def _on_snippet_select(self, snippet: str):
         """Handle snippet selection."""

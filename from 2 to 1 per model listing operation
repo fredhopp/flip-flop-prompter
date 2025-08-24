@@ -1,0 +1,150 @@
+warning: LF will be replaced by CRLF in src/gui/main_window_qt.py.
+The file will have its original line endings in your working directory
+[1mdiff --git a/src/gui/main_window_qt.py b/src/gui/main_window_qt.py[m
+[1mindex 2f11670..ba9b586 100644[m
+[1m--- a/src/gui/main_window_qt.py[m
+[1m+++ b/src/gui/main_window_qt.py[m
+[36m@@ -43,6 +43,7 @@[m [mclass MainWindow(QMainWindow):[m
+     [m
+     # Custom signals[m
+     content_rating_changed = Signal(str)[m
+[32m+[m[32m    ollama_started_signal = Signal()[m
+     [m
+     def __init__(self, debug_enabled: bool = False):[m
+         super().__init__()[m
+[36m@@ -99,6 +100,9 @@[m [mclass MainWindow(QMainWindow):[m
+         self._initialize_snippet_dropdowns()[m
+         self._setup_callbacks()  # Set up callbacks after all widgets exist[m
+         [m
+[32m+[m[32m        # Connect Ollama started signal[m
+[32m+[m[32m        self.ollama_started_signal.connect(self._on_ollama_started)[m
+[32m+[m[41m        [m
+         # Load user preferences[m
+         self._load_preferences()[m
+         [m
+[36m@@ -2032,23 +2036,30 @@[m [mclass MainWindow(QMainWindow):[m
+ [m
+     def _start_ollama(self):[m
+         """Start Ollama server in background."""[m
+[32m+[m[32m        print(f"DEBUG OLLAMA: User requested to start Ollama")[m
+         try:[m
+             # Check if Ollama is already running[m
+             if self._is_ollama_running():[m
+[32m+[m[32m                print(f"DEBUG OLLAMA: Ollama is already running, showing info message")[m
+                 QMessageBox.information(self, "Ollama", "Ollama is already running.")[m
+                 return[m
+             [m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Starting Ollama in background thread")[m
+             # Start Ollama in background[m
+             def start_ollama_thread():[m
+                 try:[m
+[32m+[m[32m                    print(f"DEBUG OLLAMA: Background thread starting ollama serve")[m
+                     subprocess.Popen(["ollama", "serve"], [m
+                                    stdout=subprocess.DEVNULL, [m
+                                    stderr=subprocess.DEVNULL)[m
+                     time.sleep(2)  # Wait for startup[m
+[32m+[m[32m                    print(f"DEBUG OLLAMA: Ollama serve started, emitting signal")[m
+                     [m
+[31m-                    # Update UI on main thread[m
+[31m-                    QTimer.singleShot(0, self._on_ollama_started)[m
+[32m+[m[32m                    # Update UI on main thread using signal[m
+[32m+[m[32m                    self.ollama_started_signal.emit()[m
+[32m+[m[32m                    print(f"DEBUG OLLAMA: Signal emitted")[m
+                 except Exception as e:[m
+[32m+[m[32m                    print(f"DEBUG OLLAMA: Error in background thread: {str(e)}")[m
+                     QTimer.singleShot(0, lambda: self._on_ollama_error(f"Failed to start Ollama: {str(e)}"))[m
+             [m
+             # Start in background thread[m
+[36m@@ -2059,26 +2070,32 @@[m [mclass MainWindow(QMainWindow):[m
+             self.statusBar().showMessage("Starting Ollama...")[m
+             [m
+         except Exception as e:[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Error starting Ollama: {str(e)}")[m
+             QMessageBox.critical(self, "Error", f"Failed to start Ollama: {str(e)}")[m
+ [m
+     def _kill_ollama(self):[m
+         """Kill Ollama server."""[m
+[32m+[m[32m        print(f"DEBUG OLLAMA: User requested to kill Ollama")[m
+         try:[m
+             # Kill Ollama processes[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Running taskkill to kill ollama.exe")[m
+             subprocess.run(["taskkill", "/F", "/IM", "ollama.exe"], [m
+                           capture_output=True, text=True)[m
+             [m
+             # Update UI[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Calling _on_ollama_killed")[m
+             self._on_ollama_killed()[m
+             self.statusBar().showMessage("Ollama killed.")[m
+             [m
+         except Exception as e:[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Error killing Ollama: {str(e)}")[m
+             QMessageBox.critical(self, "Error", f"Failed to kill Ollama: {str(e)}")[m
+ [m
+     def _refresh_llm_models(self):[m
+         """Refresh the LLM model list."""[m
+         if hasattr(self, 'llm_widget'):[m
+[31m-            self.llm_widget._check_ollama_connection()[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: User requested model refresh")[m
+[32m+[m[32m            self.llm_widget.refresh_connection()[m
+             self.statusBar().showMessage("Models refreshed.")[m
+ [m
+     def _is_ollama_running(self):[m
+[36m@@ -2092,19 +2109,25 @@[m [mclass MainWindow(QMainWindow):[m
+ [m
+     def _on_ollama_started(self):[m
+         """Called when Ollama starts successfully."""[m
+[32m+[m[32m        print(f"DEBUG OLLAMA: _on_ollama_started() called - Ollama started successfully")[m
+         self.statusBar().showMessage("Ollama started successfully.")[m
+         [m
+         # Refresh LLM models[m
+         if hasattr(self, 'llm_widget'):[m
+[31m-            self.llm_widget._check_ollama_connection()[m
+[31m-        [m
+[31m-        QMessageBox.information(self, "Ollama", "Ollama started successfully!")[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Ollama started, refreshing models...")[m
+[32m+[m[32m            self.llm_widget.refresh_connection()[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: No llm_widget found for refresh")[m
+ [m
+     def _on_ollama_killed(self):[m
+         """Called when Ollama is killed."""[m
+[32m+[m[32m        print(f"DEBUG OLLAMA: _on_ollama_killed() called - Ollama killed")[m
+         # Update LLM widget to show disconnected state[m
+         if hasattr(self, 'llm_widget'):[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: Showing error state for llm_widget")[m
+             self.llm_widget._show_error("Ollama not running")[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            print(f"DEBUG OLLAMA: No llm_widget found for error state")[m
+ [m
+     def _on_ollama_error(self, error_msg):[m
+         """Called when Ollama operation fails."""[m
+[36m@@ -2113,28 +2136,10 @@[m [mclass MainWindow(QMainWindow):[m
+ [m
+     def closeEvent(self, event):[m
+         """Handle window close event."""[m
+[31m-        # Unload Ollama model to free up VRAM[m
+[31m-        try:[m
+[31m-            if hasattr(self, 'llm_widget'):[m
+[31m-                current_model = self.llm_widget.get_value()[m
+[31m-                print(f"DEBUG OLLAMA: Unloading model '{current_model}' on application close")[m
+[31m-                [m
+[31m-                # Get prompt engine and unload model[m
+[31m-                prompt_engine = self._get_prompt_engine()[m
+[31m-                if prompt_engine:[m
+[31m-                    success = prompt_engine.unload_llm_model(current_model)[m
+[31m-                    if success:[m
+[31m-                        print(f"DEBUG OLLAMA: Successfully unloaded model '{current_model}'")[m
+[31m-                    else:[m
+[31m-                        print(f"DEBUG OLLAMA: Failed to unload model '{current_model}'")[m
+[31m-                else:[m
+[31m-                    print("DEBUG OLLAMA: No prompt engine available for model unloading")[m
+[31m-        except Exception as e:[m
+[31m-            print(f"DEBUG OLLAMA: Error during model unloading: {str(e)}")[m
+[31m-        [m
+         # Kill Ollama on exit if user preference is set[m
+         if theme_manager.get_preference("kill_ollama_on_exit", True):[m
+             try:[m
+[32m+[m[32m                print(f"DEBUG OLLAMA: Killing Ollama on application close")[m
+                 self._kill_ollama()[m
+             except Exception as e:[m
+                 print(f"DEBUG OLLAMA: Error killing Ollama on exit: {str(e)}")[m

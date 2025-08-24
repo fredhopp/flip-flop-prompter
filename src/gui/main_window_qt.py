@@ -2836,56 +2836,23 @@ class MainWindow(QMainWindow):
             self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=True)
     
     def _save_to_history(self, final_prompt: str = "", summary_text: str = "", seed: Optional[int] = None):
-        """Save current state to history."""
-        # Get current field data
-        field_data = {}
-        field_widgets = [
-            'style', 'setting', 'weather', 'datetime', 'subjects', 
-            'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions'
-        ]
+        """Save current state to history using PromptState."""
+        if self.debug_enabled:
+            debug(r"DEBUG NAV: Saving to history", LogArea.NAVIGATION)
         
-        for field in field_widgets:
-            if hasattr(self, f'{field}_widget'):
-                widget = getattr(self, f'{field}_widget')
-                # Save the actual tags for proper restoration
-                if hasattr(widget, 'get_tags'):
-                    field_data[field] = {
-                        'type': 'tags',
-                        'tags': [tag.to_dict() for tag in widget.get_tags()]
-                    }
-                else:
-                    field_data[field] = {
-                        'type': 'text',
-                        'value': widget.get_value()
-                    }
+        # Capture current state as PromptState
+        prompt_state = self.capture_current_state()
         
-        # Get selected filters
-        selected_filters = []
-        for filter_name, action in self.filter_actions.items():
-            if action.isChecked():
-                selected_filters.append(filter_name)
-        
-        # Get seed - use provided seed or current UI seed
-        if seed is None:
-            seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
-        
-        # Get LLM model
-        llm_model = self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-coder:6.7b"
-        
-        # Use provided summary text or generate if not provided
-        if not summary_text:
-            summary_text = self._generate_preview_text()
+        # Override with provided values if specified
+        if final_prompt:
+            prompt_state.final_prompt = final_prompt
+        if summary_text:
+            prompt_state.summary_text = summary_text
+        if seed is not None:
+            prompt_state.seed = seed
         
         # Add to history
-        self.history_manager.add_entry(
-            field_data=field_data,
-            seed=seed,
-            filters=selected_filters,
-            llm_model=llm_model,
-            target_model="seedream",  # Hardcoded as per current implementation
-            final_prompt=final_prompt,
-            summary_text=summary_text
-        )
+        self.history_manager.add_entry(prompt_state)
         
         # Update navigation controls - but skip during generation to prevent infinite loops
         if not getattr(self, '_generating_prompt', False):
