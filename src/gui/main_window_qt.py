@@ -1069,8 +1069,14 @@ class MainWindow(QMainWindow):
         
         if file_path:
             try:
+                if self.debug_enabled:
+                    info(f"Loading template from: {file_path}", LogArea.LOAD)
+                
                 with open(file_path, 'r', encoding='utf-8') as f:
                     template_data = json.load(f)
+                
+                if self.debug_enabled:
+                    debug(f"Template data keys: {list(template_data.keys())}", LogArea.LOAD)
                 
                 # Track issues for single popup
                 issues = []
@@ -1078,10 +1084,23 @@ class MainWindow(QMainWindow):
                 # Check format version
                 format_version = template_data.get("format_version", "1.0")
                 
+                if self.debug_enabled:
+                    info(f"Template format version: {format_version}", LogArea.LOAD)
+                
                 if format_version == "3.0":
                     # New PromptState-based format
+                    if self.debug_enabled:
+                        info("Processing v3.0 PromptState-based template", LogArea.LOAD)
+                    
                     if "prompt_state" in template_data:
+                        if self.debug_enabled:
+                            debug(f"PromptState data keys: {list(template_data['prompt_state'].keys())}", LogArea.LOAD)
+                        
                         prompt_state = PromptState.from_dict(template_data["prompt_state"])
+                        
+                        if self.debug_enabled:
+                            info(f"Created PromptState with {len(prompt_state.field_values)} fields and {len(prompt_state.field_tags)} tag sets", LogArea.LOAD)
+                        
                         self.restore_from_prompt_state(prompt_state)
                         
                         # Validate LLM model if present
@@ -1093,6 +1112,9 @@ class MainWindow(QMainWindow):
                         
                 elif format_version == "2.0":
                     # Legacy tag-based format - convert to PromptState
+                    if self.debug_enabled:
+                        info("Processing v2.0 tag-based template", LogArea.LOAD)
+                    
                     prompt_state = self._convert_legacy_template_to_prompt_state(template_data)
                     self.restore_from_prompt_state(prompt_state)
                     
@@ -1103,6 +1125,9 @@ class MainWindow(QMainWindow):
                             
                 else:
                     # Legacy format - convert to PromptState
+                    if self.debug_enabled:
+                        info("Processing v1.0 legacy template", LogArea.LOAD)
+                    
                     prompt_state = self._convert_legacy_template_to_prompt_state(template_data)
                     self.restore_from_prompt_state(prompt_state)
                 
@@ -1118,6 +1143,9 @@ class MainWindow(QMainWindow):
                 # Refresh existing tags to update visual state after template loading
                 self._refresh_existing_tags()
                 
+                if self.debug_enabled:
+                    info(f"Template loading completed successfully", LogArea.LOAD)
+                
                 # Show single popup with any issues
                 if issues:
                     message = f"Template loaded from {Path(file_path).name}\n\n"
@@ -1131,11 +1159,18 @@ class MainWindow(QMainWindow):
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
                 
             except Exception as e:
+                error(f"Failed to load template: {str(e)}", LogArea.ERROR)
+                if self.debug_enabled:
+                    import traceback
+                    debug(f"Template loading traceback: {traceback.format_exc()}", LogArea.ERROR)
                 QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
     
     def _convert_legacy_template_to_prompt_state(self, template_data):
         """Convert legacy template format to PromptState."""
         from .tag_widgets_qt import Tag, TagType
+        
+        if self.debug_enabled:
+            info("Converting legacy template to PromptState", LogArea.LOAD)
         
         # Initialize field values and tags
         field_values = {}
@@ -1158,14 +1193,27 @@ class MainWindow(QMainWindow):
         
         # Handle tag-based format (v2.0)
         if "format_version" in template_data and template_data["format_version"] == "2.0":
+            if self.debug_enabled:
+                info("Processing v2.0 tag-based format", LogArea.LOAD)
+            
             for template_field, widget_field in field_mappings.items():
                 tag_key = f"{template_field}_tags"
                 if tag_key in template_data:
+                    if self.debug_enabled:
+                        debug(f"Processing {template_field} tags: {len(template_data[tag_key])} tags", LogArea.LOAD)
+                    
                     # Convert tag data to Tag objects
                     tags = []
                     for tag_data in template_data[tag_key]:
-                        tag = Tag.from_dict(tag_data)
-                        tags.append(tag)
+                        try:
+                            tag = Tag.from_dict(tag_data)
+                            tags.append(tag)
+                        except Exception as e:
+                            if self.debug_enabled:
+                                error(f"Failed to convert tag data {tag_data}: {str(e)}", LogArea.ERROR)
+                            # Skip this tag and continue
+                            continue
+                    
                     field_tags[widget_field] = tags
                     
                     # Also set field values from tags
@@ -1173,6 +1221,9 @@ class MainWindow(QMainWindow):
         
         # Handle legacy format (v1.0)
         else:
+            if self.debug_enabled:
+                info("Processing v1.0 legacy format", LogArea.LOAD)
+            
             for template_field, widget_field in field_mappings.items():
                 if template_field in template_data:
                     value = template_data[template_field]
@@ -1189,6 +1240,9 @@ class MainWindow(QMainWindow):
         llm_model = template_data.get("llm", template_data.get("llm_model", ""))
         target_model = template_data.get("model", "seedream")
         
+        if self.debug_enabled:
+            info(f"Template metadata - seed: {seed}, filters: {filters}, llm_model: {llm_model}", LogArea.LOAD)
+        
         # Create PromptState
         prompt_state = PromptState(
             field_values=field_values,
@@ -1201,11 +1255,17 @@ class MainWindow(QMainWindow):
             final_prompt=""
         )
         
+        if self.debug_enabled:
+            info(f"Created PromptState with {len(field_values)} fields and {len(field_tags)} tag sets", LogArea.LOAD)
+        
         return prompt_state
     
     def _load_and_check_tags(self, tag_data_list, field_name: str):
         """Load tags from template data and check for missing categories/subcategories."""
-        from .tag_widgets_qt import Tag
+        from .tag_widgets_qt import Tag, TagType
+        
+        if self.debug_enabled:
+            debug(f"Loading and checking tags for field '{field_name}' with {len(tag_data_list)} tags", LogArea.LOAD)
         
         # Map UI field names to actual JSON field names for validation
         field_mappings = {
@@ -1219,16 +1279,31 @@ class MainWindow(QMainWindow):
         # Use mapped field name for validation, fallback to original if no mapping
         validation_field_name = field_mappings.get(field_name, field_name)
         
+        if self.debug_enabled:
+            debug(f"Using validation field name: '{validation_field_name}'", LogArea.LOAD)
+        
         tags = []
-        for tag_data in tag_data_list:
-            tag = Tag.from_dict(tag_data)
-            
-            # Check if this tag is missing (for category/subcategory tags)
-            if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
-                if tag.check_if_missing(validation_field_name):
-                    tag.is_missing = True
-            
-            tags.append(tag)
+        for i, tag_data in enumerate(tag_data_list):
+            try:
+                tag = Tag.from_dict(tag_data)
+                
+                # Check if this tag is missing (for category/subcategory tags)
+                if tag.tag_type in [TagType.CATEGORY, TagType.SUBCATEGORY]:
+                    if tag.check_if_missing(validation_field_name):
+                        tag.is_missing = True
+                        if self.debug_enabled:
+                            debug(f"Tag {i+1} '{tag.text}' is missing for field '{validation_field_name}'", LogArea.LOAD)
+                
+                tags.append(tag)
+                
+            except Exception as e:
+                if self.debug_enabled:
+                    error(f"Failed to load tag {i+1} data {tag_data}: {str(e)}", LogArea.ERROR)
+                # Skip this tag and continue
+                continue
+        
+        if self.debug_enabled:
+            debug(f"Successfully loaded {len(tags)} tags for field '{field_name}'", LogArea.LOAD)
         
         return tags
     
@@ -2387,18 +2462,11 @@ class MainWindow(QMainWindow):
         if self.debug_enabled:
             info(r"DEBUG NAV: Caching current state", LogArea.GENERAL)
         
-        # Get current field state
-        field_data = {}
-        for field_key, widget in self.field_widgets.items():
-            if hasattr(widget, 'get_tags'):
-                field_data[field_key] = widget.get_tags()
-            elif hasattr(widget, 'toPlainText'):
-                field_data[field_key] = widget.toPlainText()
-        
-        self._cached_current_state = field_data
+        # Capture current state as PromptState
+        self._cached_current_state = self.capture_current_state()
         
         if self.debug_enabled:
-            debug(r"Cached {len(field_data)} fields", LogArea.NAVIGATION)
+            debug(r"Cached PromptState with {len(self._cached_current_state.field_values)} fields", LogArea.NAVIGATION)
     
     def _restore_cached_current_state(self):
         """Restore the cached 0/X state to the fields."""
@@ -2413,30 +2481,8 @@ class MainWindow(QMainWindow):
         if self.debug_enabled:
             info(r"DEBUG NAV: Restoring cached current state", LogArea.GENERAL)
         
-        # Set flag to prevent recursive calls
-        self._restoring_state = True
-        
-        # Block ALL field widget signals during restoration
-        self._block_all_field_signals()
-        
-        try:
-            for field_key, field_data in self._cached_current_state.items():
-                if field_key in self.field_widgets:
-                    widget = self.field_widgets[field_key]
-                    
-                    if hasattr(widget, 'set_tags') and isinstance(field_data, list):
-                        widget.set_tags(field_data)
-                    elif hasattr(widget, 'setPlainText') and isinstance(field_data, str):
-                        widget.setPlainText(field_data)
-                    
-                    if self.debug_enabled:
-                        debug(r"Restored field {field_key}: {type(field_data)}", LogArea.NAVIGATION)
-        finally:
-            # Unblock signals
-            self._unblock_all_field_signals()
-            
-            # Clear flag immediately (no timer needed)
-            self._restoring_state = False
+        # Use the PromptState restoration method
+        self.restore_from_prompt_state(self._cached_current_state)
     
     def _jump_to_current_state(self):
         """Jump back to current state (0/X) and load the cached state."""
@@ -2472,77 +2518,7 @@ class MainWindow(QMainWindow):
             # Clear flag immediately (no timer needed)
             self._jumping_to_current = False
     
-    def _load_history_entry_into_current_state(self, entry):
-        """Load a history entry into the current state (0/X) for editing."""
-        # Preserve current tab selection
-        current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
-        
-        # Set flag to prevent recursive calls during restoration
-        self._restoring_state = True
-        
-        # Block ALL field widget signals during restoration
-        self._block_all_field_signals()
-        
-        try:
-            # Restore field data
-            if self.debug_enabled:
-                debug(r"Starting field restoration for {len(entry.field_data)} fields", LogArea.NAVIGATION)
-            for field_name, field_data in entry.field_data.items():
-                if self.debug_enabled:
-                    debug(r"Processing field {field_name}: {type(field_data)}", LogArea.NAVIGATION)
-                if hasattr(self, f'{field_name}_widget'):
-                    widget = getattr(self, f'{field_name}_widget')
-                    if self.debug_enabled:
-                        debug(r"Found widget for {field_name}", LogArea.NAVIGATION)
-                    
-                    if isinstance(field_data, dict) and field_data.get('type') == 'tags':
-                        # Restore tags
-                        from ..gui.tag_widgets_qt import Tag, TagType
-                        tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
-                        if self.debug_enabled:
-                            debug(r"Restoring {len(tags)} tags for field {field_name}: {[tag.text for tag in tags]}", LogArea.NAVIGATION)
-                        widget.set_tags(tags)
-                    elif isinstance(field_data, dict) and field_data.get('type') == 'text':
-                        # Restore plain text
-                        if self.debug_enabled:
-                            debug(r"Restoring text for field {field_name}: '{field_data['value']}'", LogArea.NAVIGATION)
-                        widget.set_value(field_data['value'])
-                    else:
-                        # Legacy format - treat as plain text
-                        if self.debug_enabled:
-                            debug(r"Restoring legacy text for field {field_name}: '{field_data}'", LogArea.NAVIGATION)
-                        widget.set_value(str(field_data))
-            
-            # Restore filters
-            for filter_name in entry.filters:
-                if filter_name in self.filter_actions:
-                    self.filter_actions[filter_name].setChecked(True)
-            
-            # Restore seed
-            if hasattr(self, 'seed_widget'):
-                self.seed_widget.set_value(entry.seed)
-            
-            # Restore LLM model
-            if hasattr(self, 'llm_widget'):
-                self.llm_widget.set_value(entry.llm_model)
-            
-        finally:
-            # Unblock signals
-            self._unblock_all_field_signals()
-            
-            # Clear flag immediately (no timer needed)
-            self._restoring_state = False
-            
-            # Update preview to show the loaded state (force update to avoid recursion)
-            self._update_preview(preserve_tab=True, force_update=True)
-            
-            # Restore the original tab selection
-            if hasattr(self, 'preview_panel'):
-                self.preview_panel.tab_widget.setCurrentIndex(current_tab)
-            
-            # Set current state styling with total count
-            current_pos, total_count = self.history_manager.get_navigation_info()
-            self.preview_panel.set_history_state(False, total_count)
+
     
     def _load_preview_into_fields(self):
         """Load the current preview content into the input fields."""
@@ -2750,6 +2726,12 @@ class MainWindow(QMainWindow):
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
+        # PREVENT INFINITE RECURSION: Skip if we're currently restoring state
+        if hasattr(self, '_restoring_state') and self._restoring_state:
+            if self.debug_enabled:
+                debug(r"Skipping navigation update during state restoration", LogArea.NAVIGATION)
+            return
+        
         if hasattr(self, 'preview_panel'):
             can_go_back = self.history_manager.can_go_back()
             can_go_forward = self.history_manager.can_go_forward()

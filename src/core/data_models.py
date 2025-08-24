@@ -104,20 +104,33 @@ class PromptState:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PromptState':
         """Create from dictionary."""
-        return cls(
-            field_values=data.get('field_values', {}),
-            field_tags=cls._deserialize_tags(data.get('field_tags', {})),
-            seed=data.get('seed', 0),
-            filters=data.get('filters', []),
-            llm_model=data.get('llm_model', ''),
-            target_model=data.get('target_model', ''),
-            summary_text=data.get('summary_text', ''),
-            final_prompt=data.get('final_prompt', ''),
-            created_at=datetime.fromisoformat(data.get('created_at', datetime.now().isoformat())),
-            updated_at=datetime.fromisoformat(data.get('updated_at', datetime.now().isoformat())),
-            name=data.get('name', ''),
-            description=data.get('description', '')
-        )
+        try:
+            # Deserialize tags with error handling
+            field_tags = cls._deserialize_tags(data.get('field_tags', {}))
+            
+            # Create PromptState
+            prompt_state = cls(
+                field_values=data.get('field_values', {}),
+                field_tags=field_tags,
+                seed=data.get('seed', 0),
+                filters=data.get('filters', []),
+                llm_model=data.get('llm_model', ''),
+                target_model=data.get('target_model', ''),
+                summary_text=data.get('summary_text', ''),
+                final_prompt=data.get('final_prompt', ''),
+                created_at=datetime.fromisoformat(data.get('created_at', datetime.now().isoformat())),
+                updated_at=datetime.fromisoformat(data.get('updated_at', datetime.now().isoformat())),
+                name=data.get('name', ''),
+                description=data.get('description', '')
+            )
+            
+            return prompt_state
+            
+        except Exception as e:
+            # Import logger here to avoid circular imports
+            from ..utils.logger import error, LogArea
+            error(f"Failed to create PromptState from dict: {str(e)}", LogArea.ERROR)
+            raise
     
     def _serialize_tags(self) -> Dict[str, List[Dict[str, Any]]]:
         """Serialize tag objects to dictionaries."""
@@ -148,14 +161,21 @@ class PromptState:
             deserialized = {}
             for field_name, tag_data_list in data.items():
                 deserialized[field_name] = []
-                for tag_data in tag_data_list:
-                    if isinstance(tag_data, dict) and 'tag_type' in tag_data:
-                        # Create Tag object from dictionary
-                        tag = Tag.from_dict(tag_data)
-                        deserialized[field_name].append(tag)
-                    else:
-                        # Fallback for unknown tag format
-                        deserialized[field_name].append(tag_data)
+                for i, tag_data in enumerate(tag_data_list):
+                    try:
+                        if isinstance(tag_data, dict) and 'type' in tag_data:
+                            # Create Tag object from dictionary
+                            tag = Tag.from_dict(tag_data)
+                            deserialized[field_name].append(tag)
+                        else:
+                            # Fallback for unknown tag format
+                            deserialized[field_name].append(tag_data)
+                    except Exception as e:
+                        # Import logger here to avoid circular imports
+                        from ..utils.logger import error, LogArea
+                        error(f"Failed to deserialize tag {i+1} in field '{field_name}': {str(e)}", LogArea.ERROR)
+                        # Skip this tag and continue
+                        continue
             return deserialized
         except ImportError:
             # If Tag class is not available, return raw data

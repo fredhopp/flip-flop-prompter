@@ -223,13 +223,29 @@ class Tag:
     @classmethod
     def from_dict(cls, data: Dict) -> 'Tag':
         """Create tag from dictionary for template loading."""
-        return cls(
-            text=data["text"],
-            tag_type=TagType(data["type"]),
-            category_path=data.get("category_path", []),
-            data=data.get("data"),
-            is_missing=data.get("is_missing", False)
-        )
+        try:
+            # Validate required fields
+            if "text" not in data:
+                raise ValueError("Tag data missing 'text' field")
+            if "type" not in data:
+                raise ValueError("Tag data missing 'type' field")
+            
+            # Create tag
+            tag = cls(
+                text=data["text"],
+                tag_type=TagType(data["type"]),
+                category_path=data.get("category_path", []),
+                data=data.get("data"),
+                is_missing=data.get("is_missing", False)
+            )
+            
+            return tag
+            
+        except Exception as e:
+            # Import logger here to avoid circular imports
+            from ..utils.logger import error, LogArea
+            error(f"Failed to create Tag from dict {data}: {str(e)}", LogArea.ERROR)
+            raise
 
 
 class TagWidget(QWidget):
