@@ -584,6 +584,24 @@ class PreviewPanel(QWidget):
         """Get the current final prompt text."""
         return self.final_text.toPlainText()
     
+    def set_summary_text(self, text: str):
+        """Set the summary text."""
+        self.summary_text.setPlainText(text)
+        if text.strip():
+            self.summary_state = PreviewState.PREVIEW
+        else:
+            self.summary_state = PreviewState.PLACEHOLDER
+        self._apply_state_styling_debounced()
+    
+    def set_final_prompt(self, text: str):
+        """Set the final prompt text."""
+        self.final_text.setPlainText(text)
+        if text.strip():
+            self.final_state = PreviewState.FINAL
+        else:
+            self.final_state = PreviewState.PLACEHOLDER
+        self._apply_state_styling_debounced()
+    
     def clear_preview(self):
         """Clear the preview and reset to initial state."""
         self._set_initial_state()

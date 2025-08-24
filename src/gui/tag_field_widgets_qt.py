@@ -194,9 +194,19 @@ class TagFieldWidget(QWidget):
         # Check if tag already exists
         existing_tags = self.tag_input.get_tags()
         for existing_tag in existing_tags:
-            if (existing_tag.text == new_tag.text and 
-                existing_tag.tag_type == new_tag.tag_type and
-                existing_tag.category_path == new_tag.category_path):
+            # Handle both Tag objects and dictionaries (defensive programming)
+            if isinstance(existing_tag, dict):
+                existing_text = existing_tag.get('text', '')
+                existing_type = existing_tag.get('tag_type', '')
+                existing_path = existing_tag.get('category_path', [])
+            else:
+                existing_text = getattr(existing_tag, 'text', '')
+                existing_type = getattr(existing_tag, 'tag_type', '')
+                existing_path = getattr(existing_tag, 'category_path', [])
+            
+            if (existing_text == new_tag.text and 
+                existing_type == new_tag.tag_type and
+                existing_path == new_tag.category_path):
                 # Tag exists - remove it (toggle off)
                 self.tag_input.remove_tag(existing_tag)
                 return

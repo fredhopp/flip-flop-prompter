@@ -1030,47 +1030,37 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to save prompt: {str(e)}")
     
     def _save_template(self):
-        """Save current settings as a template with tag support."""
-        # Collect current field tags and values
-        template_data = {
-            "format_version": "2.0",  # New format with tag support
-            "style_tags": [tag.to_dict() for tag in self.style_widget.get_tags()] if hasattr(self, 'style_widget') else [],
-            "setting_tags": [tag.to_dict() for tag in self.setting_widget.get_tags()] if hasattr(self, 'setting_widget') else [],
-            "weather_tags": [tag.to_dict() for tag in self.weather_widget.get_tags()] if hasattr(self, 'weather_widget') else [],
-            "datetime_tags": [tag.to_dict() for tag in self.datetime_widget.get_tags()] if hasattr(self, 'datetime_widget') else [],
-            "subjects_tags": [tag.to_dict() for tag in self.subjects_widget.get_tags()] if hasattr(self, 'subjects_widget') else [],
-            "pose_tags": [tag.to_dict() for tag in self.pose_widget.get_tags()] if hasattr(self, 'pose_widget') else [],
-            "camera_tags": [tag.to_dict() for tag in self.camera_widget.get_tags()] if hasattr(self, 'camera_widget') else [],
-            "framing_tags": [tag.to_dict() for tag in self.framing_widget.get_tags()] if hasattr(self, 'framing_widget') else [],
-            "grading_tags": [tag.to_dict() for tag in self.grading_widget.get_tags()] if hasattr(self, 'grading_widget') else [],
-            "details_tags": [tag.to_dict() for tag in self.details_widget.get_tags()] if hasattr(self, 'details_widget') else [],
-            "llm_instructions_tags": [tag.to_dict() for tag in self.llm_instructions_widget.get_tags()] if hasattr(self, 'llm_instructions_widget') else [],
-            "seed": self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0,
-            "filters": self._get_selected_filters(),
-            "model": self.model_widget.get_value() if hasattr(self, 'model_widget') else "seedream",
-            "llm": self.llm_widget.get_value() if hasattr(self, 'llm_widget') else "deepseek-r1:8b",
-            "debug_enabled": self.debug_enabled,
-            "saved_at": datetime.now().isoformat()
-        }
-        
-        # Get save location
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Template", 
-            str(self.templates_dir / f"template_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"),
-            "JSON Files (*.json);;All Files (*)"
-        )
-        
-        if file_path:
-            try:
+        """Save current settings as a template using PromptState."""
+        try:
+            # Capture current state as PromptState
+            prompt_state = self.capture_current_state()
+            
+            # Create template data with PromptState
+            template_data = {
+                "format_version": "3.0",  # New PromptState-based format
+                "prompt_state": prompt_state.to_dict(),
+                "debug_enabled": self.debug_enabled,
+                "saved_at": datetime.now().isoformat(),
+                "description": "Template saved using PromptState format"
+            }
+            
+            # Get save location
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "Save Template", 
+                str(self.templates_dir / f"template_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"),
+                "JSON Files (*.json);;All Files (*)"
+            )
+            
+            if file_path:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(template_data, f, indent=2)
                 QMessageBox.information(self, "Success", f"Template saved to {file_path}")
                 self._show_status_message(f"Template saved to {Path(file_path).name}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save template: {str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save template: {str(e)}")
     
     def _load_template(self):
-        """Load a template file with backward compatibility."""
+        """Load a template file with backward compatibility and PromptState support."""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Load Template", 
             str(self.templates_dir),
@@ -1082,86 +1072,39 @@ class MainWindow(QMainWindow):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     template_data = json.load(f)
                 
-                # Import Tag class for loading
-                from .tag_widgets_qt import Tag
-                
                 # Track issues for single popup
                 issues = []
                 
                 # Check format version
                 format_version = template_data.get("format_version", "1.0")
                 
-                if format_version == "2.0":
-                    # New tag-based format
-                    if hasattr(self, 'style_widget') and "style_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["style_tags"], "style")
-                        self.style_widget.set_tags(tags)
-                    if hasattr(self, 'setting_widget') and "setting_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["setting_tags"], "setting")
-                        self.setting_widget.set_tags(tags)
-                    if hasattr(self, 'weather_widget') and "weather_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["weather_tags"], "weather")
-                        self.weather_widget.set_tags(tags)
-                    if hasattr(self, 'datetime_widget') and "datetime_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["datetime_tags"], "datetime")
-                        self.datetime_widget.set_tags(tags)
-                    if hasattr(self, 'subjects_widget') and "subjects_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["subjects_tags"], "subjects")
-                        self.subjects_widget.set_tags(tags)
-                    if hasattr(self, 'pose_widget') and "pose_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["pose_tags"], "pose")
-                        self.pose_widget.set_tags(tags)
-                    if hasattr(self, 'camera_widget') and "camera_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["camera_tags"], "camera")
-                        self.camera_widget.set_tags(tags)
-                    if hasattr(self, 'framing_widget') and "framing_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["framing_tags"], "framing")
-                        self.framing_widget.set_tags(tags)
-                    if hasattr(self, 'grading_widget') and "grading_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["grading_tags"], "grading")
-                        self.grading_widget.set_tags(tags)
-                    if hasattr(self, 'details_widget') and "details_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["details_tags"], "details")
-                        self.details_widget.set_tags(tags)
-                    if hasattr(self, 'llm_instructions_widget') and "llm_instructions_tags" in template_data:
-                        tags = self._load_and_check_tags(template_data["llm_instructions_tags"], "llm_instructions")
-                        self.llm_instructions_widget.set_tags(tags)
-                    if hasattr(self, 'seed_widget') and "seed" in template_data:
-                        self.seed_widget.set_value(template_data["seed"])
+                if format_version == "3.0":
+                    # New PromptState-based format
+                    if "prompt_state" in template_data:
+                        prompt_state = PromptState.from_dict(template_data["prompt_state"])
+                        self.restore_from_prompt_state(prompt_state)
+                        
+                        # Validate LLM model if present
+                        if prompt_state.llm_model and hasattr(self, 'llm_widget'):
+                            if not self.llm_widget.validate_and_set_model(prompt_state.llm_model):
+                                issues.append(f"LLM model '{prompt_state.llm_model}' not found - using '{self.llm_widget.get_value()}' instead")
+                    else:
+                        issues.append("Template missing prompt_state data")
+                        
+                elif format_version == "2.0":
+                    # Legacy tag-based format - convert to PromptState
+                    prompt_state = self._convert_legacy_template_to_prompt_state(template_data)
+                    self.restore_from_prompt_state(prompt_state)
+                    
+                    # Validate LLM model
+                    if prompt_state.llm_model and hasattr(self, 'llm_widget'):
+                        if not self.llm_widget.validate_and_set_model(prompt_state.llm_model):
+                            issues.append(f"LLM model '{prompt_state.llm_model}' not found - using '{self.llm_widget.get_value()}' instead")
+                            
                 else:
-                    # Legacy format - convert to tags
-                    if hasattr(self, 'style_widget') and "style" in template_data:
-                        self.style_widget.set_value(template_data["style"])
-                    if hasattr(self, 'setting_widget') and "setting" in template_data:
-                        self.setting_widget.set_value(template_data["setting"])
-                    if hasattr(self, 'weather_widget') and "weather" in template_data:
-                        self.weather_widget.set_value(template_data["weather"])
-                    if hasattr(self, 'datetime_widget') and "datetime" in template_data:
-                        self.datetime_widget.set_value(template_data["datetime"])
-                    if hasattr(self, 'subjects_widget') and "subjects" in template_data:
-                        self.subjects_widget.set_value(template_data["subjects"])
-                    if hasattr(self, 'pose_widget') and "pose" in template_data:
-                        self.pose_widget.set_value(template_data["pose"])
-                
-                # Common settings (both formats)
-                # Handle both "filters" (new) and "families" (old) for backward compatibility
-                filters_data = template_data.get("filters", template_data.get("families", []))
-                if filters_data:
-                    # Reset all filters first
-                    for filter_name, action in self.filter_actions.items():
-                        action.setChecked(False)
-                    # Set filters from template
-                    for filter_name in filters_data:
-                        if filter_name in self.filter_actions:
-                            self.filter_actions[filter_name].setChecked(True)
-                if hasattr(self, 'model_widget') and "model" in template_data:
-                    self.model_widget.set_value(template_data["model"])
-                if hasattr(self, 'llm_widget') and "llm" in template_data:
-                    # Validate LLM model from template
-                    llm_model = template_data["llm"]
-                    if not self.llm_widget.validate_and_set_model(llm_model):
-                        # Model not available, add to issues list
-                        issues.append(f"LLM model '{llm_model}' not found - using '{self.llm_widget.get_value()}' instead")
+                    # Legacy format - convert to PromptState
+                    prompt_state = self._convert_legacy_template_to_prompt_state(template_data)
+                    self.restore_from_prompt_state(prompt_state)
                 
                 # Load debug mode setting
                 if "debug_enabled" in template_data:
@@ -1177,19 +1120,88 @@ class MainWindow(QMainWindow):
                 
                 # Show single popup with any issues
                 if issues:
-                    # Show warning with issues in red
                     message = f"Template loaded from {Path(file_path).name}\n\n"
                     message += "Issues found:\n"
                     for issue in issues:
                         message += f"• {issue}\n"
                     QMessageBox.warning(self, "Template Loaded with Issues", message)
                 else:
-                    # Show success message
                     QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
                 
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
+                
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+    
+    def _convert_legacy_template_to_prompt_state(self, template_data):
+        """Convert legacy template format to PromptState."""
+        from .tag_widgets_qt import Tag, TagType
+        
+        # Initialize field values and tags
+        field_values = {}
+        field_tags = {}
+        
+        # Map template field names to widget field names
+        field_mappings = {
+            "style": "style",
+            "setting": "setting", 
+            "weather": "weather",
+            "datetime": "datetime",
+            "subjects": "subjects",
+            "pose": "pose",
+            "camera": "camera",
+            "framing": "framing",
+            "grading": "grading",
+            "details": "details",
+            "llm_instructions": "llm_instructions"
+        }
+        
+        # Handle tag-based format (v2.0)
+        if "format_version" in template_data and template_data["format_version"] == "2.0":
+            for template_field, widget_field in field_mappings.items():
+                tag_key = f"{template_field}_tags"
+                if tag_key in template_data:
+                    # Convert tag data to Tag objects
+                    tags = []
+                    for tag_data in template_data[tag_key]:
+                        tag = Tag.from_dict(tag_data)
+                        tags.append(tag)
+                    field_tags[widget_field] = tags
+                    
+                    # Also set field values from tags
+                    field_values[widget_field] = ", ".join([tag.text for tag in tags])
+        
+        # Handle legacy format (v1.0)
+        else:
+            for template_field, widget_field in field_mappings.items():
+                if template_field in template_data:
+                    value = template_data[template_field]
+                    field_values[widget_field] = value
+                    
+                    # Convert simple text to user text tags
+                    if value.strip():
+                        tags = [Tag(value.strip(), TagType.USER_TEXT)]
+                        field_tags[widget_field] = tags
+        
+        # Get metadata
+        seed = template_data.get("seed", 0)
+        filters = template_data.get("filters", template_data.get("families", []))
+        llm_model = template_data.get("llm", template_data.get("llm_model", ""))
+        target_model = template_data.get("model", "seedream")
+        
+        # Create PromptState
+        prompt_state = PromptState(
+            field_values=field_values,
+            field_tags=field_tags,
+            seed=seed,
+            filters=filters,
+            llm_model=llm_model,
+            target_model=target_model,
+            summary_text="",
+            final_prompt=""
+        )
+        
+        return prompt_state
     
     def _load_and_check_tags(self, tag_data_list, field_name: str):
         """Load tags from template data and check for missing categories/subcategories."""
@@ -1890,6 +1902,16 @@ class MainWindow(QMainWindow):
             if action.isChecked():
                 selected.append(filter_name)
         return selected  # Return empty list if none selected - no default fallback
+    
+    def _set_selected_filters(self, filters):
+        """Set the selected filters."""
+        # Reset all filters first
+        for filter_name, action in self.filter_actions.items():
+            action.setChecked(False)
+        # Set filters from list
+        for filter_name in filters:
+            if filter_name in self.filter_actions:
+                self.filter_actions[filter_name].setChecked(True)
     
     def _on_seed_changed(self):
         """Handle seed value changes."""
@@ -2699,85 +2721,32 @@ class MainWindow(QMainWindow):
             return None, None, False
     
     def _restore_from_history_entry(self):
-        """Restore fields from current history entry."""
+        """Restore fields from current history entry using PromptState."""
         entry = self.history_manager.get_current_entry()
         if entry:
             if self.debug_enabled:
                 debug(r"Restoring history entry - seed={entry.seed}, filters={entry.filters}, llm_model={entry.llm_model}", LogArea.NAVIGATION)
-                debug(r"History entry field data: {list(entry.field_data.keys())}", LogArea.NAVIGATION)
+                debug(r"History entry field values: {list(entry.field_values.keys())}", LogArea.NAVIGATION)
+                debug(r"History entry field tags: {list(entry.field_tags.keys())}", LogArea.NAVIGATION)
                 debug(r"History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION)
                 debug(r"History entry summary: '{entry.summary_text}'", LogArea.NAVIGATION)
                 debug(r"_intentionally_navigating flag is: {self._intentionally_navigating}", LogArea.NAVIGATION)
             
-            # Preserve current tab selection
-            current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
+            # Use the new PromptState restoration method
+            self.restore_from_prompt_state(entry)
             
-            # Set flag to prevent recursive calls during restoration
-            self._restoring_state = True
+            # Restore the final prompt if it exists
+            if entry.final_prompt:
+                if self.debug_enabled:
+                    debug(r"Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION) 
+                self.preview_panel.final_text.setPlainText(entry.final_prompt)
+                # Set regular font for generated content
+                font = self.preview_panel.final_text.font()
+                font.setItalic(False)
+                self.preview_panel.final_text.setFont(font)
             
-            # Block ALL field widget signals during restoration
-            self._block_all_field_signals()
-            
-            try:
-                # Restore field data
-                for field_name, field_data in entry.field_data.items():
-                    if hasattr(self, f'{field_name}_widget'):
-                        widget = getattr(self, f'{field_name}_widget')
-                        
-                        if isinstance(field_data, dict) and field_data.get('type') == 'tags':
-                            # Restore tags
-                            from ..gui.tag_widgets_qt import Tag, TagType
-                            tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
-                            widget.set_tags(tags)
-                        elif isinstance(field_data, dict) and field_data.get('type') == 'text':
-                            # Restore plain text
-                            widget.set_value(field_data['value'])
-                        else:
-                            # Legacy format - treat as plain text
-                            widget.set_value(str(field_data))
-                
-                # Restore families
-                for filter_name in entry.filters:
-                    if filter_name in self.filter_actions:
-                        self.filter_actions[filter_name].setChecked(True)
-                
-                # Restore seed
-                if hasattr(self, 'seed_widget'):
-                    self.seed_widget.set_value(entry.seed)
-                
-                # Restore LLM model
-                if hasattr(self, 'llm_widget'):
-                    self.llm_widget.set_value(entry.llm_model)
-                
-            finally:
-                # Unblock signals
-                self._unblock_all_field_signals()
-                
-                # Clear flag immediately (no timer needed)
-                self._restoring_state = False
-                
-                # Update preview once at the end (preserve tab selection during history restoration)
-                self._update_preview(preserve_tab=True, force_update=True)
-                
-                # Restore the final prompt if it exists
-                if entry.final_prompt:
-                    if self.debug_enabled:
-                        debug(r"Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION) 
-                    self.preview_panel.final_text.setPlainText(entry.final_prompt)
-                    # Set regular font for generated content
-                    font = self.preview_panel.final_text.font()
-                    font.setItalic(False)
-                    self.preview_panel.final_text.setFont(font)
-                
-                # Force a preview update to ensure summary reflects the restored fields
-                # This is needed because the fields might not have been fully restored when _update_preview was called
-                QTimer.singleShot(100, lambda: self._update_preview(preserve_tab=True, force_update=True))
-                
-                # Restore the original tab selection
-                if hasattr(self, 'preview_panel'):
-                    self.preview_panel.tab_widget.setCurrentIndex(current_tab)
-                
-                # History state styling is already set above
+            # Force a preview update to ensure summary reflects the restored fields
+            QTimer.singleShot(100, lambda: self._update_preview(preserve_tab=True, force_update=True))
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
