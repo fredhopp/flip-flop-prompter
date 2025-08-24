@@ -580,6 +580,10 @@ class PreviewPanel(QWidget):
         """Get the current summary text."""
         return self.summary_text.toPlainText()
     
+    def get_final_prompt(self) -> str:
+        """Get the current final prompt text."""
+        return self.final_text.toPlainText()
+    
     def clear_preview(self):
         """Clear the preview and reset to initial state."""
         self._set_initial_state()
