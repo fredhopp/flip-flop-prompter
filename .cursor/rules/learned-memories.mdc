@@ -8,6 +8,7 @@
 - **ALWAYS ask: "Ready to commit and push these changes?" before any git push**
 - **This rule is ABSOLUTE and cannot be violated**
 - **If you forget this rule, you have failed the workflow**
+- **DO NOT PUSH UNTIL YOU GET CONFIRMATION FROM THE USER**
 
 **MANDATORY GIT WORKFLOW:**
 ```
@@ -37,7 +38,10 @@ Should I proceed with the commit and push?"
 - **Execute commands directly rather than just suggest them**
 - **Prefer bash commands over manual instructions**
 - **Clean up test processes** - Don't leave hanging Python processes when testing
-
+- **Use extensive debug reporting and expect extensive tests for new code**
+- **Perform changes in agent mode**
+- **Store project-specific memories in .cursor/rules/learned-memories.mdc**
+- **Operate in Git Bash environment** - Windows cmd flags like '/c' are interpreted as accessing the C: drive and should not be used
 
 ## Project Setup & Environment
 - **Virtual Environment**: `.venv` (not `venv`)
@@ -70,7 +74,6 @@ taskkill //F //IM python.exe
 - **Tag System**: Inline tags with colors (blue=snippets, purple=user text, orange=categories, yellow=subcategories)
 - **Randomization**: Seed-based deterministic random snippet selection with preview/realization consistency
 - **Filters**: Dynamic filtering system with real-time snippet updates
- - **Filters**: Dynamic filtering system with real-time snippet updates; snippet popup merges same-named categories across selected filters and shows all contributing filters (e.g., "Human (PG, NSFW)")
 - **LLM Integration**: Ollama with dynamic model population and connection testing
 - **Logging**: Comprehensive GUI interaction logging with debug mode integration
 - **Theme System**: JSON-based light/dark themes with external file customization
@@ -81,6 +84,7 @@ taskkill //F //IM python.exe
 - **Compact UI Layout**: Optimized spacing and field heights for better tag visibility
 - **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with tooltips
 - **Ollama Preferences**: "Start Ollama on Startup" and "Kill Ollama on Exit" options with proper persistence
+- **PromptState Class**: Unified state management using dataclass for all prompt-related state
 
 ## Key Technical Decisions
 - **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
@@ -90,7 +94,6 @@ taskkill //F //IM python.exe
 - **Window Behavior**: Only preview panel expands on resize, status bar fixed height
 - **Theme Management**: JSON-based theme files with hot-reload capability
 - **LLM Instructions**: Full content displayed in tooltips, clean button names
-- **Theme System**: JSON-based light/dark themes with 21 color definitions each, persistent preferences
 - **History Navigation**: Decremental counter (0/X = current, 1/X = most recent history)
 - **State Caching**: 0/X state is cached and restored when navigating back from history
 - **Preview States**: Enum-based state management (PLACEHOLDER, PREVIEW, FINAL, HISTORY)
@@ -98,11 +101,11 @@ taskkill //F //IM python.exe
 - **Icon System**: Font Awesome icons with qtawesome library and graceful fallback
 - **UI Compactness**: Optimized spacing (0px margins, 2px main layout spacing) for better density
 - **Tag Visibility**: Increased field heights (40px) and improved scrollbar spacing (20px right margin)
-- **Preference Persistence**: Fixed issue where Ollama preferences were being overwritten during app startup - removed automatic save call in `_load_preferences()` that was resetting user choices
-- **Unified State Management**: Implemented `PromptState` dataclass to encapsulate all prompt-related state (field values, tags, metadata, timestamps, generated content) for simplified history management and state persistence
-- **Tag Serialization**: Added `to_dict()` and `from_dict()` methods to `Tag` class to support PromptState serialization/deserialization
-- **History Integration**: Updated `HistoryManager` to use `PromptState` objects instead of separate `HistoryEntry` class for better data consistency
-- **State Capture Methods**: Added `capture_current_state()` and `restore_from_prompt_state()` methods to `MainWindow` for seamless integration with existing state management
+- **Preference Persistence**: Fixed issue where Ollama preferences were being overwritten during app startup
+- **Unified State Management**: `PromptState` dataclass encapsulates all prompt-related state (field values, tags, metadata, timestamps, generated content)
+- **Tag Serialization**: `to_dict()` and `from_dict()` methods in `Tag` class for PromptState serialization
+- **History Integration**: `HistoryManager` uses `PromptState` objects instead of separate `HistoryEntry` class
+- **State Capture Methods**: `capture_current_state()` and `restore_from_prompt_state()` methods in `MainWindow`
 
 ## File Organization
 - **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
@@ -126,70 +129,22 @@ taskkill //F //IM python.exe
 - Check that all buttons and interactions work
 - Validate JSON syntax in snippet files
 
-## 🚨 CRITICAL ISSUE RESOLVED (August 2025) 🚨
+## Critical Technical Solutions Implemented
 
-### Infinite Loop in History Navigation
-**Status**: ✅ **FIXED** - Comprehensive solution implemented
+### Infinite Loop in History Navigation - RESOLVED
+**Solution**: Triple flag protection system with `_restoring_state`, `_jumping_to_current`, and `_intentionally_navigating` flags to prevent recursive calls during state restoration.
 
-**Problem**: The history navigation system had an infinite loop causing cascading popup windows and rapid field restoration cycles.
+### LLM Request Functionality - RESOLVED
+**Solution**: Modified `OllamaProvider.refine_prompt()` to prioritize the `model_name` parameter passed to it, with validation to raise `ValueError` if `llm_model` is `None`.
 
-**Root Cause**: 
-- `_restore_cached_current_state()` triggers field changes
-- Field changes trigger `_update_preview()` 
-- `_update_preview()` calls `_jump_to_current_state()` when in history mode
-- `_jump_to_current_state()` calls `_restore_cached_current_state()` again
-- **INFINITE LOOP** ❌
+### PromptState Class Implementation - COMPLETED
+**Solution**: Unified state management using `PromptState` dataclass with comprehensive methods for state capture, restoration, and serialization.
 
-**Solution Implemented**:
-1. ✅ **No Auto-Navigation**: Completely removed automatic navigation to 1/X when LLM result returns
-2. ✅ **Complete Flag Protection**: Added `_intentionally_navigating` check to `_update_preview()` to prevent cascading during LLM result navigation
-3. ✅ **Simple Flag-Based Logic**: Replaced timing delays with immediate flag clearing
-4. ✅ **Smart Caching Logic**: Implemented correct caching behavior in `_update_preview()`
-5. ✅ **Position-Based Caching**: Cache when on 0/X, cache and jump when on history (1/X, 2/X, etc.)
-6. ✅ **Load vs Cache Separation**: `_jump_to_current_state()` now loads cached state instead of caching
-7. ✅ **Enhanced Flag System**: Added `_jumping_to_current` flag alongside `_restoring_state`
-8. ✅ **Comprehensive Signal Blocking**: Created `_block_all_field_signals()` and `_unblock_all_field_signals()` helper methods
-9. ✅ **Immediate Flag Clearing**: Removed all `QTimer.singleShot()` calls for flag clearing
-10. ✅ **Robust Update Prevention**: Enhanced `_update_preview()` to check both flags before triggering jumps
-11. ✅ **Consistent Signal Management**: Applied same robust signal blocking to `_load_history_entry_into_current_state()`
-12. ✅ **Intentional Navigation Protection**: Added `_intentionally_navigating` flag to prevent jump-to-current during intentional navigation
-13. ✅ **Complete Method Updates**: Fixed `_restore_from_history_entry()` to use robust signal blocking
-14. ✅ **LLM Instructions Connection**: Added missing connection for `llm_instructions_widget`
+### Template Loading Recursion - RESOLVED
+**Solution**: Added `_restoring_state` flag check to `_schedule_preview_update()` to prevent recursion during template loading.
 
-**Key Technical Improvements**:
-- **No Auto-Navigation**: Eliminated automatic navigation to 1/X when LLM result returns - user stays on current position
-- **Simple Flag-Based Logic**: Eliminated all timing delays with immediate flag clearing
-- **Smart Caching Logic**: Position-based caching that caches on 0/X and caches+jumps on history positions
-- **Load vs Cache Separation**: Clear distinction between caching current state and loading cached state
-- **Triple Flag Protection**: `_restoring_state`, `_jumping_to_current`, and `_intentionally_navigating` flags prevent recursive calls
-- **Comprehensive Signal Blocking**: All field widgets have signals blocked during state restoration
-- **Immediate Flag Clearing**: No more timing delays - flags are cleared immediately after operations complete
-- **Intentional Navigation Detection**: Prevents jump-to-current logic during intentional history navigation
-- **Enhanced Debug Logging**: Added detailed logging to `_should_jump_to_current_state()` and `_restore_from_history_entry()` for better visibility
-- **Robust State Management**: No race conditions or timing dependencies
-- **LLM Result Navigation**: Fixed timing issue when LLM result returns and automatically navigates to history entry
-
-**Files Modified**:
-- `src/gui/main_window_qt.py`: Enhanced navigation logic with robust signal management
-- `src/gui/preview_panel_qt.py`: No changes needed
-- `src/utils/history_manager.py`: No changes needed
-
-**Testing Status**: ✅ **VERIFIED** - Application starts successfully with debug mode
-- ✅ **Smart Caching Implemented**: Position-based caching logic working correctly
-- ✅ **No More Infinite Loops**: Cascading popup issue completely resolved
-- ✅ **Correct Caching Behavior**: Cache on 0/X, cache+jump on history positions
-- ✅ **Load vs Cache Separation**: `_jump_to_current_state()` loads cached state properly
-- ✅ **History Navigation**: Smooth navigation between history states
-- ✅ **0/X State Management**: Proper caching and restoration of current work
-
-**User Impact**: 
-- ✅ No more cascading popup windows
-- ✅ No more rapid field restoration cycles
-- ✅ Smooth navigation between history states
-- ✅ Proper 0/X state caching and restoration
-- ✅ Family filtering and dynamic snippet updates work correctly
-- ✅ Tag colors and editing functionality preserved
-- ✅ Dynamic placeholder text showing actual count and navigation hints
+### Tag Validation System - COMPLETED
+**Solution**: Comprehensive system for detecting and visually flagging missing tags when snippet files are unavailable, with red styling and explanatory tooltips.
 
 ## Common Issues & Solutions
 - **JSON parsing errors**: Check for missing braces or commas in snippet files
@@ -202,174 +157,15 @@ taskkill //F //IM python.exe
 - **Process cleanup**: Use `taskkill //F //IM python.exe` to clean hanging processes
 - **Indentation errors**: Use `python -m py_compile` to check syntax before running
 - **Tag validation issues**: Check `Tag.check_if_missing()` method and ensure proper field name mapping
+- **Terminal pathing**: Git Bash uses Linux-style paths (e.g., `/C/Users/fredhopp/AppData/Roaming/FlipFlopPrompt/debug/`)
 
 ## Performance Considerations
 - **Startup Time**: ✅ **OPTIMIZED: 1.209s** (was 4-5 seconds, target achieved!)
 - **Bottleneck**: MainWindow creation (was 4.8s, now optimized with lazy loading)
 - **Optimization Implemented**: Lazy loading for PromptEngine, LLM components, and snippet manager
 
-## Recent Major Changes (August 2025)
-- **Logging System Migration**: ✅ **COMPLETED** - Migrated all print() statements to comprehensive logging system with LogLevel (DEBUG, INFO, WARNING, ERROR) and LogArea (GENERAL, OLLAMA, NAVIGATION, BATCH, SNIPPETS, FILTERS, PREVIEW, HISTORY, GUI, LLM, REFRESH, LOAD, ERROR) for granular control over log output
-- **Tag Validation System Implementation**: Comprehensive system for detecting and visually flagging missing tags when snippet files are unavailable
-- **Missing Tag Detection**: Tags based on missing categories/subcategories/snippets are marked with red styling and explanatory tooltips
-- **Template Loading Edge Case Handling**: Graceful handling of templates containing tags from user-defined JSON snippets that are no longer present
-- **Filter-Based Tag Validation**: Tags are validated against currently selected content filters (PG/NSFW/Hentai) and marked as missing when their parent filters are unchecked
-- **Snippet Reload Functionality**: Fixed menu recreation and tag validation updates when snippet files are reloaded
-- **Font Awesome Icons Implementation**: Professional industry-standard icons throughout the interface using qtawesome library
-- **UI Compactness Improvements**: Optimized spacing between field titles and fields, reduced main layout spacing for better density
-- **Enhanced Tag Visibility**: Increased field heights (30px → 40px) and improved scrollbar spacing (15px → 20px right margin) to prevent tag cropping
-- **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with Font Awesome list icons and helpful tooltips
-- **Realize Functionality**: Convert random category/subcategory tags to specific snippet items with deterministic consistency
-- **Randomization Consistency**: Fixed preview and realization to produce identical results using same seed logic
-- **Dark Theme Implementation**: Complete light/dark theme system with persistence and keyboard shortcuts (Ctrl+T)
-- **JSON Theme System**: Converted from hardcoded themes to external JSON files for easy customization
-- **JSON Structure Refactoring**: Unified all snippet files to key-value format with proper tooltips
-- **GUI Logging System**: Comprehensive logging of user interactions with debug mode integration
-- **PySide6 Migration**: Complete migration from Tkinter to modern Qt-based GUI
-- **Tag System**: Implemented inline tag-based input with colors and editing
-- **Family System**: Replaced content rating with family filtering (PG/NSFW/Hentai)
-- **Randomization**: Added seed-based deterministic random snippet selection
-- **Project Cleanup**: Removed all legacy Tkinter files and unused dependencies
-
-## Development Priorities
-1. **High Priority**: ✅ **COMPLETED** - Optimize startup time (4-5s → 1.209s)
-2. **High Priority**: ✅ **COMPLETED** - Clean up unnecessary dependencies
-3. **High Priority**: ✅ **COMPLETED** - Tag validation system implementation
-4. **High Priority**: ✅ **COMPLETED** - Fix snippet tag validation (snippet items now correctly reflect filter state)
-5. **High Priority**: ✅ **COMPLETED** - Fix LLM request functionality (LLM queries now work correctly with proper model selection)
-6. **High Priority**: ✅ **COMPLETED** - Migrate all print() statements to new logging system with LogLevel and LogArea
-7. **Next**: Implement `PromptState` class for unified state management (major refactor)
-8. **Future**: Expand snippet subcategories and add prompt history navigation
-9. **Future**: AI service integrations and advanced features
-
-## 🚨 RECENTLY RESOLVED CRITICAL ISSUES (August 2025) 🚨
-
-### ✅ **LLM REQUEST FUNCTIONALITY - RESOLVED**
-**Problem**: LLM queries were not being submitted to Ollama, resulting in raw summaries being stored in history instead of refined prompts.
-
-**Root Cause**: The `OllamaProvider.model_name` was set to `None` by default, but when `refine_prompt()` was called, it tried to use `self.model_name` in the API payload, which caused the request to fail.
-
-**Solution Implemented**:
-- ✅ Modified `OllamaProvider.refine_prompt()` to prioritize the `model_name` parameter passed to it
-- ✅ Added validation to raise a `ValueError` if `llm_model` is `None`
-- ✅ Updated the call chain in `PromptEngine.generate_prompt()` to pass the selected LLM model explicitly
-- ✅ Updated `MainWindow._generate_batch_prompts()` to validate and pass the selected LLM model
-
-**Files Modified**:
-- `src/core/llm_integration.py`: `OllamaProvider.refine_prompt()` now uses parameter model name
-- `src/core/prompt_engine.py`: `generate_prompt()` passes `llm_model` parameter
-- `src/gui/main_window_qt.py`: `_generate_batch_prompts()` validates and passes LLM model
-
-**Status**: ✅ **FULLY RESOLVED** - LLM requests now work correctly with proper model selection and validation
-
-### ✅ **COMPLETED MAJOR REFACTOR: PromptState Class Implementation**
-**Goal**: Create a unified `PromptState` class to encapsulate all prompt-related state for better management of current and history states.
-
-**Implementation Completed**:
-1. ✅ **Phase 1**: Created `PromptState` dataclass with all current state attributes
-   - Fields: `field_values`, `field_tags`, `summary_text`, `final_prompt`, `seed`, `timestamp`, `metadata`
-   - Methods: `to_dict()`, `from_dict()`, `update_timestamp()`, `get_field_value()`, `set_field_value()`, `get_field_tags()`, `set_field_tags()`, `is_empty()`, `copy()`
-
-2. ✅ **Phase 2**: Updated `MainWindow` to use `PromptState` for current state
-   - Replaced individual widget state management with single `PromptState` instance
-   - Updated `_save_to_history()` to use `PromptState` objects
-   - Updated `_restore_from_history_entry()` to use `restore_from_prompt_state()`
-
-3. ✅ **Phase 3**: Updated `HistoryManager` to work with `PromptState`
-   - Modified to store `PromptState` objects directly
-   - Removed `HistoryEntry` class (obsolete)
-   - Updated navigation methods to work with new structure
-
-4. ✅ **Phase 4**: Refactored preview panel and caching logic
-   - Updated preview generation to use `PromptState`
-   - Simplified caching logic with unified state object
-   - Removed redundant state tracking variables
-
-**Benefits Achieved**:
-- ✅ Unified state management
-- ✅ Easier debugging and state inspection
-- ✅ Reduced code duplication
-- ✅ Better separation of concerns
-- ✅ Simplified history navigation logic
-
-**Files Modified**:
-- ✅ `src/core/data_models.py`: Added `PromptState` class with comprehensive methods
-- ✅ `src/gui/main_window_qt.py`: Major refactor to use `PromptState`
-- ✅ `src/utils/history_manager.py`: Updated to work with `PromptState`
-- ✅ `src/gui/preview_panel_qt.py`: Added missing methods for state restoration
-- ✅ `src/gui/tag_widgets_qt.py`: Added serialization methods to `Tag` class
-- ✅ `src/utils/__init__.py`: Removed obsolete `HistoryEntry` import
-
-**Infinite Recursion Fix**: ✅ **ALREADY IMPLEMENTED**
-- The infinite recursion issue in history navigation was already fixed with the `_restoring_state` flag
-- `_update_history_navigation()` includes prevention logic: `if hasattr(self, '_restoring_state') and self._restoring_state: return`
-- Application runs successfully without recursion issues
-
-## User Preferences & Context
-- **Prefer bash commands over manual instructions**
-- **Always execute commands directly rather than just suggest them**
-- **Clean up test processes** - Don't leave hanging Python processes when testing
-- **Ask for confirmation before pushing to git** - This is a MANDATORY step
-- **Use descriptive commit messages**
-- **Clean up temporary files before committing**
-
 ---
 
-## 🚨 CURRENT TAG VALIDATION SYSTEM STATUS (August 22, 2025) 🚨
-
-### ✅ **COMPLETED FEATURES**
-- **Missing Tag Detection**: Tags are correctly identified as missing when their parent categories/subcategories are not available
-- **Visual Feedback**: Missing tags display with red styling (background and border) to distinguish them from valid tags
-- **Tooltip System**: All tags have tooltips explaining their type and status (missing tags show "This category/subcategory is not available...")
-- **Filter-Based Validation**: Tags are validated against currently selected content filters (PG/NSFW/Hentai)
-- **Template Loading**: Tags from missing snippet files are properly flagged during template loading
-- **Snippet Reload**: Tag validation updates correctly when snippet files are reloaded
-- **Category/Subcategory Validation**: Both category and subcategory tags turn red when their parent filters are unchecked
-
-### ✅ **SNIPPET TAG VALIDATION - RESOLVED** (August 22, 2025)
-Snippet tags now correctly reflect filter state and turn red when filters are unchecked. Case-insensitive, normalized matching across categories and subcategories implemented. User-defined tag actions (add/remove/edit) are logged with field context for agent parsing in debug logs.
-
-### 🔧 **TECHNICAL IMPLEMENTATION STATUS**
-**Files Modified for Tag Validation**:
-- `src/gui/tag_widgets_qt.py`: Added `TagType.MISSING`, `Tag.is_missing` flag, `check_if_missing()` method
-- `src/gui/main_window_qt.py`: Added `_refresh_existing_tags()`, filter change triggers, template loading validation
-- `src/gui/tag_field_widgets_qt.py`: Added `refresh_tags()` method and field name mapping
-- `src/gui/inline_tag_input_qt.py`: Added `refresh_tags()` method and visual updates; added logging for user-defined tags (add/remove/edit)
-- `data/themes/light.json` & `dark.json`: Added missing tag color definitions
-
-**Current Logic Flow**:
-1. Filter changes trigger `_on_filter_changed()`
-2. Calls `_refresh_existing_tags()`
-3. Iterates through all tag widgets and calls `refresh_tags()`
-4. Each tag calls `check_if_missing()` to determine if it should be red
-5. Visual updates applied to tag widgets
-
-### 🎯 **VALIDATION IMPROVEMENTS IMPLEMENTED**
-- SNIPPET tag checks use `snippet_manager.get_category_items` and `get_subcategory_items` for normalized comparison
-- Case-insensitive match across strings and dict-based snippet items
-- Refresh flow updates all tag widgets’ styling on state change
-
-### 📋 **TESTING SCENARIOS**
-**Current Test Case**: 
-- Load template: `C:\Users\fredhopp\AppData\Roaming\FlipFlopPrompt\templates\template_20250821_130821.json`
-- Uncheck ALL filters
-- Expected: ALL tags (categories, subcategories, snippets) should turn red
-- Actual: Only categories/subcategories turn red, snippets remain blue
-
-**Additional Test Cases Needed**:
-- Uncheck specific filters (e.g., uncheck PG only)
-- Verify snippet tags from unchecked filters turn red
-- Test with different snippet types and field mappings
-
----
-
-**Last Updated**: August 22, 2025
-**Purpose**: Serve as persistent memory for development workflow preferences and project context
-**Status**: Active Development - Tag validation system complete; batch processing is next priority
-description:
-globs:
-alwaysApply: false
----
-
-alwaysApply: false
----
+**Last Updated**: August 2025
+**Purpose**: Serve as persistent memory for development workflow preferences and technical context
+**Status**: Active Development - Core functionality complete, focusing on enhancements
