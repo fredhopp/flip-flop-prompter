@@ -80,6 +80,7 @@ taskkill //F //IM python.exe
 - **Font Awesome Icons**: Professional industry-standard icons throughout the interface
 - **Compact UI Layout**: Optimized spacing and field heights for better tag visibility
 - **Icon-Only Snippets Buttons**: Clean, space-efficient snippet selection with tooltips
+- **Ollama Preferences**: "Start Ollama on Startup" and "Kill Ollama on Exit" options with proper persistence
 
 ## Key Technical Decisions
 - **Snippet Structure**: Unified key-value format (`name`/`content`/`description`) with `family` field for filtering, `LLM_rating` for AI context
@@ -97,6 +98,7 @@ taskkill //F //IM python.exe
 - **Icon System**: Font Awesome icons with qtawesome library and graceful fallback
 - **UI Compactness**: Optimized spacing (0px margins, 2px main layout spacing) for better density
 - **Tag Visibility**: Increased field heights (40px) and improved scrollbar spacing (20px right margin)
+- **Preference Persistence**: Fixed issue where Ollama preferences were being overwritten during app startup - removed automatic save call in `_load_preferences()` that was resetting user choices
 
 ## File Organization
 - **GUI Components**: `src/gui/*_qt.py` (PySide6 only, Tkinter removed)
@@ -203,6 +205,7 @@ taskkill //F //IM python.exe
 - **Optimization Implemented**: Lazy loading for PromptEngine, LLM components, and snippet manager
 
 ## Recent Major Changes (August 2025)
+- **Logging System Migration**: ✅ **COMPLETED** - Migrated all print() statements to comprehensive logging system with LogLevel (DEBUG, INFO, WARNING, ERROR) and LogArea (GENERAL, OLLAMA, NAVIGATION, BATCH, SNIPPETS, FILTERS, PREVIEW, HISTORY, GUI, LLM, REFRESH, LOAD, ERROR) for granular control over log output
 - **Tag Validation System Implementation**: Comprehensive system for detecting and visually flagging missing tags when snippet files are unavailable
 - **Missing Tag Detection**: Tags based on missing categories/subcategories/snippets are marked with red styling and explanatory tooltips
 - **Template Loading Edge Case Handling**: Graceful handling of templates containing tags from user-defined JSON snippets that are no longer present
@@ -230,9 +233,10 @@ taskkill //F //IM python.exe
 3. **High Priority**: ✅ **COMPLETED** - Tag validation system implementation
 4. **High Priority**: ✅ **COMPLETED** - Fix snippet tag validation (snippet items now correctly reflect filter state)
 5. **High Priority**: ✅ **COMPLETED** - Fix LLM request functionality (LLM queries now work correctly with proper model selection)
-6. **Next**: Implement `PromptState` class for unified state management (major refactor)
-7. **Future**: Expand snippet subcategories and add prompt history navigation
-8. **Future**: AI service integrations and advanced features
+6. **High Priority**: ✅ **COMPLETED** - Migrate all print() statements to new logging system with LogLevel and LogArea
+7. **Next**: Implement `PromptState` class for unified state management (major refactor)
+8. **Future**: Expand snippet subcategories and add prompt history navigation
+9. **Future**: AI service integrations and advanced features
 
 ## 🚨 RECENTLY RESOLVED CRITICAL ISSUES (August 2025) 🚨
 

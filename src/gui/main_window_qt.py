@@ -30,6 +30,7 @@ from ..core.data_models import PromptData
 from ..utils.theme_manager import theme_manager
 from ..utils.logger import get_logger
 from ..utils.history_manager import HistoryManager
+from ..utils.logger import debug, info, warning, error, LogArea
 
 
 class NavigationState(Enum):
@@ -485,18 +486,15 @@ class MainWindow(QMainWindow):
 
     def _on_batch_toggled(self, checked: bool):
         """Enable/disable Size and Seed controls when Batch is checked."""
-        if self.debug_enabled:
-            print(f"DEBUG BATCH: _on_batch_toggled() called with checked={checked}")
+        debug(f"_on_batch_toggled() called with checked={checked}", LogArea.BATCH)
         
         # When Batch is checked, controls should be active; otherwise inactive
         if hasattr(self, 'batch_size_input'):
             self.batch_size_input.setDisabled(not checked)
-            if self.debug_enabled:
-                print(f"DEBUG BATCH: batch_size_input disabled: {not checked}")
+            debug(f"batch_size_input disabled: {not checked}", LogArea.BATCH)
         if hasattr(self, 'seed_mode_combo'):
             self.seed_mode_combo.setDisabled(not checked)
-            if self.debug_enabled:
-                print(f"DEBUG BATCH: seed_mode_combo disabled: {not checked}")
+            debug(f"seed_mode_combo disabled: {not checked}", LogArea.BATCH)
         # Update styling
         self._apply_batch_styling()
 
@@ -662,7 +660,7 @@ class MainWindow(QMainWindow):
                 with open(self.generation_cache_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
-            print(f"Warning: Could not load generation cache: {e}")
+            warning(f"Could not load generation cache: {e}", LogArea.GENERAL)
         
         return {}
     
@@ -672,7 +670,7 @@ class MainWindow(QMainWindow):
             with open(self.generation_cache_file, 'w', encoding='utf-8') as f:
                 json.dump(self.generation_times, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            print(f"Warning: Could not save generation cache: {e}")
+            warning(f"Could not save generation cache: {e}", LogArea.GENERAL)
     
     def _get_cached_generation_time(self, llm_model, target_model):
         """Get cached generation time for model combination."""
@@ -1226,19 +1224,19 @@ class MainWindow(QMainWindow):
         """Generate the final prompt using the LLM."""
         # Add verbose debug logging for batch processing
         if self.debug_enabled:
-            print(f"DEBUG BATCH: _generate_prompt() called")
-            print(f"DEBUG BATCH: batch_checkbox exists: {hasattr(self, 'batch_checkbox')}")
+            debug(r"_generate_prompt() called", LogArea.BATCH)
+            debug(r"batch_checkbox exists: {hasattr(self, 'batch_checkbox')}", LogArea.BATCH)
             if hasattr(self, 'batch_checkbox'):
-                print(f"DEBUG BATCH: batch_checkbox checked: {self.batch_checkbox.isChecked()}")
-                print(f"DEBUG BATCH: batch_checkbox object: {self.batch_checkbox}")
-                print(f"DEBUG BATCH: batch_checkbox state: {self.batch_checkbox.checkState()}")
-                print(f"DEBUG BATCH: batch_size_input value: {self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 'N/A'}")
-                print(f"DEBUG BATCH: seed_mode_combo value: {self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else 'N/A'}")
+                debug(r"batch_checkbox checked: {self.batch_checkbox.isChecked()}", LogArea.BATCH)
+                debug(r"batch_checkbox object: {self.batch_checkbox}", LogArea.BATCH)
+                debug(r"batch_checkbox state: {self.batch_checkbox.checkState()}", LogArea.BATCH)
+                debug(r"batch_size_input value: {self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 'N/A'}", LogArea.BATCH)
+                debug(r"seed_mode_combo value: {self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else 'N/A'}", LogArea.BATCH)
         
         # Unified approach: always call _generate_batch_prompts()
         # Single submission is treated as batch of 1 with "fixed" seed mode
         if self.debug_enabled:
-            print(f"DEBUG BATCH: Calling _generate_batch_prompts() (unified approach)")
+            debug(r"Calling _generate_batch_prompts() (unified approach)", LogArea.BATCH)
         self._generate_batch_prompts()
 
 
@@ -1246,7 +1244,7 @@ class MainWindow(QMainWindow):
     def _generate_batch_prompts(self):
         """Generate multiple prompts in batch using different seeds - unified approach for single and batch."""
         if self.debug_enabled:
-            print(f"DEBUG BATCH: _generate_batch_prompts() called")
+            debug(r"_generate_batch_prompts() called", LogArea.BATCH)
         
         # Initialize variables outside try block to avoid UnboundLocalError
         llm_model = None  # No default fallback - let the widget handle it
@@ -1259,7 +1257,7 @@ class MainWindow(QMainWindow):
         self._generating_prompt = True
         
         if self.debug_enabled:
-            print(f"DEBUG BATCH: Staying on current position during generation")
+            debug(r"Staying on current position during generation", LogArea.BATCH)
         
         try:
             # Log the generation attempt
@@ -1274,18 +1272,18 @@ class MainWindow(QMainWindow):
                 batch_size = self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 5
                 seed_mode = self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else "increment"
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Batch mode - size: {batch_size}, mode: {seed_mode}")
+                    debug(r"Batch mode - size: {batch_size}, mode: {seed_mode}", LogArea.BATCH)
             else:
                 # Single submission treated as batch of 1 with "fixed" seed mode
                 batch_size = 1
                 seed_mode = "fixed"  # Always use current seed unchanged for single submission
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Single mode (batch of 1) - size: {batch_size}, mode: {seed_mode}")
+                    debug(r"Single mode (batch of 1) - size: {batch_size}, mode: {seed_mode}", LogArea.BATCH)
             
             base_seed = self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
             
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Batch parameters - size: {batch_size}, mode: {seed_mode}, base_seed: {base_seed}")
+                debug(r"Batch parameters - size: {batch_size}, mode: {seed_mode}, base_seed: {base_seed}", LogArea.BATCH)
             
             # Validate that LLM instructions are selected
             llm_instructions = self.llm_instructions_widget.get_llm_instruction_content() if hasattr(self, 'llm_instructions_widget') else ""
@@ -1302,9 +1300,9 @@ class MainWindow(QMainWindow):
             content_rating = selected_filters[0] if selected_filters else first_filter
             
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Using LLM model: {llm_model}")
-                print(f"DEBUG BATCH: Using content rating: {content_rating}")
-                print(f"DEBUG BATCH: Starting batch generation loop for {batch_size} prompts")
+                debug(r"Using LLM model: {llm_model}", LogArea.BATCH)
+                debug(r"Using content rating: {content_rating}", LogArea.BATCH)
+                debug(r"Starting batch generation loop for {batch_size} prompts", LogArea.BATCH)
             
             # Validate LLM model is available
             if not llm_model:
@@ -1323,7 +1321,7 @@ class MainWindow(QMainWindow):
             # Generate batch prompts sequentially
             for i in range(batch_size):
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Starting iteration {i+1}/{batch_size}")
+                    debug(r"Starting iteration {i+1}/{batch_size}", LogArea.BATCH)
                 
                 # Calculate seed for this iteration
                 if seed_mode == "fixed":
@@ -1340,7 +1338,7 @@ class MainWindow(QMainWindow):
                     current_seed = base_seed + i  # Default to increment
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - calculated seed: {current_seed}")
+                    debug(r"Iteration {i+1} - calculated seed: {current_seed}", LogArea.BATCH)
                 
                 # Update status for this iteration
                 self._show_status_message(f"Generating {i+1}/{batch_size} prompts (seed: {current_seed})...")
@@ -1361,20 +1359,20 @@ class MainWindow(QMainWindow):
                 )
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - calling prompt engine.generate_prompt() with model: {llm_model}")
+                    debug(r"Iteration {i+1} - calling prompt engine.generate_prompt() with model: {llm_model}", LogArea.BATCH)
                 
                 # Generate prompt using the engine - pass the LLM model explicitly
                 final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled, llm_model)
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - received final prompt (length: {len(final_prompt)})")
-                    print(f"DEBUG BATCH: Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'")
+                    debug(r"Iteration {i+1} - received final prompt (length: {len(final_prompt)})", LogArea.BATCH)
+                    debug(r"Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'", LogArea.BATCH)
                 
                 # Generate summary text for this iteration using the current seed (before saving to history)
                 summary_text = self._generate_preview_text_with_seed(current_seed)
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - summary: '{summary_text}'")
+                    debug(r"Iteration {i+1} - summary: '{summary_text}'", LogArea.BATCH)
                 
                 # Save to history with final prompt (each gets individual history entry)
                 self._save_to_history(final_prompt, summary_text, current_seed)
@@ -1383,7 +1381,7 @@ class MainWindow(QMainWindow):
                 current_pos, total_count = self.history_manager.get_navigation_info()
                 
                 if self.debug_enabled:
-                    print(f"DEBUG BATCH: Iteration {i+1} - saved to history (state: {current_pos}/{total_count})")
+                    debug(r"Iteration {i+1} - saved to history (state: {current_pos}/{total_count})", LogArea.BATCH)
                 
                 # Update progress
                 progress = (i + 1) / batch_size * 100
@@ -1393,7 +1391,7 @@ class MainWindow(QMainWindow):
             generation_time = (datetime.now() - start_time).total_seconds()
             
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Generation completed - {batch_size} prompts in {generation_time:.2f}s")
+                debug(r"Generation completed - {batch_size} prompts in {generation_time:.2f}s", LogArea.BATCH)
             
             # Log successful generation
             if self.logger:
@@ -1430,7 +1428,7 @@ class MainWindow(QMainWindow):
             self._just_finished_generation = False
             
             if self.debug_enabled:
-                print(f"DEBUG BATCH: Error in generation: {str(e)}")
+                debug(r"Error in generation: {str(e)}", LogArea.BATCH)
             
             # Log the error
             if self.logger:
@@ -1560,9 +1558,9 @@ class MainWindow(QMainWindow):
     def _refresh_existing_tags(self):
         """Refresh existing tags to check if they're still missing after snippet reload."""
         try:
-            print(f"DEBUG REFRESH: Starting _refresh_existing_tags()")
+            debug(r"Starting _refresh_existing_tags()", LogArea.REFRESH)
             selected_filters = self._get_selected_filters()
-            print(f"DEBUG REFRESH: Current filters: {selected_filters}")
+            debug(r"Current filters: {selected_filters}", LogArea.REFRESH)
             
             # Get all tag field widgets
             tag_widgets = [
@@ -1572,27 +1570,27 @@ class MainWindow(QMainWindow):
                 self.details_widget
             ]
             
-            print(f"DEBUG REFRESH: Found {len(tag_widgets)} tag widgets")
+            debug(r"Found {len(tag_widgets)} tag widgets", LogArea.REFRESH)
             
             refresh_count = 0
             for i, widget in enumerate(tag_widgets):
                 if widget is None:
-                    print(f"DEBUG REFRESH: Widget {i} is None")
+                    debug(r"Widget {i} is None", LogArea.REFRESH)
                     continue
-                print(f"DEBUG REFRESH: Checking widget {i} - {type(widget).__name__} - has refresh_tags: {hasattr(widget, 'refresh_tags')}")
+                debug(r"Checking widget {i} - {type(widget).__name__} - has refresh_tags: {hasattr(widget, 'refresh_tags')}", LogArea.REFRESH)
                 if hasattr(widget, 'refresh_tags'):
-                    print(f"DEBUG REFRESH: Refreshing widget {i} - {type(widget).__name__}")
+                    debug(r"Refreshing widget {i} - {type(widget).__name__}", LogArea.REFRESH)
                     widget.refresh_tags()
                     refresh_count += 1
                 else:
-                    print(f"DEBUG REFRESH: Widget {i} - {type(widget).__name__} does NOT have refresh_tags method")
+                    debug(r"Widget {i} - {type(widget).__name__} does NOT have refresh_tags method", LogArea.REFRESH)
             
-            print(f"DEBUG REFRESH: Refreshed {refresh_count} tag widgets")
+            debug(r"Refreshed {refresh_count} tag widgets", LogArea.REFRESH)
                     
         except Exception as e:
             import traceback
-            print(f"Error refreshing existing tags: {e}")
-            print(f"DEBUG REFRESH: Exception traceback:")
+            error(r"refreshing existing tags: {e}", LogArea.ERROR)
+            debug(r"Exception traceback:", LogArea.REFRESH)
             traceback.print_exc()
     
     def _refresh_snippet_popups(self):
@@ -1605,12 +1603,12 @@ class MainWindow(QMainWindow):
                     if hasattr(widget, 'selected_filters'):
                         widget.refresh_snippets(widget.selected_filters)
                 except Exception as e:
-                    print(f"Error refreshing snippet popup: {e}")
+                    error(r"refreshing snippet popup: {e}", LogArea.ERROR)
             elif hasattr(widget, 'refresh_theme') and callable(widget.refresh_theme):
                 try:
                     widget.refresh_theme()
                 except Exception as e:
-                    print(f"Error refreshing popup theme: {e}")
+                    error(r"refreshing popup theme: {e}", LogArea.ERROR)
     
     def _recreate_filter_menus(self):
         """Completely recreate the filter menus with updated available filters."""
@@ -1624,7 +1622,7 @@ class MainWindow(QMainWindow):
             # Find the Filters menu
             menubar = self.menuBar()
             if not menubar:
-                print("Warning: No menubar found")
+                warning(r"No menubar found", LogArea.GENERAL)
                 return
                 
             # Find and remove the existing Filters menu
@@ -1656,7 +1654,7 @@ class MainWindow(QMainWindow):
                     filters_menu.addAction(action)
                     self.filter_actions[filter_name] = action
                 except Exception as e:
-                    print(f"Error adding filter action {filter_name}: {e}")
+                    error(r"adding filter action {filter_name}: {e}", LogArea.ERROR)
             
             # Add the new menu to the menubar at the original position
             if filters_index >= 0:
@@ -1667,7 +1665,7 @@ class MainWindow(QMainWindow):
                 menubar.addMenu(filters_menu)
                     
         except Exception as e:
-            print(f"Error recreating filter menus: {e}")
+            error(r"recreating filter menus: {e}", LogArea.ERROR)
     
     def _refresh_filter_menus(self):
         """Refresh the filter menus with updated available filters."""
@@ -1681,7 +1679,7 @@ class MainWindow(QMainWindow):
             # Find the Filters menu - be more defensive about menu access
             menubar = self.menuBar()
             if not menubar:
-                print("Warning: No menubar found")
+                warning(r"No menubar found", LogArea.GENERAL)
                 return
                 
             filters_menu = None
@@ -1691,12 +1689,12 @@ class MainWindow(QMainWindow):
                     break
             
             if not filters_menu:
-                print("Warning: Filters menu not found")
+                warning(r"Filters menu not found", LogArea.GENERAL)
                 return
                 
             # Check if menu is still valid
             if not filters_menu.isWidgetType():
-                print("Warning: Filters menu is not a valid widget")
+                warning(r"Filters menu is not a valid widget", LogArea.GENERAL)
                 return
             
             # Clear existing filter actions
@@ -1704,7 +1702,7 @@ class MainWindow(QMainWindow):
                 filters_menu.clear()
                 self.filter_actions.clear()
             except Exception as e:
-                print(f"Error clearing filter menu: {e}")
+                error(r"clearing filter menu: {e}", LogArea.ERROR)
                 return
                 
             # Add updated filter actions
@@ -1718,10 +1716,10 @@ class MainWindow(QMainWindow):
                     filters_menu.addAction(action)
                     self.filter_actions[filter_name] = action
                 except Exception as e:
-                    print(f"Error adding filter action {filter_name}: {e}")
+                    error(r"adding filter action {filter_name}: {e}", LogArea.ERROR)
                     
         except Exception as e:
-            print(f"Error refreshing filter menus: {e}")
+            error(r"refreshing filter menus: {e}", LogArea.ERROR)
     
     def _generate_preview_text_with_seed(self, seed: int) -> str:
         """Generate preview text from current field values using a specific seed."""
@@ -1780,7 +1778,7 @@ class MainWindow(QMainWindow):
         # Don't update if we're transitioning (prevents cascading)
         if self.navigation_state == NavigationState.TRANSITIONING and not force_update:
             if self.debug_enabled:
-                print("DEBUG NAV: Preview update skipped - transitioning")
+                info(r"DEBUG NAV: Preview update skipped - transitioning", LogArea.GENERAL)
             return
         
         # SIMPLE FLAG-BASED LOGIC: Handle field changes based on current position
@@ -1790,7 +1788,7 @@ class MainWindow(QMainWindow):
             if current_pos > 0:  # User is on history (1/X, 2/X, 3/X, etc.)
                 # User modified fields while viewing history - cache current state as new 0/X and jump
                 if self.debug_enabled:
-                    print(f"DEBUG NAV: User modified fields on history position {current_pos}/{total_count} - caching as new 0/X")
+                    debug(r"User modified fields on history position {current_pos}/{total_count} - caching as new 0/X", LogArea.NAVIGATION)
                 
                 # Set restoring flag to prevent cascading during the entire operation
                 self._restoring_state = True
@@ -1813,7 +1811,7 @@ class MainWindow(QMainWindow):
                         self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
                         
                     if self.debug_enabled:
-                        print("DEBUG NAV: Completed smart jump to current state")
+                        info(r"DEBUG NAV: Completed smart jump to current state", LogArea.GENERAL)
                 finally:
                     # Clear flag immediately (no timer needed)
                     self._restoring_state = False
@@ -1822,7 +1820,7 @@ class MainWindow(QMainWindow):
             elif current_pos == 0:  # User is on 0/X (current state)
                 # User modified fields on current state - update the cache
                 if self.debug_enabled:
-                    print("DEBUG NAV: User modified fields on 0/X - updating cache")
+                    info(r"DEBUG NAV: User modified fields on 0/X - updating cache", LogArea.GENERAL)
                 self._cache_current_state()
         
         try:
@@ -1830,7 +1828,7 @@ class MainWindow(QMainWindow):
             preview_text = self._generate_preview_text()
             
             if self.debug_enabled:
-                print(f"DEBUG NAV: Generated preview text: '{preview_text}'")
+                debug(r"Generated preview text: '{preview_text}'", LogArea.NAVIGATION)
             
             # Update preview panel - only if there's actual content
             if preview_text.strip():
@@ -1840,7 +1838,7 @@ class MainWindow(QMainWindow):
             self._update_status_bar()
             
         except Exception as e:
-            print(f"Error updating preview: {e}")
+            error(r"updating preview: {e}", LogArea.ERROR)
             if hasattr(self, 'preview_panel'):
                 self.preview_panel.update_preview("", is_final=False, preserve_tab=preserve_tab)
     
@@ -1907,9 +1905,9 @@ class MainWindow(QMainWindow):
         if self.logger:
             self.logger.log_gui_action(f"Filter changed", f"{filter_name}: {'checked' if checked else 'unchecked'}")
         
-        print(f"DEBUG FILTER: Filter {filter_name} {'checked' if checked else 'unchecked'}")
+        debug(r"Filter {filter_name} {'checked' if checked else 'unchecked'}", LogArea.FILTERS)
         selected_filters = self._get_selected_filters()
-        print(f"DEBUG FILTER: Current selected filters: {selected_filters}")
+        debug(r"Current selected filters: {selected_filters}", LogArea.FILTERS)
         
         # Update snippet dropdowns with new filter selection
         self._update_snippet_filters()
@@ -1918,7 +1916,7 @@ class MainWindow(QMainWindow):
         self._refresh_open_snippet_popups()
         
         # Refresh existing tags to check if they're still missing with new filter selection
-        print(f"DEBUG FILTER: Calling _refresh_existing_tags()")
+        debug(r"Calling _refresh_existing_tags()", LogArea.FILTERS)
         self._refresh_existing_tags()
         
         # Update preview
@@ -2044,14 +2042,28 @@ class MainWindow(QMainWindow):
                 if 'llm_model' in prefs and hasattr(self, 'llm_widget'):
                     self.llm_widget.set_value(prefs['llm_model'])
                 
-                # Load Ollama preferences
-                if 'auto_start_ollama' in prefs and hasattr(self, 'auto_start_ollama_action'):
-                    self.auto_start_ollama_action.setChecked(prefs['auto_start_ollama'])
-                if 'kill_ollama_on_exit' in prefs and hasattr(self, 'kill_ollama_on_exit_action'):
-                    self.kill_ollama_on_exit_action.setChecked(prefs['kill_ollama_on_exit'])
+                # Load Ollama preferences with proper initialization
+                if hasattr(self, 'auto_start_ollama_action'):
+                    auto_start_value = prefs.get('auto_start_ollama', False)
+                    self.auto_start_ollama_action.setChecked(auto_start_value)
+                    debug(f"Loaded auto_start_ollama preference: {auto_start_value}", LogArea.GENERAL)
+                
+                if hasattr(self, 'kill_ollama_on_exit_action'):
+                    kill_on_exit_value = prefs.get('kill_ollama_on_exit', True)
+                    self.kill_ollama_on_exit_action.setChecked(kill_on_exit_value)
+                    debug(f"Loaded kill_ollama_on_exit preference: {kill_on_exit_value}", LogArea.GENERAL)
+            else:
+                # First time running - set default values and save them
+                debug("No preferences file found, setting default values", LogArea.GENERAL)
+                if hasattr(self, 'auto_start_ollama_action'):
+                    self.auto_start_ollama_action.setChecked(False)
+                if hasattr(self, 'kill_ollama_on_exit_action'):
+                    self.kill_ollama_on_exit_action.setChecked(True)
+                # Save default preferences
+                self._save_preferences()
                     
         except Exception as e:
-            print(f"Warning: Could not load preferences: {e}")
+            warning(r"Could not load preferences: {e}", LogArea.GENERAL)
     
     def _save_preferences(self):
         """Save current preferences."""
@@ -2084,16 +2096,18 @@ class MainWindow(QMainWindow):
                 json.dump(prefs, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
-            print(f"Warning: Could not save preferences: {e}")
+            warning(r"Could not save preferences: {e}", LogArea.GENERAL)
 
     def _toggle_auto_start_ollama(self):
         """Toggle auto-start Ollama on startup preference."""
         if hasattr(self, 'auto_start_ollama_action'):
+            debug(f"Auto-start Ollama preference changed to: {self.auto_start_ollama_action.isChecked()}", LogArea.GENERAL)
             self._save_preferences()
     
     def _toggle_kill_ollama_on_exit(self):
         """Toggle kill Ollama on exit preference."""
         if hasattr(self, 'kill_ollama_on_exit_action'):
+            debug(f"Kill Ollama on exit preference changed to: {self.kill_ollama_on_exit_action.isChecked()}", LogArea.GENERAL)
             self._save_preferences()
     
     def _auto_start_ollama(self):
@@ -2101,10 +2115,10 @@ class MainWindow(QMainWindow):
         try:
             # Check if Ollama is already running
             if self._is_ollama_running():
-                print("DEBUG OLLAMA: Ollama is already running, skipping auto-start")
+                info(r"DEBUG OLLAMA: Ollama is already running, skipping auto-start", LogArea.GENERAL)
                 return
             
-            print("DEBUG OLLAMA: Auto-starting Ollama...")
+            info(r"DEBUG OLLAMA: Auto-starting Ollama...", LogArea.GENERAL)
             
             # Start Ollama in background
             def start_ollama_thread():
@@ -2117,7 +2131,7 @@ class MainWindow(QMainWindow):
                     # Update UI on main thread
                     QTimer.singleShot(0, self._on_ollama_started)
                 except Exception as e:
-                    print(f"DEBUG OLLAMA: Auto-start failed: {str(e)}")
+                    debug(r"Auto-start failed: {str(e)}", LogArea.OLLAMA)
             
             # Start in background thread
             thread = threading.Thread(target=start_ollama_thread, daemon=True)
@@ -2127,7 +2141,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Auto-starting Ollama...")
             
         except Exception as e:
-            print(f"DEBUG OLLAMA: Error during auto-start: {str(e)}")
+            debug(r"Error during auto-start: {str(e)}", LogArea.OLLAMA)
 
     def _start_ollama(self):
         """Start Ollama server in background."""
@@ -2177,7 +2191,7 @@ class MainWindow(QMainWindow):
     def _refresh_llm_models(self):
         """Refresh the LLM model list."""
         if hasattr(self, 'llm_widget'):
-            print(f"DEBUG OLLAMA: User requested model refresh")
+            debug(r"User requested model refresh", LogArea.OLLAMA)
             self.llm_widget.refresh_connection()
             self.statusBar().showMessage("Models refreshed.")
 
@@ -2194,12 +2208,20 @@ class MainWindow(QMainWindow):
         """Called when Ollama starts successfully."""
         self.statusBar().showMessage("Ollama started successfully.")
         
-        # Refresh LLM models
+        # Refresh LLM models with a slight delay to ensure Ollama is fully ready
         if hasattr(self, 'llm_widget'):
-            print(f"DEBUG OLLAMA: Ollama started, refreshing models...")
-            self.llm_widget.refresh_connection()
+            debug(r"Ollama started, refreshing models...", LogArea.OLLAMA)
+            # Use QTimer to ensure this runs on the main thread and with a slight delay
+            QTimer.singleShot(1000, lambda: self._refresh_models_after_ollama_start())
         
         QMessageBox.information(self, "Ollama", "Ollama started successfully!")
+    
+    def _refresh_models_after_ollama_start(self):
+        """Refresh models after Ollama has started."""
+        if hasattr(self, 'llm_widget'):
+            debug(r"Refreshing models after Ollama start...", LogArea.OLLAMA)
+            self.llm_widget.refresh_connection()
+            self.statusBar().showMessage("Models refreshed after Ollama start.")
 
     def _on_ollama_killed(self):
         """Called when Ollama is killed."""
@@ -2218,27 +2240,27 @@ class MainWindow(QMainWindow):
         try:
             if hasattr(self, 'llm_widget'):
                 current_model = self.llm_widget.get_value()
-                print(f"DEBUG OLLAMA: Unloading model '{current_model}' on application close")
+                debug(r"Unloading model '{current_model}' on application close", LogArea.OLLAMA)
                 
                 # Get prompt engine and unload model
                 prompt_engine = self._get_prompt_engine()
                 if prompt_engine:
                     success = prompt_engine.unload_llm_model(current_model)
                     if success:
-                        print(f"DEBUG OLLAMA: Successfully unloaded model '{current_model}'")
+                        debug(r"Successfully unloaded model '{current_model}'", LogArea.OLLAMA)
                     else:
-                        print(f"DEBUG OLLAMA: Failed to unload model '{current_model}'")
+                        debug(r"Failed to unload model '{current_model}'", LogArea.OLLAMA)
                 else:
-                    print("DEBUG OLLAMA: No prompt engine available for model unloading")
+                    info(r"DEBUG OLLAMA: No prompt engine available for model unloading", LogArea.GENERAL)
         except Exception as e:
-            print(f"DEBUG OLLAMA: Error during model unloading: {str(e)}")
+            debug(r"Error during model unloading: {str(e)}", LogArea.OLLAMA)
         
         # Kill Ollama on exit if user preference is set
         if hasattr(self, 'kill_ollama_on_exit_action') and self.kill_ollama_on_exit_action.isChecked():
             try:
                 self._kill_ollama()
             except Exception as e:
-                print(f"DEBUG OLLAMA: Error killing Ollama on exit: {str(e)}")
+                debug(r"Error killing Ollama on exit: {str(e)}", LogArea.OLLAMA)
         
         # Save window size to preferences
         theme_manager.set_preference("window_width", self.width())
@@ -2251,7 +2273,7 @@ class MainWindow(QMainWindow):
     
     def _navigate_history_back(self):
         """Navigate to previous history entry."""
-        print(f"DEBUG NAV: User clicked BACK button")
+        debug(r"User clicked BACK button", LogArea.NAVIGATION)
         self._intentionally_navigating = True
         try:
             if self.history_manager.navigate_back():
@@ -2262,7 +2284,7 @@ class MainWindow(QMainWindow):
     
     def _navigate_history_forward(self):
         """Navigate to next history entry."""
-        print(f"DEBUG NAV: User clicked FORWARD button")
+        debug(r"User clicked FORWARD button", LogArea.NAVIGATION)
         self._intentionally_navigating = True
         try:
             if self.history_manager.navigate_forward():
@@ -2293,7 +2315,7 @@ class MainWindow(QMainWindow):
     
     def _jump_to_history_position(self, position: int):
         """Jump to specific history position."""
-        print(f"DEBUG NAV: User manually entered position {position}")
+        debug(r"User manually entered position {position}", LogArea.NAVIGATION)
         self._intentionally_navigating = True
         try:
             if self.history_manager.jump_to_position(position):
@@ -2307,7 +2329,7 @@ class MainWindow(QMainWindow):
         # Don't jump if we're intentionally navigating to history entries
         if hasattr(self, '_intentionally_navigating') and self._intentionally_navigating:
             if self.debug_enabled:
-                print("DEBUG NAV: Skipping jump to current - intentionally navigating")
+                info(r"DEBUG NAV: Skipping jump to current - intentionally navigating", LogArea.GENERAL)
             return False
         
         # Only jump if we're in history mode (not on 0/X)
@@ -2315,7 +2337,7 @@ class MainWindow(QMainWindow):
         should_jump = current_pos > 0  # 0 = current state, 1+ = history entries
         
         if self.debug_enabled:
-            print(f"DEBUG NAV: _should_jump_to_current_state: current_pos={current_pos}, total_count={total_count}, should_jump={should_jump}")
+            debug(r"_should_jump_to_current_state: current_pos={current_pos}, total_count={total_count}, should_jump={should_jump}", LogArea.NAVIGATION)
         
         return should_jump
     
@@ -2327,7 +2349,7 @@ class MainWindow(QMainWindow):
                 widget.blockSignals(True)
                 self._blocked_widgets.append(widget)
         if self.debug_enabled:
-            print(f"DEBUG NAV: Blocked signals for {len(self._blocked_widgets)} widgets")
+            debug(r"Blocked signals for {len(self._blocked_widgets)} widgets", LogArea.NAVIGATION)
     
     def _unblock_all_field_signals(self):
         """Unblock signals from all field widgets."""
@@ -2336,12 +2358,12 @@ class MainWindow(QMainWindow):
                 widget.blockSignals(False)
         self._blocked_widgets = []
         if self.debug_enabled:
-            print("DEBUG NAV: Unblocked all field widget signals")
+            info(r"DEBUG NAV: Unblocked all field widget signals", LogArea.GENERAL)
     
     def _cache_current_state(self):
         """Cache the current field state as 0/X state."""
         if self.debug_enabled:
-            print("DEBUG NAV: Caching current state")
+            info(r"DEBUG NAV: Caching current state", LogArea.GENERAL)
         
         # Get current field state
         field_data = {}
@@ -2354,20 +2376,20 @@ class MainWindow(QMainWindow):
         self._cached_current_state = field_data
         
         if self.debug_enabled:
-            print(f"DEBUG NAV: Cached {len(field_data)} fields")
+            debug(r"Cached {len(field_data)} fields", LogArea.NAVIGATION)
     
     def _restore_cached_current_state(self):
         """Restore the cached 0/X state to the fields."""
         if not self._cached_current_state or self._restoring_state:
             if self.debug_enabled:
                 if not self._cached_current_state:
-                    print("DEBUG NAV: No cached current state to restore")
+                    info(r"DEBUG NAV: No cached current state to restore", LogArea.GENERAL)
                 else:
-                    print("DEBUG NAV: Already restoring state, skipping")
+                    info(r"DEBUG NAV: Already restoring state, skipping", LogArea.GENERAL)
             return
         
         if self.debug_enabled:
-            print("DEBUG NAV: Restoring cached current state")
+            info(r"DEBUG NAV: Restoring cached current state", LogArea.GENERAL)
         
         # Set flag to prevent recursive calls
         self._restoring_state = True
@@ -2386,7 +2408,7 @@ class MainWindow(QMainWindow):
                         widget.setPlainText(field_data)
                     
                     if self.debug_enabled:
-                        print(f"DEBUG NAV: Restored field {field_key}: {type(field_data)}")
+                        debug(r"Restored field {field_key}: {type(field_data)}", LogArea.NAVIGATION)
         finally:
             # Unblock signals
             self._unblock_all_field_signals()
@@ -2399,7 +2421,7 @@ class MainWindow(QMainWindow):
         # Prevent recursive calls
         if hasattr(self, '_jumping_to_current') and self._jumping_to_current:
             if self.debug_enabled:
-                print("DEBUG NAV: Already jumping to current state, skipping")
+                info(r"DEBUG NAV: Already jumping to current state, skipping", LogArea.GENERAL)
             return
         
         # Set flag to prevent recursive calls
@@ -2407,7 +2429,7 @@ class MainWindow(QMainWindow):
         
         try:
             if self.debug_enabled:
-                print("DEBUG NAV: Starting jump to current state")
+                info(r"DEBUG NAV: Starting jump to current state", LogArea.GENERAL)
             
             # Jump to position 0 (current state) FIRST
             self.history_manager.jump_to_position(0)
@@ -2423,7 +2445,7 @@ class MainWindow(QMainWindow):
                 self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
                 
             if self.debug_enabled:
-                print("DEBUG NAV: Completed jump to current state")
+                info(r"DEBUG NAV: Completed jump to current state", LogArea.GENERAL)
         finally:
             # Clear flag immediately (no timer needed)
             self._jumping_to_current = False
@@ -2442,31 +2464,31 @@ class MainWindow(QMainWindow):
         try:
             # Restore field data
             if self.debug_enabled:
-                print(f"DEBUG NAV: Starting field restoration for {len(entry.field_data)} fields")
+                debug(r"Starting field restoration for {len(entry.field_data)} fields", LogArea.NAVIGATION)
             for field_name, field_data in entry.field_data.items():
                 if self.debug_enabled:
-                    print(f"DEBUG NAV: Processing field {field_name}: {type(field_data)}")
+                    debug(r"Processing field {field_name}: {type(field_data)}", LogArea.NAVIGATION)
                 if hasattr(self, f'{field_name}_widget'):
                     widget = getattr(self, f'{field_name}_widget')
                     if self.debug_enabled:
-                        print(f"DEBUG NAV: Found widget for {field_name}")
+                        debug(r"Found widget for {field_name}", LogArea.NAVIGATION)
                     
                     if isinstance(field_data, dict) and field_data.get('type') == 'tags':
                         # Restore tags
                         from ..gui.tag_widgets_qt import Tag, TagType
                         tags = [Tag.from_dict(tag_data) for tag_data in field_data['tags']]
                         if self.debug_enabled:
-                            print(f"DEBUG NAV: Restoring {len(tags)} tags for field {field_name}: {[tag.text for tag in tags]}")
+                            debug(r"Restoring {len(tags)} tags for field {field_name}: {[tag.text for tag in tags]}", LogArea.NAVIGATION)
                         widget.set_tags(tags)
                     elif isinstance(field_data, dict) and field_data.get('type') == 'text':
                         # Restore plain text
                         if self.debug_enabled:
-                            print(f"DEBUG NAV: Restoring text for field {field_name}: '{field_data['value']}'")
+                            debug(r"Restoring text for field {field_name}: '{field_data['value']}'", LogArea.NAVIGATION)
                         widget.set_value(field_data['value'])
                     else:
                         # Legacy format - treat as plain text
                         if self.debug_enabled:
-                            print(f"DEBUG NAV: Restoring legacy text for field {field_name}: '{field_data}'")
+                            debug(r"Restoring legacy text for field {field_name}: '{field_data}'", LogArea.NAVIGATION)
                         widget.set_value(str(field_data))
             
             # Restore filters
@@ -2510,8 +2532,8 @@ class MainWindow(QMainWindow):
         else:  # Final Prompt tab
             preview_text = self.preview_panel.final_text.toPlainText()
         
-        print(f"DEBUG LOAD: Preview text from tab {current_tab}:")
-        print(f"DEBUG LOAD: {preview_text}")
+        debug(r"Preview text from tab {current_tab}:", LogArea.LOAD)
+        debug(r"{preview_text}", LogArea.LOAD)
         
         if not preview_text.strip():
             return
@@ -2528,9 +2550,9 @@ class MainWindow(QMainWindow):
                 value = value.strip()
                 if value:  # Only add non-empty values
                     field_values[field_name] = value
-                    print(f"DEBUG LOAD: Parsed field '{field_name}' = '{value}'")
+                    debug(r"Parsed field '{field_name}' = '{value}'", LogArea.LOAD)
         
-        print(f"DEBUG LOAD: All parsed fields: {field_values}")
+        debug(r"All parsed fields: {field_values}", LogArea.LOAD)
         
         # Get snippet manager for matching existing snippets
         from ..utils.snippet_manager import snippet_manager
@@ -2577,16 +2599,16 @@ class MainWindow(QMainWindow):
                             
                             if matching_result[0] is not None:
                                 snippet_data, category_path, is_category = matching_result
-                                print(f"DEBUG LOAD: MATCH FOUND for '{individual_value}': is_category={is_category}, category_path={category_path}, snippet_data={snippet_data}")
+                                debug(r"MATCH FOUND for '{individual_value}': is_category={is_category}, category_path={category_path}, snippet_data={snippet_data}", LogArea.LOAD)
                                 
                                 if is_category:
                                     # Create category tag
                                     if len(category_path) == 1:
                                         tag = Tag(individual_value, TagType.CATEGORY, category_path=category_path)
-                                        print(f"DEBUG LOAD: Created CATEGORY tag: {individual_value}")
+                                        debug(r"Created CATEGORY tag: {individual_value}", LogArea.LOAD)
                                     else:
                                         tag = Tag(individual_value, TagType.SUBCATEGORY, category_path=category_path)
-                                        print(f"DEBUG LOAD: Created SUBCATEGORY tag: {individual_value}")
+                                        debug(r"Created SUBCATEGORY tag: {individual_value}", LogArea.LOAD)
                                 else:
                                     # Create snippet tag with proper data
                                     if isinstance(snippet_data, dict):
@@ -2594,16 +2616,16 @@ class MainWindow(QMainWindow):
                                         snippet_display_name = snippet_data.get("name", individual_value)
                                         content = snippet_data.get("content", "")
                                         tag = Tag(snippet_display_name, TagType.SNIPPET, data=content)
-                                        print(f"DEBUG LOAD: Created SNIPPET tag (dict): {snippet_display_name}")
+                                        debug(r"Created SNIPPET tag (dict): {snippet_display_name}", LogArea.LOAD)
                                     else:
                                         # Handle simple string snippets
                                         tag = Tag(individual_value, TagType.SNIPPET, data=snippet_data)
-                                        print(f"DEBUG LOAD: Created SNIPPET tag (string): {individual_value}")
+                                        debug(r"Created SNIPPET tag (string): {individual_value}", LogArea.LOAD)
                                 tags.append(tag)
                             else:
                                 # Create user text tag if no snippet found
                                 tag = Tag(individual_value, TagType.USER_TEXT)
-                                print(f"DEBUG LOAD: NO MATCH - Created USER_TEXT tag: {individual_value}")
+                                debug(r"NO MATCH - Created USER_TEXT tag: {individual_value}", LogArea.LOAD)
                                 tags.append(tag)
                         
                         # Set the tags
@@ -2673,7 +2695,7 @@ class MainWindow(QMainWindow):
                                     return subcategory_name, [category_name, subcategory_name], True
             return None, None, False
         except Exception as e:
-            print(f"Error finding matching snippet: {e}")
+            error(r"finding matching snippet: {e}", LogArea.ERROR)
             return None, None, False
     
     def _restore_from_history_entry(self):
@@ -2681,11 +2703,11 @@ class MainWindow(QMainWindow):
         entry = self.history_manager.get_current_entry()
         if entry:
             if self.debug_enabled:
-                print(f"DEBUG NAV: Restoring history entry - seed={entry.seed}, filters={entry.filters}, llm_model={entry.llm_model}")
-                print(f"DEBUG NAV: History entry field data: {list(entry.field_data.keys())}")
-                print(f"DEBUG NAV: History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'")
-                print(f"DEBUG NAV: History entry summary: '{entry.summary_text}'")
-                print(f"DEBUG NAV: _intentionally_navigating flag is: {self._intentionally_navigating}")
+                debug(r"Restoring history entry - seed={entry.seed}, filters={entry.filters}, llm_model={entry.llm_model}", LogArea.NAVIGATION)
+                debug(r"History entry field data: {list(entry.field_data.keys())}", LogArea.NAVIGATION)
+                debug(r"History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION)
+                debug(r"History entry summary: '{entry.summary_text}'", LogArea.NAVIGATION)
+                debug(r"_intentionally_navigating flag is: {self._intentionally_navigating}", LogArea.NAVIGATION)
             
             # Preserve current tab selection
             current_tab = self.preview_panel.tab_widget.currentIndex() if hasattr(self, 'preview_panel') else 0
@@ -2740,7 +2762,7 @@ class MainWindow(QMainWindow):
                 # Restore the final prompt if it exists
                 if entry.final_prompt:
                     if self.debug_enabled:
-                        print(f"DEBUG NAV: Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'") 
+                        debug(r"Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION) 
                     self.preview_panel.final_text.setPlainText(entry.final_prompt)
                     # Set regular font for generated content
                     font = self.preview_panel.final_text.font()
@@ -2765,7 +2787,7 @@ class MainWindow(QMainWindow):
             current_pos, total_count = self.history_manager.get_navigation_info()
             has_history = self.history_manager.has_history()
             
-            print(f"DEBUG NAV: Navigation update - current_pos={current_pos}, total_count={total_count}, is_current_state={current_pos == 0}")
+            debug(r"Navigation update - current_pos={current_pos}, total_count={total_count}, is_current_state={current_pos == 0}", LogArea.NAVIGATION)
             
             # Check if we're in current state (0) or history state (1+)
             is_current_state = current_pos == 0
@@ -2773,7 +2795,7 @@ class MainWindow(QMainWindow):
             # POST-GENERATION HANDLING: Only update navigation controls, don't restore state
             if self._just_finished_generation:
                 if self.debug_enabled:
-                    print(f"DEBUG NAV: Post-generation update - only updating navigation controls")
+                    debug(r"Post-generation update - only updating navigation controls", LogArea.NAVIGATION)
                 self.preview_panel.update_navigation_controls(
                     can_go_back, can_go_forward, current_pos, total_count, has_history, is_current_state
                 )
@@ -2781,12 +2803,12 @@ class MainWindow(QMainWindow):
             
             # Set styling immediately based on state to prevent flashing
             if is_current_state:
-                print(f"DEBUG NAV: Showing CURRENT state (0/{total_count})")
+                debug(r"Showing CURRENT state (0/{total_count})", LogArea.NAVIGATION)
                 # Set current state styling first to prevent flash
                 self.preview_panel.set_history_state(False, total_count)
                 self._show_current_state()
             else:
-                print(f"DEBUG NAV: Showing HISTORY state ({current_pos}/{total_count})")
+                debug(r"Showing HISTORY state ({current_pos}/{total_count})", LogArea.NAVIGATION)
                 # Set history state styling first to prevent flash
                 self.preview_panel.set_history_state(True, total_count)
                 # We're in history state, restore from history entry
@@ -2801,13 +2823,13 @@ class MainWindow(QMainWindow):
         # If we have a cached current state, restore it first
         if self._cached_current_state:
             if self.debug_enabled:
-                print("DEBUG NAV: Restoring cached current state in _show_current_state")
+                info(r"DEBUG NAV: Restoring cached current state in _show_current_state", LogArea.GENERAL)
             self._restore_cached_current_state()
         
         # Generate preview text
         preview_text = self._generate_preview_text()
         
-        print(f"DEBUG NAV: Current state preview text: '{preview_text}'")
+        debug(r"Current state preview text: '{preview_text}'", LogArea.NAVIGATION)
         
         # Update preview panel with current state (only if we have content)
         if preview_text.strip():
@@ -2869,7 +2891,7 @@ class MainWindow(QMainWindow):
         if not getattr(self, '_generating_prompt', False):
             self._update_history_navigation()
         elif self.debug_enabled:
-            print(f"DEBUG BATCH: Skipping navigation update during generation")
+            debug(r"Skipping navigation update during generation", LogArea.BATCH)
     
     def _schedule_preview_update(self):
         """Schedule a debounced preview update (Qt best practice to prevent signal cascading)."""
@@ -2881,5 +2903,5 @@ class MainWindow(QMainWindow):
     def _save_all_prompts(self):
         """Save all prompts (placeholder for future implementation)."""
         # TODO: Implement save all prompts functionality
-        print("Save all prompts functionality not yet implemented")
+        info(r"Save all prompts functionality not yet implemented", LogArea.GENERAL)
 
