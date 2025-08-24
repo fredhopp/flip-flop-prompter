@@ -2813,10 +2813,14 @@ class MainWindow(QMainWindow):
     
     def _schedule_preview_update(self):
         """Schedule a debounced preview update (Qt best practice to prevent signal cascading)."""
-        # Only schedule if not currently restoring state
-        if not (hasattr(self, '_restoring_state') and self._restoring_state):
-            if hasattr(self, '_preview_update_timer'):
-                self._preview_update_timer.start(100)  # 100ms debounce
+        # PREVENT INFINITE RECURSION: Skip if we're currently restoring state
+        if hasattr(self, '_restoring_state') and self._restoring_state:
+            if self.debug_enabled:
+                debug(r"Skipping preview update during state restoration", LogArea.NAVIGATION)
+            return
+        
+        if hasattr(self, '_preview_update_timer'):
+            self._preview_update_timer.start(100)  # 100ms debounce
 
     def _save_all_prompts(self):
         """Save all prompts (placeholder for future implementation)."""
