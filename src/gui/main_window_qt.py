@@ -53,6 +53,10 @@ class MainWindow(QMainWindow):
         # Track total startup time until UI responsiveness
         self._startup_start_time = time.time()
         
+        # Track Ollama process to prevent multiple instances
+        self._ollama_process = None
+        self._ollama_process_lock = threading.Lock()
+        
         init_start = time.time()
         
         # Initialize components with lazy loading
@@ -186,6 +190,8 @@ class MainWindow(QMainWindow):
         # Auto-start Ollama if preference is set
         ollama_start = time.time()
         if hasattr(self, 'auto_start_ollama_action') and self.auto_start_ollama_action.isChecked():
+            info(f"STARTUP: Auto-start Ollama preference is enabled, checking current processes...", LogArea.GENERAL)
+            self._get_ollama_process_info()  # Log current state before auto-start
             self._auto_start_ollama()
         ollama_time = time.time() - ollama_start
         if self.debug_enabled:
@@ -302,7 +308,8 @@ class MainWindow(QMainWindow):
         """Lazy load the prompt engine when first needed."""
         if not self._prompt_engine_initialized:
             from ..core.prompt_engine import PromptEngine
-            self.prompt_engine = PromptEngine()
+            # Pass the process tracker to ensure Ollama process tracking
+            self.prompt_engine = PromptEngine(process_tracker=self._is_ollama_running)
             self._prompt_engine_initialized = True
         return self.prompt_engine
     
@@ -430,6 +437,11 @@ class MainWindow(QMainWindow):
         refresh_models_action = QAction("Refresh Models", self)
         refresh_models_action.triggered.connect(self._refresh_llm_models)
         ollama_menu.addAction(refresh_models_action)
+        
+        # Debug: Show process info
+        debug_process_action = QAction("Debug: Show Process Info", self)
+        debug_process_action.triggered.connect(self._get_ollama_process_info)
+        ollama_menu.addAction(debug_process_action)
         
         # Add separator
         ollama_menu.addSeparator()
@@ -2423,14 +2435,23 @@ class MainWindow(QMainWindow):
             # Start Ollama in background
             def start_ollama():
                 try:
-                    # Use subprocess.Popen to start Ollama in background
-                    process = subprocess.Popen(
-                        ['ollama', 'serve'],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
-                    )
-                    info(r"DEBUG OLLAMA: Ollama started with PID: {process.pid}", LogArea.GENERAL)
+                    with self._ollama_process_lock:
+                        # Double-check that we don't already have a process
+                        if self._ollama_process is not None and self._ollama_process.returncode is None:
+                            info(f"DEBUG OLLAMA: Another thread already started Ollama (PID: {self._ollama_process.pid})", LogArea.GENERAL)
+                            return
+                        
+                        # Use subprocess.Popen to start Ollama in background
+                        creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                        info(f"DEBUG OLLAMA: Starting Ollama with creationflags={creation_flags}", LogArea.GENERAL)
+                        process = subprocess.Popen(
+                            ['ollama', 'serve'],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            creationflags=creation_flags
+                        )
+                        self._ollama_process = process
+                        info(f"DEBUG OLLAMA: Ollama started with PID: {process.pid}", LogArea.GENERAL)
                 except Exception as e:
                     error(r"DEBUG OLLAMA: Failed to start Ollama: {e}", LogArea.GENERAL)
             
@@ -2460,13 +2481,26 @@ class MainWindow(QMainWindow):
             # Start Ollama in background
             def start_ollama_thread():
                 try:
-                    subprocess.Popen(["ollama", "serve"], 
-                                   stdout=subprocess.DEVNULL, 
-                                   stderr=subprocess.DEVNULL)
-                    time.sleep(2)  # Wait for startup
-                    
-                    # Update UI on main thread
-                    QTimer.singleShot(0, self._on_ollama_started)
+                    with self._ollama_process_lock:
+                        # Double-check that we don't already have a process
+                        if self._ollama_process is not None and self._ollama_process.returncode is None:
+                            info(f"DEBUG OLLAMA: Another thread already started Ollama (PID: {self._ollama_process.pid})", LogArea.GENERAL)
+                            QTimer.singleShot(0, lambda: QMessageBox.information(self, "Ollama", "Ollama is already running."))
+                            return
+                        
+                        # Hide console window on Windows
+                        creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                        info(f"STARTUP: Starting Ollama with creationflags={creation_flags}", LogArea.GENERAL)
+                        process = subprocess.Popen(["ollama", "serve"], 
+                                                 stdout=subprocess.DEVNULL, 
+                                                 stderr=subprocess.DEVNULL,
+                                                 creationflags=creation_flags)
+                        self._ollama_process = process
+                        info(f"STARTUP: Ollama process started with PID={process.pid}", LogArea.GENERAL)
+                        time.sleep(2)  # Wait for startup
+                        
+                        # Update UI on main thread
+                        QTimer.singleShot(0, self._on_ollama_started)
                 except Exception as e:
                     QTimer.singleShot(0, lambda: self._on_ollama_error(f"Failed to start Ollama: {str(e)}"))
             
@@ -2487,6 +2521,12 @@ class MainWindow(QMainWindow):
             subprocess.run(["taskkill", "/F", "/IM", "ollama.exe"], 
                           capture_output=True, text=True)
             
+            # Clear our tracked process reference
+            with self._ollama_process_lock:
+                if self._ollama_process is not None:
+                    info(f"DEBUG OLLAMA: Cleared tracked Ollama process reference (PID: {self._ollama_process.pid})", LogArea.GENERAL)
+                    self._ollama_process = None
+            
             # Update UI
             self._on_ollama_killed()
             self.statusBar().showMessage("Ollama killed.")
@@ -2504,10 +2544,29 @@ class MainWindow(QMainWindow):
     def _is_ollama_running(self):
         """Check if Ollama is running."""
         try:
+            # First check if we have a tracked process that's still alive
+            with self._ollama_process_lock:
+                if self._ollama_process is not None:
+                    # Check if our tracked process is still running
+                    # Use returncode instead of poll() to avoid consuming the exit status
+                    if self._ollama_process.returncode is None:
+                        info(f"DEBUG OLLAMA: Found tracked Ollama process (PID: {self._ollama_process.pid})", LogArea.GENERAL)
+                        return True
+                    else:
+                        # Process has terminated, clear our reference
+                        info(f"DEBUG OLLAMA: Tracked Ollama process has terminated (PID: {self._ollama_process.pid})", LogArea.GENERAL)
+                        self._ollama_process = None
+            
+            # Fallback: check for any ollama.exe processes
             result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ollama.exe"], 
                                   capture_output=True, text=True)
-            return "ollama.exe" in result.stdout
-        except:
+            if "ollama.exe" in result.stdout:
+                info(f"DEBUG OLLAMA: Found untracked Ollama process via tasklist", LogArea.GENERAL)
+                return True
+            
+            return False
+        except Exception as e:
+            error(f"DEBUG OLLAMA: Error checking if Ollama is running: {e}", LogArea.GENERAL)
             return False
 
     def _on_ollama_started(self):
@@ -3183,4 +3242,30 @@ class MainWindow(QMainWindow):
                 self.update()
             except Exception:
                 pass
+
+    def _get_ollama_process_info(self):
+        """Get information about current Ollama processes for debugging."""
+        try:
+            # Check our tracked process
+            tracked_info = "None"
+            with self._ollama_process_lock:
+                if self._ollama_process is not None:
+                    if self._ollama_process.returncode is None:
+                        tracked_info = f"Tracked process PID: {self._ollama_process.pid} (running)"
+                    else:
+                        tracked_info = f"Tracked process PID: {self._ollama_process.pid} (terminated)"
+            
+            # Check all ollama.exe processes
+            result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ollama.exe"], 
+                                  capture_output=True, text=True)
+            all_processes = result.stdout.strip()
+            
+            info(f"DEBUG OLLAMA: Process info - Tracked: {tracked_info}", LogArea.GENERAL)
+            if all_processes:
+                info(f"DEBUG OLLAMA: All ollama.exe processes:\n{all_processes}", LogArea.GENERAL)
+            else:
+                info(f"DEBUG OLLAMA: No ollama.exe processes found", LogArea.GENERAL)
+                
+        except Exception as e:
+            error(f"DEBUG OLLAMA: Error getting process info: {e}", LogArea.GENERAL)
 

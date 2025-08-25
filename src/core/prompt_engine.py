@@ -13,10 +13,10 @@ from ..utils.logger import debug, info, warning, error, LogArea
 class PromptEngine:
     """Main engine for generating prompts for different AI models."""
     
-    def __init__(self, use_llm: bool = True):
+    def __init__(self, use_llm: bool = True, process_tracker=None):
         self.model_adapters: Dict[str, ModelAdapter] = {}
         self.use_llm = use_llm
-        self.llm_manager = LLMManager() if use_llm else None
+        self.llm_manager = LLMManager(process_tracker=process_tracker) if use_llm else None
         self._initialize_adapters()
     
     def _initialize_adapters(self):

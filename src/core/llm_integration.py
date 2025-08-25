@@ -32,10 +32,11 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama local LLM provider."""
     
-    def __init__(self, model_name: str = None, base_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = None, base_url: str = "http://localhost:11434", process_tracker=None):
         self.model_name = model_name
         self.base_url = base_url
         self.session = requests.Session()
+        self.process_tracker = process_tracker  # Callback to check if Ollama process is tracked
         
         # Create debug directory in user data folder
         self.debug_dir = Path.home() / "AppData" / "Roaming" / "FlipFlopPrompt" / "debug"
@@ -258,6 +259,14 @@ class OllamaProvider(LLMProvider):
         debug(f"API endpoint: {self.base_url}/api/chat", LogArea.OLLAMA)
         debug(f"Model: {llm_model}", LogArea.OLLAMA)
         debug(f"Payload keys: {list(payload.keys())}", LogArea.OLLAMA)
+        
+        # Check if we have a process tracker and if Ollama is running
+        if self.process_tracker:
+            debug("Checking process tracker before API call", LogArea.OLLAMA)
+            if not self.process_tracker():
+                debug("Process tracker indicates Ollama is not running, attempting to start it", LogArea.OLLAMA)
+                # The process tracker should handle starting Ollama if needed
+                # We'll continue with the API call and let it fail naturally if Ollama is still not available
         
         try:
             debug("Making POST request to Ollama API...", LogArea.OLLAMA)
@@ -662,11 +671,12 @@ Make it sound natural and professional, not like a list of components.
 class LLMManager:
     """Manager for LLM providers."""
     
-    def __init__(self, preferred_provider: str = "auto", llm_model: str = None):
+    def __init__(self, preferred_provider: str = "auto", llm_model: str = None, process_tracker=None):
         self.preferred_provider = preferred_provider
         self.llm_model = llm_model
+        self.process_tracker = process_tracker
         self.providers = {
-            "ollama": OllamaProvider(model_name=llm_model)
+            "ollama": OllamaProvider(model_name=llm_model, process_tracker=process_tracker)
         }
         self.active_provider = None
         self._select_provider()
@@ -709,6 +719,8 @@ class LLMManager:
         """Update the LLM model being used."""
         self.llm_model = model_name
         self.providers["ollama"].model_name = model_name
+        # Update the process tracker in the provider as well
+        self.providers["ollama"].process_tracker = self.process_tracker
         self._select_provider()
     
     def get_available_models(self) -> List[str]:
