@@ -330,8 +330,21 @@ class PreviewPanel(QWidget):
                 """
             self.summary_text.setStyleSheet(summary_style)
             
-            # Style final text
-            final_style = self._get_style_for_state(self.final_state)
+            # Style final text (always use blue background for final prompt tab)
+            if self.final_state == PreviewState.PLACEHOLDER:
+                # For placeholder state in final prompt tab, use blue background
+                final_style = f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('preview_final_bg', '#e6f3ff')};
+                        color: {colors.get('placeholder_fg', '#666666')};
+                        padding: 10px;
+                        font-style: italic;
+                    }}
+                """
+            else:
+                final_style = self._get_style_for_state(self.final_state)
             self.final_text.setStyleSheet(final_style)
             
             # Style final widget container with blue background (always blue)
