@@ -815,6 +815,9 @@ class MainWindow(QMainWindow):
         self.preview_panel.save_requested.connect(self._save_prompt)
         self.preview_panel.save_all_requested.connect(self._save_all_prompts)  # New method to implement
         
+        # Connect the realize signal
+        self.preview_panel.realize_requested.connect(self._realize_summary)
+        
         self.main_layout.addWidget(self.preview_panel)
     
     def _create_status_bar(self):
@@ -2177,7 +2180,7 @@ class MainWindow(QMainWindow):
                     self._restore_cached_current_state()
                     self._update_history_navigation()
                     if self.debug_enabled:
-                        info(r"DEBUG NAV: Completed smart jump to current state", LogArea.GENERAL)
+                        info(r"DEBUG NAV: Completed smart jump to current state", LogArea.NAVIGATION)
                 finally:
                     self._restoring_state = False
                 return
@@ -2185,9 +2188,18 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     info(r"DEBUG NAV: User modified fields on 0/X - updating cache", LogArea.GENERAL)
                 self._cache_current_state()
-        # Do not generate or update preview text here
+        
+        # Update summary text with raw prompt preview (non-realized)
+        try:
+            prompt_data = self._get_current_prompt_data()
+            raw_preview = self._get_prompt_engine().get_prompt_preview(prompt_data)
+            self.preview_panel.set_summary_text(raw_preview)
+        except Exception as e:
+            debug(f"Failed to update summary preview: {e}", LogArea.GENERAL)
+        
+        # Do not generate or update final prompt text here
         if self.debug_enabled:
-            debug(r"_update_preview skipped content generation (Final Prompt updates only on Generate)", LogArea.NAVIGATION)
+            debug(r"_update_preview updated summary, skipped final prompt generation", LogArea.NAVIGATION)
     
     def _update_llm_status_lazy(self):
         """Lazy update LLM status to avoid blocking startup."""
@@ -2641,8 +2653,8 @@ class MainWindow(QMainWindow):
                         self._ollama_process = None
             
             # Fallback: check for any ollama.exe processes
-            result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ollama.exe"], 
-                                  capture_output=True, text=True)
+            result = subprocess.run("tasklist //FI \"IMAGENAME eq ollama.exe\"", 
+                                  capture_output=True, text=True, shell=True)
             if "ollama.exe" in result.stdout:
                 info(f"DEBUG OLLAMA: Found untracked Ollama process via tasklist", LogArea.GENERAL)
                 return True
@@ -2830,7 +2842,7 @@ class MainWindow(QMainWindow):
                 info(r"DEBUG NAV: Cached field '{field_name}' = '{value[:50]}{'...' if len(value) > 50 else ''}'", LogArea.GENERAL)
     
     def _restore_cached_current_state(self):
-        """Restore the cached 0/X state to the fields."""
+        """Restore the cached current state (0/X position)."""
         if not self._cached_current_state:
             if self.debug_enabled:
                 info(r"DEBUG NAV: No cached current state to restore", LogArea.GENERAL)
@@ -2852,6 +2864,15 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'preview_panel'):
             current_pos, total_count = self.history_manager.get_navigation_info()
             self.preview_panel.set_history_state(False, total_count)
+            # Explicitly set placeholder text for 0/X state
+            self.preview_panel.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+        
+        # Ensure placeholder text is shown for current state (0/X)
+        if hasattr(self, 'preview_panel'):
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            self.preview_panel.set_history_state(False, total_count)
+            # Explicitly set placeholder text for 0/X state
+            self.preview_panel.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
     
     def _jump_to_current_state(self):
         """Jump back to current state (0/X) and load the cached state."""
@@ -3117,7 +3138,7 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     debug(r"Post-generation update - only updating navigation controls", LogArea.NAVIGATION)
                 self.preview_panel.update_navigation_controls(
-                    can_go_back, can_go_forward, current_pos, total_count, has_history, is_current_state
+                    current_pos, total_count, can_go_back, can_go_forward
                 )
                 return
             
@@ -3135,7 +3156,7 @@ class MainWindow(QMainWindow):
                 self._restore_from_history_entry()
             
             self.preview_panel.update_navigation_controls(
-                can_go_back, can_go_forward, current_pos, total_count, has_history, is_current_state
+                current_pos, total_count, can_go_back, can_go_forward
             )
     
     def _show_current_state(self):
@@ -3363,8 +3384,8 @@ class MainWindow(QMainWindow):
         # Check all ollama.exe processes
         try:
             result = subprocess.run(
-                ['tasklist', '//FI', 'IMAGENAME eq ollama.exe', '//FO', 'CSV'],
-                capture_output=True, text=True, shell=False
+                'tasklist //FI "IMAGENAME eq ollama.exe" //FO CSV',
+                capture_output=True, text=True, shell=True
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split('\n')
@@ -3383,8 +3404,8 @@ class MainWindow(QMainWindow):
         # Check parent-child relationships using wmic
         try:
             result = subprocess.run(
-                ['wmic', 'process', 'where', 'name="ollama.exe"', 'get', 'ProcessId,ParentProcessId,CommandLine', '//format:csv'],
-                capture_output=True, text=True, shell=False
+                'wmic process where name="ollama.exe" get ProcessId,ParentProcessId,CommandLine /format:csv',
+                capture_output=True, text=True, shell=True
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split('\n')
@@ -3406,4 +3427,57 @@ class MainWindow(QMainWindow):
             info(f"Error checking wmic: {e}", LogArea.OLLAMA)
         
         info("=== End Ollama Process Information ===", LogArea.OLLAMA)
+
+    def _realize_summary(self):
+        """Handle realize button click - update summary with realized values using current seed."""
+        try:
+            # Get current seed
+            current_seed = self._get_current_seed()
+            
+            # Create PromptData object with current seed (realized values)
+            prompt_data = PromptData(
+                style=self.style_widget.get_randomized_value(current_seed) if hasattr(self, 'style_widget') else "",
+                setting=self.setting_widget.get_randomized_value(current_seed) if hasattr(self, 'setting_widget') else "",
+                weather=self.weather_widget.get_randomized_value(current_seed) if hasattr(self, 'weather_widget') else "",
+                date_time=self.datetime_widget.get_randomized_value(current_seed) if hasattr(self, 'datetime_widget') else "",
+                subjects=self.subjects_widget.get_randomized_value(current_seed) if hasattr(self, 'subjects_widget') else "",
+                pose_action=self.pose_widget.get_randomized_value(current_seed) if hasattr(self, 'pose_widget') else "",
+                camera=self.camera_widget.get_randomized_value(current_seed) if hasattr(self, 'camera_widget') else "",
+                framing_action=self.framing_widget.get_randomized_value(current_seed) if hasattr(self, 'framing_widget') else "",
+                grading=self.grading_widget.get_randomized_value(current_seed) if hasattr(self, 'grading_widget') else "",
+                details=self.details_widget.get_randomized_value(current_seed) if hasattr(self, 'details_widget') else "",
+                llm_instructions=""
+            )
+            
+            # Generate the raw prompt preview using the realized values
+            raw_preview = self._get_prompt_engine().get_prompt_preview(prompt_data)
+            
+            # Update the summary text
+            self.preview_panel.set_summary_text(raw_preview)
+            
+            debug(f"PROMPT: Previewed summary with seed {current_seed}", LogArea.PROMPT)
+            
+        except Exception as e:
+            error(f"Failed to preview summary: {e}", LogArea.GENERAL)
+            QMessageBox.warning(self, "Error", f"Failed to preview summary: {str(e)}")
+    
+    def _get_current_prompt_data(self):
+        """Get current prompt data from all fields without randomization."""
+        return PromptData(
+            style=self.style_widget.get_current_text() if hasattr(self, 'style_widget') else "",
+            setting=self.setting_widget.get_current_text() if hasattr(self, 'setting_widget') else "",
+            weather=self.weather_widget.get_current_text() if hasattr(self, 'weather_widget') else "",
+            date_time=self.datetime_widget.get_current_text() if hasattr(self, 'datetime_widget') else "",
+            subjects=self.subjects_widget.get_current_text() if hasattr(self, 'subjects_widget') else "",
+            pose_action=self.pose_widget.get_current_text() if hasattr(self, 'pose_widget') else "",
+            camera=self.camera_widget.get_current_text() if hasattr(self, 'camera_widget') else "",
+            framing_action=self.framing_widget.get_current_text() if hasattr(self, 'framing_widget') else "",
+            grading=self.grading_widget.get_current_text() if hasattr(self, 'grading_widget') else "",
+            details=self.details_widget.get_current_text() if hasattr(self, 'details_widget') else "",
+            llm_instructions=""
+        )
+    
+    def _get_current_seed(self):
+        """Get the current seed value."""
+        return self.seed_widget.get_value() if hasattr(self, 'seed_widget') else 0
 

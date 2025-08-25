@@ -115,8 +115,8 @@ class PreviewPanel(QWidget):
         self.summary_text.setFont(QFont("Consolas", 10))
         summary_layout.addWidget(self.summary_text)
         
-        # Realize button
-        self.realize_button = QPushButton("Realize")
+        # Preview button
+        self.realize_button = QPushButton("Preview")
         self.realize_button.clicked.connect(self.realize_requested.emit)
         summary_layout.addWidget(self.realize_button)
         
@@ -260,6 +260,7 @@ class PreviewPanel(QWidget):
         if is_history:
             self.final_state = PreviewState.HISTORY
         else:
+            # For current state (0/X), always use PLACEHOLDER state
             self.final_state = PreviewState.PLACEHOLDER
         self._apply_styling()
     
