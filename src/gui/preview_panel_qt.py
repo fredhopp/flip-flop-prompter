@@ -142,6 +142,19 @@ class PreviewPanel(QWidget):
         
         # Store reference to final widget for styling
         self.final_widget = final_widget
+        
+        # Apply blue background immediately
+        try:
+            colors = theme_manager.get_theme_colors()
+            final_widget_style = f"""
+                QWidget {{
+                    background-color: {colors.get('preview_final_bg', '#e6f3ff')};
+                    border: none;
+                }}
+            """
+            self.final_widget.setStyleSheet(final_widget_style)
+        except Exception as e:
+            error(f"Error applying initial final widget styling: {e}", LogArea.GENERAL)
     
     def _set_initial_state(self):
         """Set the initial state with placeholder text."""
@@ -321,7 +334,7 @@ class PreviewPanel(QWidget):
             final_style = self._get_style_for_state(self.final_state)
             self.final_text.setStyleSheet(final_style)
             
-            # Style final widget container with blue background
+            # Style final widget container with blue background (always blue)
             try:
                 final_widget_style = f"""
                     QWidget {{
@@ -332,6 +345,43 @@ class PreviewPanel(QWidget):
                 self.final_widget.setStyleSheet(final_widget_style)
             except Exception as e:
                 error(f"Error styling final widget: {e}", LogArea.GENERAL)
+            
+            # Style tab widget to give Final Prompt tab blue background
+            try:
+                tab_style = f"""
+                    QTabWidget::pane {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                    }}
+                    QTabWidget::tab-bar {{
+                        alignment: left;
+                    }}
+                    QTabBar::tab {{
+                        background-color: {colors.get('text_bg', '#ffffff')};
+                        color: {colors.get('text_fg', '#000000')};
+                        padding: 8px 12px;
+                        margin-right: 2px;
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-bottom: none;
+                        border-top-left-radius: 3px;
+                        border-top-right-radius: 3px;
+                    }}
+                    QTabBar::tab:selected {{
+                        background-color: {colors.get('text_bg', '#ffffff')};
+                        border-bottom: 1px solid {colors.get('text_bg', '#ffffff')};
+                    }}
+                    QTabBar::tab:selected:last {{
+                        background-color: {colors.get('preview_final_bg', '#e6f3ff')};
+                        color: {colors.get('preview_final_fg', '#0066cc')};
+                        border-bottom: 1px solid {colors.get('preview_final_bg', '#e6f3ff')};
+                    }}
+                    QTabBar::tab:hover {{
+                        background-color: {colors.get('button_hover_bg', '#f0f0f0')};
+                    }}
+                """
+                self.tab_widget.setStyleSheet(tab_style)
+            except Exception as e:
+                error(f"Error styling tab widget: {e}", LogArea.GENERAL)
             
             # Style realize button
             realize_style = f"""
