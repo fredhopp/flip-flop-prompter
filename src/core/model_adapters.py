@@ -19,6 +19,19 @@ class ModelAdapter(ABC):
         """Format prompt data for this specific model."""
         pass
     
+    def format_prompt_with_logging(self, prompt_data: PromptData) -> str:
+        """Format prompt data with detailed logging."""
+        from ..utils.logger import debug, LogArea
+        
+        debug(f"PROMPT: Starting {self.name} adapter formatting", LogArea.PROMPT)
+        
+        result = self.format_prompt(prompt_data)
+        
+        debug(f"PROMPT: {self.name} adapter formatting complete, length: {len(result)}", LogArea.PROMPT)
+        debug(f"PROMPT: {self.name} formatted prompt: '{result[:200]}{'...' if len(result) > 200 else ''}'", LogArea.PROMPT)
+        
+        return result
+    
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about this model."""
         return {

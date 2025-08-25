@@ -48,21 +48,50 @@ class PromptEngine:
         Returns:
             Formatted prompt string
         """
+        from ..utils.logger import debug, info, LogArea
+        
+        debug(f"PROMPT: Starting prompt generation for model '{model}'", LogArea.PROMPT)
+        debug(f"PROMPT: Content rating: {content_rating}", LogArea.PROMPT)
+        debug(f"PROMPT: LLM model: {llm_model}", LogArea.PROMPT)
+        
+        # Log input prompt data
+        debug(f"PROMPT: Input data - Style: '{prompt_data.style[:50]}{'...' if len(prompt_data.style) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Setting: '{prompt_data.setting[:50]}{'...' if len(prompt_data.setting) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Weather: '{prompt_data.weather[:50]}{'...' if len(prompt_data.weather) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Date/Time: '{prompt_data.date_time[:50]}{'...' if len(prompt_data.date_time) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Subjects: '{prompt_data.subjects[:50]}{'...' if len(prompt_data.subjects) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Pose/Action: '{prompt_data.pose_action[:50]}{'...' if len(prompt_data.pose_action) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Camera: '{prompt_data.camera[:50]}{'...' if len(prompt_data.camera) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Framing: '{prompt_data.framing_action[:50]}{'...' if len(prompt_data.framing_action) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Grading: '{prompt_data.grading[:50]}{'...' if len(prompt_data.grading) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - Details: '{prompt_data.details[:50]}{'...' if len(prompt_data.details) > 50 else ''}'", LogArea.PROMPT)
+        debug(f"PROMPT: Input data - LLM Instructions: '{prompt_data.llm_instructions[:50]}{'...' if len(prompt_data.llm_instructions) > 50 else ''}'", LogArea.PROMPT)
+        
         if model.lower() not in self.model_adapters:
-            raise ValueError(f"Unsupported model: {model}")
+            error_msg = f"Unsupported model: {model}"
+            debug(f"PROMPT: ERROR - {error_msg}", LogArea.PROMPT)
+            raise ValueError(error_msg)
 
         # Try LLM refinement first if available
         if self.use_llm and self.llm_manager and self.llm_manager.is_available():
+            debug(f"PROMPT: LLM refinement available, attempting LLM processing", LogArea.PROMPT)
             try:
                 # Pass the llm_model parameter to refine_prompt
-                return self.llm_manager.refine_prompt(prompt_data, llm_model, model, content_rating, debug_enabled)
+                result = self.llm_manager.refine_prompt(prompt_data, llm_model, model, content_rating, debug_enabled)
+                debug(f"PROMPT: LLM refinement successful, result length: {len(result)}", LogArea.PROMPT)
+                debug(f"PROMPT: Final prompt: '{result[:200]}{'...' if len(result) > 200 else ''}'", LogArea.PROMPT)
+                return result
             except Exception as e:
                 # Fall back to adapter if LLM fails
-                info(r"LLM refinement failed, using adapter: {str(e)}", LogArea.GENERAL)
+                error_msg = f"LLM refinement failed, using adapter: {str(e)}"
+                debug(f"PROMPT: {error_msg}", LogArea.PROMPT)
+                info(error_msg, LogArea.GENERAL)
 
         # Use model adapter as fallback
+        debug(f"PROMPT: Using model adapter for '{model}'", LogArea.PROMPT)
         adapter = self.model_adapters[model.lower()]
-        return adapter.format_prompt(prompt_data)
+        result = adapter.format_prompt_with_logging(prompt_data)
+        return result
     
     def get_supported_models(self) -> List[str]:
         """Get list of supported models."""

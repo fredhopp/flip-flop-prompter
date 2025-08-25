@@ -197,16 +197,16 @@ class OllamaProvider(LLMProvider):
         """Refine prompt using Ollama."""
         
         # Add verbose debug logging
-        debug("refine_prompt() called", LogArea.OLLAMA)
-        debug(f"model_name parameter: {model_name}", LogArea.OLLAMA)
-        debug(f"self.model_name: {self.model_name}", LogArea.OLLAMA)
-        debug(f"target_model: {target_model}", LogArea.OLLAMA)
-        debug(f"content_rating: {content_rating}", LogArea.OLLAMA)
+        debug("PROMPT: LLM refine_prompt() called", LogArea.PROMPT)
+        debug(f"PROMPT: model_name parameter: {model_name}", LogArea.PROMPT)
+        debug(f"PROMPT: self.model_name: {self.model_name}", LogArea.PROMPT)
+        debug(f"PROMPT: target_model: {target_model}", LogArea.PROMPT)
+        debug(f"PROMPT: content_rating: {content_rating}", LogArea.PROMPT)
         
         # Use the model_name parameter if provided, otherwise use self.model_name
         # If both are None, we can't proceed
         llm_model = model_name if model_name is not None else self.model_name
-        debug(f"Using LLM model: {llm_model}", LogArea.OLLAMA)
+        debug(f"PROMPT: Using LLM model: {llm_model}", LogArea.PROMPT)
         
         # Create debug folder with timestamp if debug is enabled
         debug_folder = None
@@ -214,17 +214,20 @@ class OllamaProvider(LLMProvider):
             timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
             debug_folder = self.debug_dir / timestamp
             debug_folder.mkdir(exist_ok=True)
-            debug(f"Created debug folder: {debug_folder}", LogArea.OLLAMA)
+            debug(f"PROMPT: Created debug folder: {debug_folder}", LogArea.PROMPT)
         
         # Check if custom LLM instructions are provided
         if prompt_data.llm_instructions.strip():
+            debug(f"PROMPT: Using custom LLM instructions: '{prompt_data.llm_instructions[:100]}{'...' if len(prompt_data.llm_instructions) > 100 else ''}'", LogArea.PROMPT)
             # Parse custom instruction (check for special format: name|content)
             if '|' in prompt_data.llm_instructions:
                 # Extract content from instruction tag format
                 instruction_content = prompt_data.llm_instructions.split('|', 1)[1]
+                debug(f"PROMPT: Extracted instruction content from tag format", LogArea.PROMPT)
             else:
                 # Use as-is if not in special format
                 instruction_content = prompt_data.llm_instructions
+                debug(f"PROMPT: Using instruction content as-is", LogArea.PROMPT)
             
             # Replace placeholders in the instruction with actual data
             custom_instruction = instruction_content.format(
@@ -239,6 +242,7 @@ class OllamaProvider(LLMProvider):
                 style=prompt_data.style,
                 details=prompt_data.details
             )
+            debug(f"PROMPT: Custom instruction with placeholders replaced", LogArea.PROMPT)
             
             # Add content rating information to custom instruction
             content_rating_note = ""
@@ -250,17 +254,22 @@ class OllamaProvider(LLMProvider):
                 content_rating_note = "\n\nCONTENT RATING: PG - Keep content family-friendly and appropriate for all audiences."
             
             system_prompt = custom_instruction + content_rating_note
+            debug(f"PROMPT: Using custom system prompt with content rating", LogArea.PROMPT)
         else:
             # Use default system prompt
+            debug(f"PROMPT: No custom LLM instructions, using default system prompt", LogArea.PROMPT)
             system_prompt = self._create_system_prompt(target_model, content_rating)
         
         # Create the user prompt
         user_prompt = self._create_user_prompt(prompt_data, target_model)
+        debug(f"PROMPT: Created user prompt, length: {len(user_prompt)}", LogArea.PROMPT)
+        debug(f"PROMPT: User prompt: '{user_prompt[:200]}{'...' if len(user_prompt) > 200 else ''}'", LogArea.PROMPT)
         
         # Save debug files if enabled
         if debug_enabled and debug_folder:
             self._save_debug_file(debug_folder, "01_input_to_llm.txt", user_prompt)
             self._save_debug_file(debug_folder, "02_system_prompt.txt", system_prompt)
+            debug(f"PROMPT: Saved debug files to {debug_folder}", LogArea.PROMPT)
         
         # Call Ollama API
         payload = {
@@ -277,69 +286,72 @@ class OllamaProvider(LLMProvider):
             }
         }
         
-        debug("Preparing to call Ollama API", LogArea.OLLAMA)
-        debug(f"API endpoint: {self.base_url}/api/chat", LogArea.OLLAMA)
-        debug(f"Model: {llm_model}", LogArea.OLLAMA)
-        debug(f"Payload keys: {list(payload.keys())}", LogArea.OLLAMA)
+        debug("PROMPT: Preparing to call Ollama API", LogArea.PROMPT)
+        debug(f"PROMPT: API endpoint: {self.base_url}/api/chat", LogArea.PROMPT)
+        debug(f"PROMPT: Model: {llm_model}", LogArea.PROMPT)
+        debug(f"PROMPT: Payload keys: {list(payload.keys())}", LogArea.PROMPT)
         
         # Check if we have a process tracker and if Ollama is running
         if self.process_tracker:
-            debug("Checking process tracker before API call", LogArea.OLLAMA)
+            debug("PROMPT: Checking process tracker before API call", LogArea.PROMPT)
             if not self.process_tracker():
-                debug("Process tracker indicates Ollama is not running, attempting to start it", LogArea.OLLAMA)
+                debug("PROMPT: Process tracker indicates Ollama is not running, attempting to start it", LogArea.PROMPT)
                 # The process tracker should handle starting Ollama if needed
                 # We'll continue with the API call and let it fail naturally if Ollama is still not available
         
         try:
-            debug("Making POST request to Ollama API...", LogArea.OLLAMA)
+            debug("PROMPT: Making POST request to Ollama API...", LogArea.PROMPT)
             api_start_time = time.time()
             
             response = self.session.post(f"{self.base_url}/api/chat", json=payload, timeout=30)
             
             api_time = time.time() - api_start_time
-            debug(f"Ollama API call completed in {api_time:.2f} seconds", LogArea.OLLAMA)
+            debug(f"PROMPT: Ollama API call completed in {api_time:.2f} seconds", LogArea.PROMPT)
             
-            debug(f"Received response - status: {response.status_code}", LogArea.OLLAMA)
+            debug(f"PROMPT: Received response - status: {response.status_code}", LogArea.PROMPT)
             
             response.raise_for_status()
             result = response.json()
             
-            debug("Parsed JSON response", LogArea.OLLAMA)
-            debug(f"Response keys: {list(result.keys())}", LogArea.OLLAMA)
+            debug("PROMPT: Parsed JSON response", LogArea.PROMPT)
+            debug(f"PROMPT: Response keys: {list(result.keys())}", LogArea.PROMPT)
             
             raw_content = result["message"]["content"].strip()
             
-            debug(f"Extracted raw content (length: {len(raw_content)})", LogArea.OLLAMA)
+            debug(f"PROMPT: Extracted raw content (length: {len(raw_content)})", LogArea.PROMPT)
             
             # Save raw LLM output if debug is enabled
             if debug_enabled and debug_folder:
                 self._save_debug_file(debug_folder, "03_raw_llm_output.txt", raw_content)
+                debug(f"PROMPT: Saved raw LLM output to debug file", LogArea.PROMPT)
             
             # Clean and save final prompt
             final_prompt = self._clean_prompt_output(raw_content)
             
-            debug(f"Cleaned final prompt (length: {len(final_prompt)})", LogArea.OLLAMA)
+            debug(f"PROMPT: Cleaned final prompt (length: {len(final_prompt)})", LogArea.PROMPT)
+            debug(f"PROMPT: Final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'", LogArea.PROMPT)
             
             if debug_enabled and debug_folder:
                 self._save_debug_file(debug_folder, "04_final_prompt.txt", final_prompt)
+                debug(f"PROMPT: Saved final prompt to debug file", LogArea.PROMPT)
             
-            debug("Returning final prompt", LogArea.OLLAMA)
+            debug("PROMPT: Returning final prompt", LogArea.PROMPT)
             
             return final_prompt
         except requests.exceptions.Timeout:
-            debug("Ollama API request timed out after 30 seconds", LogArea.OLLAMA)
+            debug("PROMPT: Ollama API request timed out after 30 seconds", LogArea.PROMPT)
             if debug_enabled and debug_folder:
                 error_info = f"Timeout Error: Request timed out after 30 seconds\nPayload: {json.dumps(payload, indent=2)}"
                 self._save_debug_file(debug_folder, "timeout_error.txt", error_info)
             raise Exception("Ollama API request timed out. The server may be overloaded or unresponsive.")
         except requests.exceptions.ConnectionError as e:
-            debug(f"Connection error to Ollama API: {str(e)}", LogArea.OLLAMA)
+            debug(f"PROMPT: Connection error to Ollama API: {str(e)}", LogArea.PROMPT)
             if debug_enabled and debug_folder:
                 error_info = f"Connection Error: {str(e)}\nPayload: {json.dumps(payload, indent=2)}"
                 self._save_debug_file(debug_folder, "connection_error.txt", error_info)
             raise Exception(f"Failed to connect to Ollama API: {str(e)}")
         except Exception as e:
-            debug(f"Error occurred: {str(e)}", LogArea.OLLAMA)
+            debug(f"PROMPT: Error occurred: {str(e)}", LogArea.PROMPT)
             
             # Save error information if debug is enabled
             if debug_enabled and debug_folder:

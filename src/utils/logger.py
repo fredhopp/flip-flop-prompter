@@ -34,6 +34,7 @@ class LogArea(Enum):
     REFRESH = "REFRESH"
     LOAD = "LOAD"
     ERROR = "ERROR"
+    PROMPT = "PROMPT"
 
 
 class FlipFlopLogger:
