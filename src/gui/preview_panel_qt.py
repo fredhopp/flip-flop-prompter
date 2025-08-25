@@ -1,10 +1,10 @@
 """
-Preview panel for displaying generated prompts using PySide6 (single Final Prompt view).
+Preview panel for displaying generated prompts using PySide6 (tabbed layout with Summary and Final Prompt).
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
-    QFrame, QScrollArea, QGroupBox, QPushButton, QLineEdit
+    QFrame, QScrollArea, QGroupBox, QPushButton, QLineEdit, QTabWidget
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont, QPalette, QColor
@@ -40,11 +40,15 @@ class PreviewPanel(QWidget):
     save_requested = Signal()
     save_all_requested = Signal()
     
+    # New signal for realize button
+    realize_requested = Signal()
+    
     def __init__(self):
         super().__init__()
         
         # State management
         self.current_text = ""
+        self.summary_text = ""
         self.summary_state = PreviewState.PLACEHOLDER
         self.final_state = PreviewState.PLACEHOLDER
         
@@ -63,21 +67,27 @@ class PreviewPanel(QWidget):
         layout.setContentsMargins(0, 10, 0, 0)
         layout.setSpacing(5)
         
-        # Create group box with title
-        self.frame = QGroupBox("Final Prompt")
+        # Create group box without title
+        self.frame = QGroupBox()
         
         # Frame layout
         frame_layout = QVBoxLayout(self.frame)
         frame_layout.setContentsMargins(10, 10, 10, 10)
         frame_layout.setSpacing(8)
         
-        # Single Final Prompt text area (no tabs)
-        self.final_text = QTextEdit()
-        self.final_text.setMinimumHeight(200)
-        self.final_text.setMaximumHeight(300)
-        self.final_text.setReadOnly(True)
-        self.final_text.setFont(QFont("Consolas", 10))
-        frame_layout.addWidget(self.final_text)
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setMinimumHeight(200)
+        self.tab_widget.setMaximumHeight(300)
+        
+        # Create Summary tab
+        self._create_summary_tab()
+        
+        # Create Final Prompt tab
+        self._create_final_prompt_tab()
+        
+        # Add tab widget to frame
+        frame_layout.addWidget(self.tab_widget)
         
         # Create navigation controls
         self._create_navigation_controls(frame_layout)
@@ -91,9 +101,53 @@ class PreviewPanel(QWidget):
         # Apply initial styling
         self._apply_styling()
     
+    def _create_summary_tab(self):
+        """Create the Prompt Summary tab."""
+        # Create summary tab widget
+        summary_widget = QWidget()
+        summary_layout = QVBoxLayout(summary_widget)
+        summary_layout.setContentsMargins(5, 5, 5, 5)
+        summary_layout.setSpacing(8)
+        
+        # Summary text area
+        self.summary_text = QTextEdit()
+        self.summary_text.setReadOnly(True)
+        self.summary_text.setFont(QFont("Consolas", 10))
+        summary_layout.addWidget(self.summary_text)
+        
+        # Realize button
+        self.realize_button = QPushButton("Realize")
+        self.realize_button.clicked.connect(self.realize_requested.emit)
+        summary_layout.addWidget(self.realize_button)
+        
+        # Add tab
+        self.tab_widget.addTab(summary_widget, "Prompt Summary")
+    
+    def _create_final_prompt_tab(self):
+        """Create the Final Prompt tab."""
+        # Create final prompt tab widget
+        final_widget = QWidget()
+        final_layout = QVBoxLayout(final_widget)
+        final_layout.setContentsMargins(5, 5, 5, 5)
+        final_layout.setSpacing(8)
+        
+        # Final Prompt text area
+        self.final_text = QTextEdit()
+        self.final_text.setReadOnly(True)
+        self.final_text.setFont(QFont("Consolas", 10))
+        final_layout.addWidget(self.final_text)
+        
+        # Add tab
+        self.tab_widget.addTab(final_widget, "Final Prompt")
+        
+        # Store reference to final widget for styling
+        self.final_widget = final_widget
+    
     def _set_initial_state(self):
         """Set the initial state with placeholder text."""
+        self.summary_text.setPlainText("Enter tags to see the raw prompt summary here...")
         self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
+        self.summary_state = PreviewState.PLACEHOLDER
         self.final_state = PreviewState.PLACEHOLDER
     
     def _create_navigation_controls(self, parent_layout):
@@ -101,446 +155,80 @@ class PreviewPanel(QWidget):
         # Create horizontal layout for navigation
         nav_layout = QHBoxLayout()
         nav_layout.setContentsMargins(0, 5, 0, 0)
-        nav_layout.setSpacing(10)
         
-        # Left side: Action buttons with Font Awesome icons
-        # Copy to Clipboard button
-        self.copy_button = QPushButton()
-        self.copy_button.setIcon(qta.icon('fa5s.copy', color='white'))
-        self.copy_button.setFixedSize(35, 35)
-        self.copy_button.setToolTip("Copy to Clipboard")
-        self.copy_button.clicked.connect(self.copy_requested.emit)
-        
-        # Save Prompt button
-        self.save_button = QPushButton()
-        self.save_button.setIcon(qta.icon('fa5s.save', color='white'))
-        self.save_button.setFixedSize(35, 35)
-        self.save_button.setToolTip("Save Prompt")
-        self.save_button.clicked.connect(self.save_requested.emit)
-        
-        # Save All Prompts button
-        self.save_all_button = QPushButton()
-        self.save_all_button.setIcon(qta.icon('fa5s.folder-plus', color='white'))
-        self.save_all_button.setFixedSize(35, 35)
-        self.save_all_button.setToolTip("Save All Prompts")
-        self.save_all_button.clicked.connect(self.save_all_requested.emit)
-        
-        # Add left side buttons
-        nav_layout.addWidget(self.copy_button)
-        nav_layout.addWidget(self.save_button)
-        nav_layout.addWidget(self.save_all_button)
-        
-        # Add stretch to separate left and right sides
-        nav_layout.addStretch()
-        
-        # Right side: Navigation controls
-        # Back button
+        # Navigation buttons
         self.back_button = QPushButton()
-        self.back_button.setIcon(qta.icon('fa5s.arrow-left', color='white'))
-        self.back_button.setFixedSize(35, 35)
-        self.back_button.setToolTip("Go to previous prompt")
+        self.back_button.setIcon(qta.icon('fa5s.chevron-left'))
+        self.back_button.setToolTip("Previous prompt")
         self.back_button.clicked.connect(self.history_back_requested.emit)
+        nav_layout.addWidget(self.back_button)
+        
+        # History position display
+        self.history_label = QLabel("0/0")
+        self.history_label.setAlignment(Qt.AlignCenter)
+        self.history_label.setMinimumWidth(60)
+        nav_layout.addWidget(self.history_label)
         
         # Forward button
         self.forward_button = QPushButton()
-        self.forward_button.setIcon(qta.icon('fa5s.arrow-right', color='white'))
-        self.forward_button.setFixedSize(35, 35)
-        self.forward_button.setToolTip("Go to next prompt")
+        self.forward_button.setIcon(qta.icon('fa5s.chevron-right'))
+        self.forward_button.setToolTip("Next prompt")
         self.forward_button.clicked.connect(self.history_forward_requested.emit)
-        
-        # Counter input (editable)
-        self.counter_input = QLineEdit("0/0")
-        self.counter_input.setFixedSize(60, 35)
-        self.counter_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.counter_input.setToolTip("Click to edit, press Enter to jump")
-        self.counter_input.returnPressed.connect(self._on_counter_submit)
-        
-        # Load button (hidden for now)
-        self.load_button = QPushButton()
-        self.load_button.setIcon(qta.icon('fa5s.redo-alt', color='white'))
-        self.load_button.setFixedSize(35, 35)
-        self.load_button.setToolTip("Restore preview into fields")
-        self.load_button.clicked.connect(self.load_preview_requested.emit)
-        self.load_button.setVisible(False)  # Hide the button
-        
-        # Delete button
-        self.delete_button = QPushButton()
-        self.delete_button.setIcon(qta.icon('fa5s.trash', color='white'))
-        self.delete_button.setFixedSize(35, 35)
-        self.delete_button.setToolTip("Delete current prompt")
-        self.delete_button.clicked.connect(self.history_delete_requested.emit)
-        self.delete_button.setEnabled(True)  # Enable for testing
-        
-        # Clear history button
-        self.clear_button = QPushButton("Clear")
-        self.clear_button.setFixedSize(60, 35)
-        self.clear_button.setToolTip("Clear all history")
-        self.clear_button.clicked.connect(self.history_clear_requested.emit)
-        self.clear_button.setEnabled(True)  # Enable for testing
-        
-        # Add right side buttons to layout
-        nav_layout.addWidget(self.back_button)
         nav_layout.addWidget(self.forward_button)
-        nav_layout.addWidget(self.counter_input)
-        nav_layout.addWidget(self.load_button)
-        nav_layout.addWidget(self.delete_button)
-        nav_layout.addWidget(self.clear_button)
+        
+        # Jump to position input
+        self.jump_input = QLineEdit()
+        self.jump_input.setPlaceholderText("Jump to...")
+        self.jump_input.setMaximumWidth(80)
+        self.jump_input.returnPressed.connect(self._on_jump_requested)
+        nav_layout.addWidget(self.jump_input)
+        
+        # Spacer
+        nav_layout.addStretch()
+        
+        # Action buttons
+        self.copy_button = QPushButton()
+        self.copy_button.setIcon(qta.icon('fa5s.copy'))
+        self.copy_button.setToolTip("Copy to clipboard")
+        self.copy_button.clicked.connect(self.copy_requested.emit)
+        nav_layout.addWidget(self.copy_button)
+        
+        self.save_button = QPushButton()
+        self.save_button.setIcon(qta.icon('fa5s.save'))
+        self.save_button.setToolTip("Save prompt")
+        self.save_button.clicked.connect(self.save_requested.emit)
+        nav_layout.addWidget(self.save_button)
+        
+        self.save_all_button = QPushButton()
+        self.save_all_button.setIcon(qta.icon('fa5s.save'))
+        self.save_all_button.setToolTip("Save all prompts")
+        self.save_all_button.clicked.connect(self.save_all_requested.emit)
+        nav_layout.addWidget(self.save_all_button)
         
         # Add navigation layout to parent
         parent_layout.addLayout(nav_layout)
     
-    def _apply_styling(self):
-        """Apply theme-aware styling to the widgets."""
-        colors = theme_manager.get_theme_colors()
-        
-        # Style the frame
-        self.frame.setStyleSheet(f"""
-            QFrame {{
-                border: 1px solid {colors['tag_border']};
-                border-radius: 5px;
-                background-color: {colors['text_bg']};
-            }}
-        """)
-        
-        # No tabs; styling handled below for final text only
-        
-        # Apply current state styling
-        self._apply_state_styling_debounced()
-        
-        # Apply navigation styling
-        self._apply_navigation_styling()
-    
-    def _apply_state_styling(self):
-        """Apply styling based on current states."""
-        colors = theme_manager.get_theme_colors()
-        
-        # Style final text based on state - special handling for Final Prompt
-        if self.final_state == PreviewState.PLACEHOLDER:
-            # Final Prompt placeholder should use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors['placeholder_fg']};
-                    padding: 10px;
-                    font-style: italic;
-                }}
-            """
-        elif self.final_state == PreviewState.FINAL:
-            # Final Prompt content should also use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors.get('preview_final_fg', colors['text_fg'])};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        elif self.final_state == PreviewState.HISTORY:
-            # Final Prompt in history should also use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors.get('preview_final_fg', colors['text_fg'])};
-                    padding: 10px;
-                }}
-            """
-        elif self.final_state == PreviewState.ERROR:
-            # Error messages should use a red background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['error_bg']};
-                    color: {colors['error_fg']};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        else:
-            final_style = self._get_style_for_state(self.final_state, colors)
-        
-        self.final_text.setStyleSheet(final_style)
-    
-    def _apply_state_styling_delayed(self):
-        """Apply styling with a delay to prevent flashing."""
-        colors = theme_manager.get_theme_colors()
-        
-        # Style final text based on state - special handling for Final Prompt
-        if self.final_state == PreviewState.PLACEHOLDER:
-            # Final Prompt placeholder should use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors['placeholder_fg']};
-                    padding: 10px;
-                    font-style: italic;
-                }}
-            """
-        elif self.final_state == PreviewState.FINAL:
-            # Final Prompt content should also use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors.get('preview_final_fg', colors['text_fg'])};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        elif self.final_state == PreviewState.HISTORY:
-            # Final Prompt in history should also use blue background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors.get('preview_final_fg', colors['text_fg'])};
-                    padding: 10px;
-                }}
-            """
-        elif self.final_state == PreviewState.ERROR:
-            # Error messages should use a red background
-            final_style = f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['error_bg']};
-                    color: {colors['error_fg']};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        else:
-            final_style = self._get_style_for_state(self.final_state, colors)
-        
-        self.final_text.setStyleSheet(final_style)
-    
-    def _apply_state_styling_debounced(self):
-        """Apply styling with debouncing to prevent rapid changes."""
-        self._styling_timer.start(50)  # 50ms delay
-    
-    def _get_style_for_state(self, state: PreviewState, colors: dict) -> str:
-        """Get the appropriate style for a given state."""
-        if state == PreviewState.PLACEHOLDER:
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['text_bg']};
-                    color: {colors['placeholder_fg']};
-                    padding: 10px;
-                    font-style: italic;
-                }}
-            """
-        elif state == PreviewState.PREVIEW:
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['text_bg']};
-                    color: {colors['text_fg']};
-                    padding: 10px;
-                }}
-            """
-        elif state == PreviewState.FINAL:
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors.get('preview_final_bg', colors['text_bg'])};
-                    color: {colors.get('preview_final_fg', colors['text_fg'])};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        elif state == PreviewState.HISTORY:
-            history_bg = colors.get('preview_summary_history_bg', colors['text_bg'])
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {history_bg};
-                    color: {colors['text_fg']};
-                    padding: 10px;
-                }}
-            """
-        elif state == PreviewState.ERROR:
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['error_bg']};
-                    color: {colors['error_fg']};
-                    padding: 10px;
-                    font-weight: bold;
-                }}
-            """
-        else:
-            # Fallback to preview style
-            return f"""
-                QTextEdit {{
-                    border: 1px solid {colors['tag_border']};
-                    border-radius: 3px;
-                    background-color: {colors['text_bg']};
-                    color: {colors['text_fg']};
-                    padding: 10px;
-                }}
-            """
-    
-    def _apply_navigation_styling(self):
-        """Apply styling to navigation controls."""
-        colors = theme_manager.get_theme_colors()
-        
-        nav_style = f"""
-            QPushButton {{
-                background-color: {colors['button_bg']};
-                color: {colors['button_fg']};
-                border: 1px solid {colors['tag_border']};
-                border-radius: 3px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {colors.get('button_hover_bg', colors['button_bg'])};
-            }}
-            QPushButton:pressed {{
-                background-color: {colors.get('button_pressed_bg', colors['button_bg'])};
-            }}
-            QPushButton:disabled {{
-                background-color: {colors.get('button_disabled_bg', colors['button_bg'])};
-                color: {colors.get('button_disabled_fg', colors['button_fg'])};
-            }}
-            QLineEdit {{
-                background-color: {colors['text_bg']};
-                color: {colors['text_fg']};
-                border: 1px solid {colors['tag_border']};
-                border-radius: 3px;
-                padding: 5px;
-            }}
-            QLineEdit:focus {{
-                border: 2px solid {colors.get('focus_color', colors['button_bg'])};
-            }}
-        """
-        
-        # Apply to all navigation widgets
-        for widget in [self.copy_button, self.save_button, self.save_all_button,
-                      self.back_button, self.forward_button, self.counter_input, 
-                      self.load_button, self.delete_button, self.clear_button]:
-            widget.setStyleSheet(nav_style)
-    
-    def refresh_navigation_styling(self):
-        """Refresh navigation styling (called after theme changes)."""
-        self._apply_navigation_styling()
-    
-    def _on_counter_submit(self):
-        """Handle counter input submission."""
+    def _on_jump_requested(self):
+        """Handle jump to position request."""
         try:
-            text = self.counter_input.text()
-            # Accept both "Z" and "Z/X" formats
-            if '/' in text:
-                position = int(text.split('/')[0])
-            else:
-                position = int(text)
+            position = int(self.jump_input.text())
             self.history_jump_requested.emit(position)
-        except (ValueError, IndexError):
-            pass  # Ignore invalid input
-    
-    def update_preview(self, text: str, is_final: bool = False, preserve_tab: bool = False):
-        """
-        Update the preview with new text.
-        
-        Args:
-            text: The text to display
-            is_final: Whether this is the final generated prompt
-            preserve_tab: Whether to preserve the current tab selection
-        """
-        self.current_text = text
-        
-        debug(r"update_preview called - text='{text[:100]}{'...' if len(text) > 100 else ''}', is_final={is_final}, preserve_tab={preserve_tab}", LogArea.NAVIGATION)
-        
-        # Single Final Prompt behavior
-        self.final_text.setPlainText(text)
-        self.final_state = PreviewState.FINAL if text.strip() else PreviewState.PLACEHOLDER
-        debug(r"Updated final text, state={self.final_state}", LogArea.NAVIGATION)
-        font = self.final_text.font()
-        font.setItalic(False)
-        self.final_text.setFont(font)
-        
-        # Apply updated styling with debouncing
-        self._apply_state_styling_debounced()
-        
-        # Count words and characters
-        word_count = len(text.split()) if text.strip() else 0
-        char_count = len(text)
-        
-        # Store counts for external access
-        self.word_count = word_count
-        self.char_count = char_count
-        
-        # Scroll to top
-        cursor = self.final_text.textCursor()
-        cursor.movePosition(cursor.MoveOperation.Start)
-        self.final_text.setTextCursor(cursor)
-    
-    def set_history_state(self, is_history: bool, total_count: int = 0):
-        """Set the preview state to history mode."""
-        if is_history:
-            self.final_state = PreviewState.HISTORY
-        else:
-            # For Final Prompt, show dynamic placeholder in current state (0/X)
-            self.final_state = PreviewState.PLACEHOLDER
-            if not self.final_text.toPlainText().startswith("Generate a final prompt"):
-                if total_count > 0:
-                    self.final_text.setPlainText(f"Generate a final prompt to see the LLM-refined version here... (Navigate to 1/{total_count} to see the latest LLM generation)")
-                else:
-                    self.final_text.setPlainText("Generate a final prompt to see the LLM-refined version here...")
-        
-        self._apply_state_styling_debounced()
-    
-    def update_model_info(self, model_name: str):
-        """Update the target model information display."""
-        pass
-    
-    def update_llm_info(self, llm_model: str):
-        """Update the LLM information display."""
-        pass
-    
-    def get_current_text(self) -> str:
-        """Get the current text content."""
-        return self.current_text
-    
-    def get_word_count(self) -> int:
-        """Get the current word count."""
-        return getattr(self, 'word_count', 0)
-    
-    def get_char_count(self) -> int:
-        """Get the current character count."""
-        return getattr(self, 'char_count', 0)
-    
-    def get_summary_text(self) -> str:
-        """Summary no longer used; return empty."""
-        return ""
-    
-    def get_final_prompt(self) -> str:
-        """Get the current final prompt text."""
-        return self.final_text.toPlainText()
+            self.jump_input.clear()
+        except ValueError:
+            pass
     
     def set_summary_text(self, text: str):
-        """Summary removed; ignore."""
-        return
+        """Set the summary text in the Prompt Summary tab."""
+        self.summary_text.setPlainText(text)
+        if text.strip():
+            self.summary_state = PreviewState.PREVIEW
+        else:
+            self.summary_state = PreviewState.PLACEHOLDER
+        self._apply_styling()
     
     def set_final_prompt(self, text: str):
-        """Set the final prompt text."""
+        """Set the final prompt text in the Final Prompt tab."""
         self.final_text.setPlainText(text)
-        
         # Check if this is an error message
         if text.strip().startswith("[ERROR:"):
             self.final_state = PreviewState.ERROR
@@ -548,60 +236,233 @@ class PreviewPanel(QWidget):
             self.final_state = PreviewState.FINAL
         else:
             self.final_state = PreviewState.PLACEHOLDER
-            
-        self._apply_state_styling_debounced()
+        self._apply_styling()
     
-    def clear_preview(self):
-        """Clear the preview and reset to initial state."""
-        self._set_initial_state()
-        self._apply_state_styling_debounced()
-        # No tabs anymore
+    def update_preview(self, text: str):
+        """Update the preview text (legacy method - now updates summary)."""
+        self.set_summary_text(text)
     
-    def highlight_syntax(self, text: str) -> str:
-        """Apply basic syntax highlighting to the prompt text."""
-        # This is a simple implementation for future enhancement
-        import re
-        
-        highlighted = text
-        
-        # Highlight camera specifications
-        highlighted = re.sub(
-            r'(\d+mm|lens|Arri|Alexa|RED|Canon|Sony)',
-            r'<b>\1</b>',
-            highlighted
-        )
-        
-        # Highlight time references
-        highlighted = re.sub(
-            r'(\d+am|\d+pm|morning|afternoon|evening|night)',
-            r'<i>\1</i>',
-            highlighted
-        )
-        
-        return highlighted
+    def set_history_state(self, is_history: bool, total_count: int):
+        """Set the history state for the preview panel."""
+        if is_history:
+            self.final_state = PreviewState.HISTORY
+        else:
+            self.final_state = PreviewState.PLACEHOLDER
+        self._apply_styling()
     
-    def set_font_size(self, size: int):
-        """Set the font size for the text display."""
-        font = self.final_text.font()
-        font.setPointSize(size)
-        self.final_text.setFont(font)
-    
-    def set_font_family(self, family: str):
-        """Set the font family for the text display."""
-        font = self.final_text.font()
-        font.setFamily(family)
-        self.final_text.setFont(font)
-    
-    def update_navigation_controls(self, can_go_back: bool, can_go_forward: bool, 
-                                  current_position: int, total_count: int, has_history: bool, is_current_state: bool = True):
+    def update_navigation_controls(self, current_pos: int, total_count: int, can_go_back: bool, can_go_forward: bool):
         """Update navigation controls state."""
+        self.history_label.setText(f"{current_pos}/{total_count}")
         self.back_button.setEnabled(can_go_back)
         self.forward_button.setEnabled(can_go_forward)
-        self.delete_button.setEnabled(has_history and not is_current_state)  # Can't delete current state
-        self.clear_button.setEnabled(has_history)
-        
-        # Update counter display
-        self.counter_input.setText(f"{current_position}/{total_count}")
-        
-        # Keep load button hidden for now (future use)
-        self.load_button.setVisible(False)
+    
+    def get_current_text(self) -> str:
+        """Get the current text from the active tab."""
+        if self.tab_widget.currentIndex() == 0:  # Summary tab
+            return self.summary_text.toPlainText()
+        else:  # Final Prompt tab
+            return self.final_text.toPlainText()
+    
+    def get_final_prompt(self) -> str:
+        """Get the final prompt text."""
+        return self.final_text.toPlainText()
+    
+    def get_word_count(self) -> int:
+        """Get word count of current text."""
+        text = self.get_current_text()
+        return len(text.split()) if text.strip() else 0
+    
+    def get_char_count(self) -> int:
+        """Get character count of current text."""
+        return len(self.get_current_text())
+    
+    def update_llm_info(self, llm_name: str):
+        """Update LLM information (placeholder for future use)."""
+        pass
+    
+    def refresh_navigation_styling(self):
+        """Refresh navigation styling."""
+        self._apply_styling()
+    
+    def _apply_styling(self):
+        """Apply styling based on current state."""
+        self._styling_timer.start(50)  # Debounce styling updates
+    
+    def _apply_state_styling_delayed(self):
+        """Apply state-based styling with debouncing."""
+        try:
+            colors = theme_manager.get_theme_colors()
+            
+            # Style summary text
+            if self.summary_state == PreviewState.PLACEHOLDER:
+                summary_style = f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('placeholder_bg', '#f5f5f5')};
+                        color: {colors.get('placeholder_fg', '#666666')};
+                        padding: 10px;
+                        font-style: italic;
+                    }}
+                """
+            else:
+                summary_style = f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('preview_bg', '#ffffff')};
+                        color: {colors.get('preview_fg', '#000000')};
+                        padding: 10px;
+                    }}
+                """
+            self.summary_text.setStyleSheet(summary_style)
+            
+            # Style final text
+            final_style = self._get_style_for_state(self.final_state)
+            self.final_text.setStyleSheet(final_style)
+            
+            # Style final widget container with blue background
+            try:
+                final_widget_style = f"""
+                    QWidget {{
+                        background-color: {colors.get('preview_final_bg', '#e6f3ff')};
+                        border: none;
+                    }}
+                """
+                self.final_widget.setStyleSheet(final_widget_style)
+            except Exception as e:
+                error(f"Error styling final widget: {e}", LogArea.GENERAL)
+            
+            # Style realize button
+            realize_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('button_bg', '#4a90e2')};
+                    color: {colors.get('button_fg', '#ffffff')};
+                    border: 1px solid {colors.get('button_border', '#357abd')};
+                    border-radius: 3px;
+                    padding: 5px 10px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('button_hover_bg', '#357abd')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('button_pressed_bg', '#2e6da4')};
+                }}
+            """
+            self.realize_button.setStyleSheet(realize_style)
+            
+            # Style navigation buttons
+            nav_button_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('button_bg', '#4a90e2')};
+                    color: {colors.get('button_fg', '#ffffff')};
+                    border: 1px solid {colors.get('button_border', '#357abd')};
+                    border-radius: 3px;
+                    padding: 5px;
+                    min-width: 30px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('button_hover_bg', '#357abd')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('button_pressed_bg', '#2e6da4')};
+                }}
+                QPushButton:disabled {{
+                    background-color: {colors.get('button_disabled_bg', '#cccccc')};
+                    color: {colors.get('button_disabled_fg', '#666666')};
+                }}
+            """
+            self.back_button.setStyleSheet(nav_button_style)
+            self.forward_button.setStyleSheet(nav_button_style)
+            self.copy_button.setStyleSheet(nav_button_style)
+            self.save_button.setStyleSheet(nav_button_style)
+            self.save_all_button.setStyleSheet(nav_button_style)
+            
+            # Style history label
+            history_label_style = f"""
+                QLabel {{
+                    color: {colors.get('text_fg', '#000000')};
+                    font-weight: bold;
+                    padding: 5px;
+                }}
+            """
+            self.history_label.setStyleSheet(history_label_style)
+            
+            # Style jump input
+            jump_input_style = f"""
+                QLineEdit {{
+                    border: 1px solid {colors.get('input_border', '#cccccc')};
+                    border-radius: 3px;
+                    padding: 3px 5px;
+                    background-color: {colors.get('input_bg', '#ffffff')};
+                    color: {colors.get('input_fg', '#000000')};
+                }}
+            """
+            self.jump_input.setStyleSheet(jump_input_style)
+        except Exception as e:
+            error(f"Error applying styling: {e}", LogArea.GENERAL)
+    
+    def _get_style_for_state(self, state: PreviewState) -> str:
+        """Get the style for a specific preview state."""
+        try:
+            colors = theme_manager.get_theme_colors()
+            
+            if state == PreviewState.PLACEHOLDER:
+                return f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('placeholder_bg', '#f5f5f5')};
+                        color: {colors.get('placeholder_fg', '#666666')};
+                        padding: 10px;
+                        font-style: italic;
+                    }}
+                """
+            elif state == PreviewState.PREVIEW:
+                return f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('preview_bg', '#ffffff')};
+                        color: {colors.get('preview_fg', '#000000')};
+                        padding: 10px;
+                    }}
+                """
+            elif state == PreviewState.FINAL:
+                return f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('preview_final_bg', '#e6f3ff')};
+                        color: {colors.get('preview_final_fg', '#0066cc')};
+                        padding: 10px;
+                        font-weight: bold;
+                    }}
+                """
+            elif state == PreviewState.HISTORY:
+                return f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('history_bg', '#f0f0f0')};
+                        color: {colors.get('history_fg', '#333333')};
+                        padding: 10px;
+                    }}
+                """
+            elif state == PreviewState.ERROR:
+                return f"""
+                    QTextEdit {{
+                        border: 1px solid {colors.get('tag_border', '#cccccc')};
+                        border-radius: 3px;
+                        background-color: {colors.get('error_bg', '#ffebee')};
+                        color: {colors.get('error_fg', '#c62828')};
+                        padding: 10px;
+                        font-weight: bold;
+                    }}
+                """
+            else:
+                return ""
+        except Exception as e:
+            error(f"Error getting style for state {state}: {e}", LogArea.GENERAL)
+            return ""
