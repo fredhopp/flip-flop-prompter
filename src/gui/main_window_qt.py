@@ -1629,6 +1629,7 @@ class MainWindow(QMainWindow):
                 debug(r"Using LLM model: {llm_model}", LogArea.BATCH)
                 debug(r"Using content rating: {content_rating}", LogArea.BATCH)
                 debug(r"Starting batch generation loop for {batch_size} prompts", LogArea.BATCH)
+                debug(r"Batch mode enabled - will add 1 second delays between API calls to prevent Ollama lockup", LogArea.BATCH)
             
             # Validate LLM model is available
             if not llm_model:
@@ -1697,6 +1698,13 @@ class MainWindow(QMainWindow):
                 # Save to history with final prompt (each gets individual history entry)
                 self._save_to_history(final_prompt, "", current_seed)
                 
+                # Add a small delay between batch iterations to prevent overwhelming Ollama
+                # Only add delay if this isn't the last iteration
+                if i < batch_size - 1:
+                    if self.debug_enabled:
+                        debug(r"Iteration {i+1} - adding 1 second delay before next iteration", LogArea.BATCH)
+                    time.sleep(1)  # 1 second delay between API calls
+                
                 # Get current history state after saving
                 current_pos, total_count = self.history_manager.get_navigation_info()
                 
@@ -1737,7 +1745,7 @@ class MainWindow(QMainWindow):
             if batch_size == 1:
                 self._show_status_message(f"Prompt generated successfully in {generation_time:.2f}s")
             else:
-                self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s")
+                self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s (with delays to prevent lockup)")
             
         except Exception as e:
             # Stop progress tracking on error
