@@ -461,6 +461,8 @@ class LLMSelectionWidget(QWidget):
     
     # Signal emitted when LLM changes
     llm_changed = Signal(str)
+    # Signal emitted when models are updated from background thread
+    models_updated = Signal(list)
     
     def __init__(self, change_callback: Optional[Callable] = None):
         super().__init__()
@@ -476,6 +478,9 @@ class LLMSelectionWidget(QWidget):
         # Connect signals
         if self.change_callback:
             self.llm_changed.connect(self.change_callback)
+        
+        # Connect the models_updated signal to update UI
+        self.models_updated.connect(self._update_ui_with_models)
         
         # Defer Ollama connection check to avoid blocking startup
         from PySide6.QtCore import QTimer
@@ -509,38 +514,92 @@ class LLMSelectionWidget(QWidget):
     
     def _check_ollama_connection(self):
         """Check Ollama connection and populate models."""
-        try:
-            # Import here to avoid circular imports
-            from ..core.llm_integration import LLMManager
-            
-            llm_manager = LLMManager()
-            self.ollama_available = llm_manager.is_available()
-            
-            if self.ollama_available:
-                # Get available models
-                self.available_models = llm_manager.get_available_models()
+        import time
+        import threading
+        from PySide6.QtCore import QTimer
+        from ..utils.logger import info, debug, LogArea
+        
+        connection_start = time.time()
+        
+        # Show loading state immediately
+        self.llm_combo.hide()
+        self.error_label.setText("Checking Ollama connection...")
+        self.error_label.show()
+        
+        def check_ollama_async():
+            """Check Ollama connection in background thread."""
+            try:
+                # Import here to avoid circular imports
+                from ..core.llm_integration import LLMManager
                 
-                if self.available_models:
-                    # Show combobox and populate with actual models
-                    self.llm_combo.clear()
-                    self.llm_combo.addItems(self.available_models)
+                llm_manager = LLMManager()
+                ollama_available = llm_manager.is_available()
+                
+                if ollama_available:
+                    # Get available models
+                    available_models = llm_manager.get_available_models()
+                    info(f"STARTUP: Background thread got {len(available_models)} models: {available_models}", LogArea.GENERAL)
                     
-                    # Set current model if it exists
-                    if self.current_llm in self.available_models:
-                        self.llm_combo.setCurrentText(self.current_llm)
-                    else:
-                        self.current_llm = self.available_models[0]
-                        self.llm_combo.setCurrentIndex(0)
-                    
-                    self.llm_combo.show()
-                    self.error_label.hide()
+                    # Emit signal to update UI on main thread
+                    info(f"STARTUP: About to emit models_updated signal", LogArea.GENERAL)
+                    self.models_updated.emit(available_models)
+                    info(f"STARTUP: models_updated signal emitted", LogArea.GENERAL)
                 else:
-                    self._show_error("No models found in Ollama")
+                    # Emit signal to show error on main thread
+                    error_msg = f"Ollama error: {str(e)}"
+                    info(f"STARTUP: About to emit models_updated signal with empty list due to exception: {error_msg}", LogArea.GENERAL)
+                    self.models_updated.emit([])
+                    info(f"STARTUP: models_updated signal emitted with empty list due to exception", LogArea.GENERAL)
+                    
+            except Exception as e:
+                # Emit signal to show error on main thread
+                error_msg = f"Ollama error: {str(e)}"
+                info(f"STARTUP: About to emit models_updated signal with empty list due to exception: {error_msg}", LogArea.GENERAL)
+                self.models_updated.emit([])
+                info(f"STARTUP: models_updated signal emitted with empty list due to exception", LogArea.GENERAL)
+        
+        # Start background thread
+        thread = threading.Thread(target=check_ollama_async, daemon=True)
+        thread.start()
+        
+        connection_time = time.time() - connection_start
+        info(f"STARTUP: Ollama connection check initiated in {connection_time:.3f}s (async)", LogArea.GENERAL)
+    
+    def _update_ui_with_models(self, available_models):
+        """Update UI with available models (called on main thread)."""
+        from ..utils.logger import info, debug, LogArea
+        
+        info(f"STARTUP: _update_ui_with_models called with {len(available_models)} models: {available_models}", LogArea.GENERAL)
+        
+        self.available_models = available_models
+        self.ollama_available = bool(available_models)
+        
+        if available_models:
+            # Show combobox and populate with actual models
+            self.llm_combo.clear()
+            self.llm_combo.addItems(available_models)
+            
+            # Set current model if it exists
+            if self.current_llm in available_models:
+                self.llm_combo.setCurrentText(self.current_llm)
+                info(f"STARTUP: Set current LLM to existing model: {self.current_llm}", LogArea.GENERAL)
             else:
-                self._show_error("Cannot connect to Ollama - use Tools > Ollama > Start Ollama")
-                
-        except Exception as e:
-            self._show_error(f"Ollama error: {str(e)}")
+                self.current_llm = available_models[0]
+                self.llm_combo.setCurrentIndex(0)
+                info(f"STARTUP: Set current LLM to first available model: {self.current_llm}", LogArea.GENERAL)
+            
+            self.llm_combo.show()
+            self.error_label.hide()
+            
+            # Emit the signal to notify that LLM has changed
+            if self.change_callback:
+                info(f"STARTUP: Emitting llm_changed signal with: {self.current_llm}", LogArea.GENERAL)
+                self.llm_changed.emit(self.current_llm)
+            
+            info(f"STARTUP: LLM UI updated successfully - combobox visible with {len(available_models)} models", LogArea.GENERAL)
+        else:
+            self._show_error("No models found in Ollama")
+            info(f"STARTUP: No models found in Ollama, showing error", LogArea.GENERAL)
     
     def is_model_available(self, model_name: str) -> bool:
         """Check if a specific model is available."""
@@ -566,8 +625,12 @@ class LLMSelectionWidget(QWidget):
     
     def refresh_connection(self):
         """Refresh Ollama connection and models."""
+        from ..utils.logger import info, debug, LogArea
+        
+        info(f"STARTUP: refresh_connection() called - refreshing LLM models...", LogArea.GENERAL)
         debug(r"Refreshing LLM models...", LogArea.OLLAMA)
         self._check_ollama_connection()
+        info(f"STARTUP: refresh_connection() completed - available models: {self.available_models}", LogArea.GENERAL)
         debug(r"Refresh complete - available models: {self.available_models}", LogArea.OLLAMA)
     
     def _show_error(self, message: str):
@@ -868,7 +931,7 @@ class SnippetPopup(QDialog):
                 }}
                 QPushButton:hover {{
                     background-color: {colors['button_bg']};
-                    border: 2px solid {colors['button_bg']};
+                    border: 2px solid {colors.get('button_bg')};
                     color: {colors['button_fg']};
                 }}
             """)
