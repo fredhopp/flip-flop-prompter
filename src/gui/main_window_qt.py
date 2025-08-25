@@ -1542,13 +1542,19 @@ class MainWindow(QMainWindow):
                 debug(r"batch_size_input value: {self.batch_size_input.value() if hasattr(self, 'batch_size_input') else 'N/A'}", LogArea.BATCH)
                 debug(r"seed_mode_combo value: {self.seed_mode_combo.currentText() if hasattr(self, 'seed_mode_combo') else 'N/A'}", LogArea.BATCH)
         
+        # Log process state before generation
+        info("=== Before Prompt Generation ===", LogArea.OLLAMA)
+        self._get_ollama_process_info()
+        
         # Unified approach: always call _generate_batch_prompts()
         # Single submission is treated as batch of 1 with "fixed" seed mode
         if self.debug_enabled:
             debug(r"Calling _generate_batch_prompts() (unified approach)", LogArea.BATCH)
         self._generate_batch_prompts()
-
-
+        
+        # Log process state after generation
+        info("=== After Prompt Generation ===", LogArea.OLLAMA)
+        self._get_ollama_process_info()
 
     def _generate_batch_prompts(self):
         """Generate multiple prompts in batch using different seeds - unified approach for single and batch."""
@@ -3244,28 +3250,61 @@ class MainWindow(QMainWindow):
                 pass
 
     def _get_ollama_process_info(self):
-        """Get information about current Ollama processes for debugging."""
+        """Get detailed information about Ollama processes for debugging."""
+        info("=== Ollama Process Information ===", LogArea.OLLAMA)
+        
+        # Check our tracked process
+        if self._ollama_process:
+            info(f"Tracked process PID: {self._ollama_process.pid}", LogArea.OLLAMA)
+            info(f"Tracked process returncode: {self._ollama_process.returncode}", LogArea.OLLAMA)
+            info(f"Tracked process still running: {self._ollama_process.returncode is None}", LogArea.OLLAMA)
+        else:
+            info("No tracked Ollama process", LogArea.OLLAMA)
+        
+        # Check all ollama.exe processes
         try:
-            # Check our tracked process
-            tracked_info = "None"
-            with self._ollama_process_lock:
-                if self._ollama_process is not None:
-                    if self._ollama_process.returncode is None:
-                        tracked_info = f"Tracked process PID: {self._ollama_process.pid} (running)"
-                    else:
-                        tracked_info = f"Tracked process PID: {self._ollama_process.pid} (terminated)"
-            
-            # Check all ollama.exe processes
-            result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq ollama.exe"], 
-                                  capture_output=True, text=True)
-            all_processes = result.stdout.strip()
-            
-            info(f"DEBUG OLLAMA: Process info - Tracked: {tracked_info}", LogArea.GENERAL)
-            if all_processes:
-                info(f"DEBUG OLLAMA: All ollama.exe processes:\n{all_processes}", LogArea.GENERAL)
+            result = subprocess.run(
+                ['tasklist', '//FI', 'IMAGENAME eq ollama.exe', '//FO', 'CSV'],
+                capture_output=True, text=True, shell=True
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                if len(lines) > 1:  # Skip header
+                    info(f"Found {len(lines)-1} ollama.exe processes:", LogArea.OLLAMA)
+                    for line in lines[1:]:  # Skip header
+                        if line.strip():
+                            info(f"  {line.strip()}", LogArea.OLLAMA)
+                else:
+                    info("No ollama.exe processes found via tasklist", LogArea.OLLAMA)
             else:
-                info(f"DEBUG OLLAMA: No ollama.exe processes found", LogArea.GENERAL)
-                
+                info(f"tasklist failed: {result.stderr}", LogArea.OLLAMA)
         except Exception as e:
-            error(f"DEBUG OLLAMA: Error getting process info: {e}", LogArea.GENERAL)
+            info(f"Error checking tasklist: {e}", LogArea.OLLAMA)
+        
+        # Check parent-child relationships using wmic
+        try:
+            result = subprocess.run(
+                ['wmic', 'process', 'where', 'name="ollama.exe"', 'get', 'ProcessId,ParentProcessId,CommandLine', '/format:csv'],
+                capture_output=True, text=True, shell=True
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                if len(lines) > 1:  # Skip header
+                    info("Ollama process hierarchy:", LogArea.OLLAMA)
+                    for line in lines[1:]:  # Skip header
+                        if line.strip() and 'ollama.exe' in line:
+                            parts = line.split(',')
+                            if len(parts) >= 3:
+                                pid = parts[1].strip()
+                                parent_pid = parts[2].strip()
+                                cmdline = parts[3].strip() if len(parts) > 3 else "N/A"
+                                info(f"  PID: {pid}, Parent: {parent_pid}, Cmd: {cmdline}", LogArea.OLLAMA)
+                else:
+                    info("No ollama.exe processes found via wmic", LogArea.OLLAMA)
+            else:
+                info(f"wmic failed: {result.stderr}", LogArea.OLLAMA)
+        except Exception as e:
+            info(f"Error checking wmic: {e}", LogArea.OLLAMA)
+        
+        info("=== End Ollama Process Information ===", LogArea.OLLAMA)
 
