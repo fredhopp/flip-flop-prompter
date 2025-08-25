@@ -635,7 +635,7 @@ class MainWindow(QMainWindow):
         self.batch_size_input = QSpinBox()
         self.batch_size_input.setMinimum(1)
         self.batch_size_input.setMaximum(100)  # Limit to 100 for batch processing
-        self.batch_size_input.setValue(5)
+        self.batch_size_input.setValue(3)
         self.batch_size_input.setFixedWidth(80)
         # Ensure arrows visible
         try:

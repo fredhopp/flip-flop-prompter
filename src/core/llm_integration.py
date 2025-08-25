@@ -320,6 +320,16 @@ class OllamaProvider(LLMProvider):
             
             debug(f"PROMPT: Extracted raw content (length: {len(raw_content)})", LogArea.PROMPT)
             
+            # Validate the response quality
+            if self._is_response_malformed(raw_content):
+                error_msg = "LLM response appears to be incomplete or malformed"
+                debug(f"PROMPT: {error_msg}", LogArea.PROMPT)
+                if debug_enabled and debug_folder:
+                    self._save_debug_file(debug_folder, "03_raw_llm_output.txt", raw_content)
+                    error_info = f"Malformed Response Error: {error_msg}\nRaw Content: {raw_content}"
+                    self._save_debug_file(debug_folder, "malformed_response_error.txt", error_info)
+                raise Exception(error_msg)
+            
             # Save raw LLM output if debug is enabled
             if debug_enabled and debug_folder:
                 self._save_debug_file(debug_folder, "03_raw_llm_output.txt", raw_content)
@@ -713,6 +723,71 @@ Make it sound natural and professional, not like a list of components.
         content = re.sub(r'^["\u201C\u201D\'](.*?)["\u201C\u201D\']$', r'\1', content).strip()
         
         return content.strip()
+
+    def _is_response_malformed(self, raw_content: str) -> bool:
+        """Check if the LLM response appears to be incomplete or malformed."""
+        
+        # Check for common signs of malformed responses
+        malformed_indicators = [
+            # Response ends with system prompt instructions
+            "Please refine this prompt into a natural, flowing text",
+            "Thank you!",
+            "Please help me refine",
+            "Can you help me",
+            "Please create",
+            "Please generate",
+            "Please provide",
+            
+            # Response contains system prompt fragments
+            "incorporates all the elements in a way that",
+            "SEEDREAM can understand",
+            "FLUX can understand", 
+            "HAILUO can understand",
+            "VEO can understand",
+            "WAN can understand",
+            
+            # Response appears to be cut off mid-sentence
+            "The result should evoke",
+            "This prompt incorporates",
+            "The scene is captured",
+            "This creates",
+            "This will produce",
+            
+            # Response contains meta-commentary
+            "This is a refined prompt",
+            "Here's what I've created",
+            "I've refined your prompt",
+            "The refined version",
+            
+            # Response is too short (likely incomplete)
+            len(raw_content.strip()) < 50,
+            
+            # Response contains the user's original prompt mixed in
+            "Scene: rooftop, golden hour, Atmosphere: calm",
+            "Scene: forest, golden hour, Atmosphere: sunny", 
+            "Scene: airport, spotlights, Atmosphere: misty"
+        ]
+        
+        content_lower = raw_content.lower()
+        
+        for indicator in malformed_indicators:
+            if isinstance(indicator, bool):
+                # Direct boolean check (like length check)
+                if indicator:
+                    return True
+            elif isinstance(indicator, str):
+                # String pattern check
+                if indicator.lower() in content_lower:
+                    return True
+        
+        # Check if response ends abruptly (no proper ending)
+        if not raw_content.strip().endswith(('.', '!', '?')):
+            # If it doesn't end with proper punctuation, it might be cut off
+            # But only flag it if it's also short or contains other indicators
+            if len(raw_content.strip()) < 200:
+                return True
+        
+        return False
 
 
 

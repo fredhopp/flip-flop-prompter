@@ -48,8 +48,6 @@ class PromptEngine:
         Returns:
             Formatted prompt string
         """
-        from ..utils.logger import debug, info, LogArea
-        
         debug(f"PROMPT: Starting prompt generation for model '{model}'", LogArea.PROMPT)
         debug(f"PROMPT: Content rating: {content_rating}", LogArea.PROMPT)
         debug(f"PROMPT: LLM model: {llm_model}", LogArea.PROMPT)
@@ -82,12 +80,13 @@ class PromptEngine:
                 debug(f"PROMPT: Final prompt: '{result[:200]}{'...' if len(result) > 200 else ''}'", LogArea.PROMPT)
                 return result
             except Exception as e:
-                # Fall back to adapter if LLM fails
-                error_msg = f"LLM refinement failed, using adapter: {str(e)}"
+                # Return clear error message instead of falling back to adapter
+                error_msg = f"Ollama timeout or error: {str(e)}"
                 debug(f"PROMPT: {error_msg}", LogArea.PROMPT)
-                info(error_msg, LogArea.GENERAL)
+                debug(error_msg, LogArea.GENERAL)
+                return f"[ERROR: {error_msg}]"
 
-        # Use model adapter as fallback
+        # Use model adapter as fallback only if LLM is not available at all
         debug(f"PROMPT: Using model adapter for '{model}'", LogArea.PROMPT)
         adapter = self.model_adapters[model.lower()]
         result = adapter.format_prompt_with_logging(prompt_data)

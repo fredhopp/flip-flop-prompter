@@ -21,6 +21,7 @@ class PreviewState(Enum):
     PREVIEW = "preview" 
     FINAL = "final"
     HISTORY = "history"
+    ERROR = "error" # Added for error messages
 
 
 class PreviewPanel(QWidget):
@@ -249,6 +250,18 @@ class PreviewPanel(QWidget):
                     padding: 10px;
                 }}
             """
+        elif self.final_state == PreviewState.ERROR:
+            # Error messages should use a red background
+            final_style = f"""
+                QTextEdit {{
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 3px;
+                    background-color: {colors['error_bg']};
+                    color: {colors['error_fg']};
+                    padding: 10px;
+                    font-weight: bold;
+                }}
+            """
         else:
             final_style = self._get_style_for_state(self.final_state, colors)
         
@@ -292,6 +305,18 @@ class PreviewPanel(QWidget):
                     background-color: {colors.get('preview_final_bg', colors['text_bg'])};
                     color: {colors.get('preview_final_fg', colors['text_fg'])};
                     padding: 10px;
+                }}
+            """
+        elif self.final_state == PreviewState.ERROR:
+            # Error messages should use a red background
+            final_style = f"""
+                QTextEdit {{
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 3px;
+                    background-color: {colors['error_bg']};
+                    color: {colors['error_fg']};
+                    padding: 10px;
+                    font-weight: bold;
                 }}
             """
         else:
@@ -346,6 +371,17 @@ class PreviewPanel(QWidget):
                     background-color: {history_bg};
                     color: {colors['text_fg']};
                     padding: 10px;
+                }}
+            """
+        elif state == PreviewState.ERROR:
+            return f"""
+                QTextEdit {{
+                    border: 1px solid {colors['tag_border']};
+                    border-radius: 3px;
+                    background-color: {colors['error_bg']};
+                    color: {colors['error_fg']};
+                    padding: 10px;
+                    font-weight: bold;
                 }}
             """
         else:
@@ -504,10 +540,15 @@ class PreviewPanel(QWidget):
     def set_final_prompt(self, text: str):
         """Set the final prompt text."""
         self.final_text.setPlainText(text)
-        if text.strip():
+        
+        # Check if this is an error message
+        if text.strip().startswith("[ERROR:"):
+            self.final_state = PreviewState.ERROR
+        elif text.strip():
             self.final_state = PreviewState.FINAL
         else:
             self.final_state = PreviewState.PLACEHOLDER
+            
         self._apply_state_styling_debounced()
     
     def clear_preview(self):

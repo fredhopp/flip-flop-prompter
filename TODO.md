@@ -83,6 +83,17 @@
   - [ ] Store action history for undo/redo
   - [ ] Add keyboard shortcuts (Ctrl+Z, Ctrl+Y)
   - [ ] Add undo/redo buttons to UI
+- [ ] **Ollama Process Management Safety** - Ensure we only manage processes we started
+  - [ ] Don't ever kill ollama process IDs that were not initiated by the prompt app
+  - [ ] Track only processes started by our application
+  - [ ] Add safety checks before any process termination
+  - [ ] Log process management actions for debugging
+- [ ] **Error Handling Enhancement** - Improve timeout and error display
+  - [x] Return clear error messages instead of falling back to adapter for LLM timeouts
+  - [x] Add ERROR state to preview panel with red styling for error messages
+  - [x] Add error colors to both light and dark themes
+  - [x] Add validation to detect malformed/incomplete LLM responses
+  - [ ] Test error handling with various timeout scenarios
 
 ### **Template Enhancement**
 - [ ] **Embed snippet metadata in templates** - Share and grow keyword database
