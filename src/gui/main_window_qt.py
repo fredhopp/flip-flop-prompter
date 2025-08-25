@@ -132,6 +132,9 @@ class MainWindow(QMainWindow):
         self._dbg_last_reset_time = time.monotonic()
         self._dbg_cycle_threshold = 100  # calls per 2 seconds
 
+        # Popup/UI suppression during restores/jumps
+        self._suppress_popups = False
+
         # Install global event filter to log QMessageBox storms
         try:
             app = QApplication.instance()
@@ -159,6 +162,11 @@ class MainWindow(QMainWindow):
                         if self.debug_enabled:
                             error(r"Popup storm detected; suppressing this QMessageBox show", LogArea.LOAD)
                         return True  # Filter out this event
+                    # Suppress popups during restore/jump windows
+                    if event.type() == QEvent.Show and getattr(self, '_suppress_popups', False):
+                        if self.debug_enabled:
+                            debug(r"Suppressing popup during restore/jump window", LogArea.LOAD)
+                        return True
             # Log paint/update storms
             if event.type() in (QEvent.UpdateRequest, QEvent.Paint):
                 now = time.monotonic()
@@ -1547,14 +1555,8 @@ class MainWindow(QMainWindow):
                     debug(r"Iteration {i+1} - received final prompt (length: {len(final_prompt)})", LogArea.BATCH)
                     debug(r"Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'", LogArea.BATCH)
                 
-                # Generate summary text for this iteration using the current seed (before saving to history)
-                summary_text = self._generate_preview_text_with_seed(current_seed)
-                
-                if self.debug_enabled:
-                    debug(r"Iteration {i+1} - summary: '{summary_text}'", LogArea.BATCH)
-                
                 # Save to history with final prompt (each gets individual history entry)
-                self._save_to_history(final_prompt, summary_text, current_seed)
+                self._save_to_history(final_prompt, "", current_seed)
                 
                 # Get current history state after saving
                 current_pos, total_count = self.history_manager.get_navigation_info()
@@ -1954,107 +1956,33 @@ class MainWindow(QMainWindow):
             return ""
 
     def _update_preview(self, preserve_tab: bool = False, force_update: bool = False):
-        """Update the prompt preview with smart caching logic."""
-        # Don't update if preview panel doesn't exist yet
+        """Live preview disabled; maintain cache and navigation only."""
         if not hasattr(self, 'preview_panel'):
             return
-        
-        # Reentrancy guard
-        if hasattr(self, '_updating_preview') and self._updating_preview:
-            if self.debug_enabled:
-                info(r"DEBUG NAV: Preview update skipped - already updating", LogArea.GENERAL)
-            return
-        
-        # Suppression window guard
-        if not force_update and hasattr(self, '_suppress_preview_updates') and self._suppress_preview_updates:
-            if self.debug_enabled:
-                info(r"DEBUG NAV: Preview update skipped - suppression window", LogArea.GENERAL)
-            return
-        
-        # Skip during template loading or state restoration unless forced
-        if not force_update:
-            if hasattr(self, '_restoring_state') and self._restoring_state:
-                if self.debug_enabled:
-                    info(r"DEBUG NAV: Preview update skipped - restoring state", LogArea.GENERAL)
-                return
-            if hasattr(self, '_loading_template') and self._loading_template:
-                if self.debug_enabled:
-                    info(r"DEBUG NAV: Preview update skipped - loading template", LogArea.GENERAL)
-                return
-        
-        # Don't update if we're transitioning (prevents cascading)
-        if self.navigation_state == NavigationState.TRANSITIONING and not force_update:
-            if self.debug_enabled:
-                info(r"DEBUG NAV: Preview update skipped - transitioning", LogArea.GENERAL)
-            return
-        
-        # SIMPLE FLAG-BASED LOGIC: Handle field changes based on current position
+        # Handle history edits: keep smart jump/cache behavior, skip text generation
         if not force_update and not (hasattr(self, '_restoring_state') and self._restoring_state) and not (hasattr(self, '_intentionally_navigating') and self._intentionally_navigating):
             current_pos, total_count = self.history_manager.get_navigation_info()
-            
-            if current_pos > 0:  # User is on history (1/X, 2/X, 3/X, etc.)
-                # User modified fields while viewing history - cache current state as new 0/X and jump
+            if current_pos > 0:
                 if self.debug_enabled:
                     debug(r"User modified fields on history position {current_pos}/{total_count} - caching as new 0/X", LogArea.NAVIGATION)
-                
-                # Set restoring flag to prevent cascading during the entire operation
                 self._restoring_state = True
-                
                 try:
-                    # Cache the current field state as the new 0/X
                     self._cache_current_state()
-                    
-                    # Jump to position 0 (current state) FIRST
                     self.history_manager.jump_to_position(0)
-                    
-                    # Restore the cached current state (signals are blocked, no cascading)
                     self._restore_cached_current_state()
-                    
-                    # Update navigation to show current state
                     self._update_history_navigation()
-                    
-                    # Switch to summary tab to show the editable current state
-                    if hasattr(self, 'preview_panel'):
-                        self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
-                        
                     if self.debug_enabled:
                         info(r"DEBUG NAV: Completed smart jump to current state", LogArea.GENERAL)
                 finally:
-                    # Clear flag immediately (no timer needed)
                     self._restoring_state = False
-                
-                return  # Exit early - preview will be updated after jump
-            elif current_pos == 0:  # User is on 0/X (current state)
-                # User modified fields on current state - update the cache
+                return
+            elif current_pos == 0:
                 if self.debug_enabled:
                     info(r"DEBUG NAV: User modified fields on 0/X - updating cache", LogArea.GENERAL)
                 self._cache_current_state()
-        
-        # Mark as updating
-        self._updating_preview = True
-        # Mark as updating
-        self._updating_preview = True
-        try:
-            # Generate preview text
-            preview_text = self._generate_preview_text()
-            
-            if self.debug_enabled:
-                debug(r"Generated preview text: '{preview_text}'", LogArea.NAVIGATION)
-            
-            # Update preview panel - only if there's actual content
-            if preview_text.strip():
-                self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=preserve_tab)
-            
-            # Update status bar
-            self._update_status_bar()
-            
-        except Exception as e:
-            error(r"updating preview: {e}", LogArea.ERROR)
-            if hasattr(self, 'preview_panel'):
-                self.preview_panel.update_preview("", is_final=False, preserve_tab=preserve_tab)
-        finally:
-            # Clear updating flag
-            self._updating_preview = False
+        # Do not generate or update preview text here
+        if self.debug_enabled:
+            debug(r"_update_preview skipped content generation (Final Prompt updates only on Generate)", LogArea.NAVIGATION)
     
     def _update_llm_status_lazy(self):
         """Lazy update LLM status to avoid blocking startup."""
@@ -2612,12 +2540,9 @@ class MainWindow(QMainWindow):
     
     def _restore_cached_current_state(self):
         """Restore the cached 0/X state to the fields."""
-        if not self._cached_current_state or self._restoring_state:
+        if not self._cached_current_state:
             if self.debug_enabled:
-                if not self._cached_current_state:
-                    info(r"DEBUG NAV: No cached current state to restore", LogArea.GENERAL)
-                else:
-                    info(r"DEBUG NAV: Already restoring state, skipping", LogArea.GENERAL)
+                info(r"DEBUG NAV: No cached current state to restore", LogArea.GENERAL)
             return
         
         if self.debug_enabled:
@@ -2636,6 +2561,8 @@ class MainWindow(QMainWindow):
         
         # Set flag to prevent recursive calls
         self._jumping_to_current = True
+        # Suppress popups briefly during jump/restore
+        self._suppress_popups = True
         
         try:
             if self.debug_enabled:
@@ -2650,27 +2577,23 @@ class MainWindow(QMainWindow):
             # Update navigation to show current state (this will call _show_current_state)
             self._update_history_navigation()
             
-            # Switch to summary tab to show the editable current state
-            if hasattr(self, 'preview_panel'):
-                self.preview_panel.tab_widget.setCurrentIndex(0)  # Summary tab
+            # No tabs anymore
                 
             if self.debug_enabled:
                 info(r"DEBUG NAV: Completed jump to current state", LogArea.GENERAL)
         finally:
             # Clear flag immediately (no timer needed)
             self._jumping_to_current = False
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(300, lambda: setattr(self, '_suppress_popups', False))
     
 
     
     def _load_preview_into_fields(self):
         """Load the current preview content into the input fields."""
         # Get the current preview text (from the active tab)
-        current_tab = self.preview_panel.tab_widget.currentIndex()
-        
-        if current_tab == 0:  # Summary tab
-            preview_text = self.preview_panel.summary_text.toPlainText()
-        else:  # Final Prompt tab
-            preview_text = self.preview_panel.final_text.toPlainText()
+        # Single final prompt text now
+        preview_text = self.preview_panel.final_text.toPlainText()
         
         debug(r"Preview text from tab {current_tab}:", LogArea.LOAD)
         debug(r"{preview_text}", LogArea.LOAD)
@@ -2847,7 +2770,7 @@ class MainWindow(QMainWindow):
                 debug(r"History entry field values: {list(entry.field_values.keys())}", LogArea.NAVIGATION)
                 debug(r"History entry field tags: {list(entry.field_tags.keys())}", LogArea.NAVIGATION)
                 debug(r"History entry final prompt: '{entry.final_prompt[:100] if entry.final_prompt else 'None'}{'...' if entry.final_prompt and len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION)
-                debug(r"History entry summary: '{entry.summary_text}'", LogArea.NAVIGATION)
+                # Summary removed
                 debug(r"_intentionally_navigating flag is: {self._intentionally_navigating}", LogArea.NAVIGATION)
             
             # Use the new PromptState restoration method
@@ -2929,14 +2852,9 @@ class MainWindow(QMainWindow):
                 info(r"DEBUG NAV: Restoring cached current state in _show_current_state", LogArea.GENERAL)
             self._restore_cached_current_state()
         
-        # Generate preview text
-        preview_text = self._generate_preview_text()
-        
-        debug(r"Current state preview text: '{preview_text}'", LogArea.NAVIGATION)
-        
-        # Update preview panel with current state (only if we have content)
-        if preview_text.strip():
-            self.preview_panel.update_preview(preview_text, is_final=False, preserve_tab=True)
+        # Live preview removed; do not generate or update here
+        if self.debug_enabled:
+            debug(r"Live preview disabled; awaiting Generate action for Final Prompt", LogArea.NAVIGATION)
     
     def _save_to_history(self, final_prompt: str = "", summary_text: str = "", seed: Optional[int] = None):
         """Save current state to history using PromptState."""
@@ -2949,8 +2867,7 @@ class MainWindow(QMainWindow):
         # Override with provided values if specified
         if final_prompt:
             prompt_state.final_prompt = final_prompt
-        if summary_text:
-            prompt_state.summary_text = summary_text
+        # Summary removed
         if seed is not None:
             prompt_state.seed = seed
         
@@ -3042,7 +2959,7 @@ class MainWindow(QMainWindow):
         summary_text = ""
         final_prompt = ""
         if hasattr(self, 'preview_panel'):
-            summary_text = self.preview_panel.get_summary_text()
+            summary_text = ""  # Summary removed
             final_prompt = self.preview_panel.get_final_prompt()
         
         # Create PromptState
@@ -3108,8 +3025,6 @@ class MainWindow(QMainWindow):
             
             # Restore generated content
             if hasattr(self, 'preview_panel'):
-                if prompt_state.summary_text:
-                    self.preview_panel.set_summary_text(prompt_state.summary_text)
                 if prompt_state.final_prompt:
                     self.preview_panel.set_final_prompt(prompt_state.final_prompt)
             
