@@ -3464,16 +3464,16 @@ class MainWindow(QMainWindow):
     def _get_current_prompt_data(self):
         """Get current prompt data from all fields without randomization."""
         return PromptData(
-            style=self.style_widget.get_current_text() if hasattr(self, 'style_widget') else "",
-            setting=self.setting_widget.get_current_text() if hasattr(self, 'setting_widget') else "",
-            weather=self.weather_widget.get_current_text() if hasattr(self, 'weather_widget') else "",
-            date_time=self.datetime_widget.get_current_text() if hasattr(self, 'datetime_widget') else "",
-            subjects=self.subjects_widget.get_current_text() if hasattr(self, 'subjects_widget') else "",
-            pose_action=self.pose_widget.get_current_text() if hasattr(self, 'pose_widget') else "",
-            camera=self.camera_widget.get_current_text() if hasattr(self, 'camera_widget') else "",
-            framing_action=self.framing_widget.get_current_text() if hasattr(self, 'framing_widget') else "",
-            grading=self.grading_widget.get_current_text() if hasattr(self, 'grading_widget') else "",
-            details=self.details_widget.get_current_text() if hasattr(self, 'details_widget') else "",
+            style=self.style_widget.get_value() if hasattr(self, 'style_widget') else "",
+            setting=self.setting_widget.get_value() if hasattr(self, 'setting_widget') else "",
+            weather=self.weather_widget.get_value() if hasattr(self, 'weather_widget') else "",
+            date_time=self.datetime_widget.get_value() if hasattr(self, 'datetime_widget') else "",
+            subjects=self.subjects_widget.get_value() if hasattr(self, 'subjects_widget') else "",
+            pose_action=self.pose_widget.get_value() if hasattr(self, 'pose_widget') else "",
+            camera=self.camera_widget.get_value() if hasattr(self, 'camera_widget') else "",
+            framing_action=self.framing_widget.get_value() if hasattr(self, 'framing_widget') else "",
+            grading=self.grading_widget.get_value() if hasattr(self, 'grading_widget') else "",
+            details=self.details_widget.get_value() if hasattr(self, 'details_widget') else "",
             llm_instructions=""
         )
     
