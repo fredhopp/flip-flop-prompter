@@ -139,12 +139,12 @@
 ### **High Priority**
 - [ ] **Expand snippet categories** - Add more variety to existing snippet files
 - [ ] **Improve randomization system** - Add more sophisticated random selection algorithms
-- [ ] **Randomization system** - Generate variations with pinned/random fields
-  - [ ] **Field pinning** - Allow specific fields to be "pinned" (fixed) while others randomize
-  - [ ] **Batch generation** - Generate multiple prompt variations at once
-  - [ ] **Seed system** - ComfyUI-style seed management (fixed/increment/random)
-  - [ ] **Batch file saving** - Save generated prompts as numbered individual files
-  - [ ] **Variation controls** - GUI to select which fields to randomize vs pin
+- ~~**Randomization system** - Generate variations with pinned/random fields~~ (No longer relevant)
+  - ~~**Field pinning** - Allow specific fields to be "pinned" (fixed) while others randomize~~ (No longer relevant)
+  - ~~**Batch generation** - Generate multiple prompt variations at once~~ (No longer relevant)
+  - ~~**Seed system** - ComfyUI-style seed management (fixed/increment/random)~~ (No longer relevant)
+  - ~~**Batch file saving** - Save generated prompts as numbered individual files~~ (No longer relevant)
+  - ~~**Variation controls** - GUI to select which fields to randomize vs pin~~ (No longer relevant)
 
 ### **GUI Improvements**
 - [ ] **Customizable layouts** - Allow users to rearrange fields
@@ -231,12 +231,12 @@
 6. ✅ Fix prompt preview
 7. ✅ Clean up unnecessary dependencies
 
-### **Sprint 2 (Randomization System)**
-1. Implement field pinning system
-2. Add seed management (fixed/increment/random)
-3. Create batch generation interface
-4. Add variation controls GUI
-5. Implement batch file saving
+### **Sprint 2 (Randomization System) - NO LONGER RELEVANT**
+1. ~~Implement field pinning system~~ (No longer relevant)
+2. ~~Add seed management (fixed/increment/random)~~ (No longer relevant)
+3. ~~Create batch generation interface~~ (No longer relevant)
+4. ~~Add variation controls GUI~~ (No longer relevant)
+5. ~~Implement batch file saving~~ (No longer relevant)
 
 ### **Sprint 3 (Unified Service Architecture)**
 1. Design service abstraction layer

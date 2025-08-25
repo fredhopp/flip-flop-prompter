@@ -15,7 +15,7 @@ sys.path.insert(0, str(src_path))
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, QMessageLogContext, QMessageLogger
-from PySide6.QtCore import qInstallMessageHandler
+from PySide6.QtCore import qInstallMessageHandler, QTimer
 from src.gui.main_window_qt import MainWindow
 from src.utils.logger import initialize_logger
 
@@ -45,6 +45,7 @@ def main():
     """Main entry point for PySide6 version."""
     parser = argparse.ArgumentParser(description="FlipFlopPrompt - AI Image Generation Prompt Builder (PySide6)")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("-t", "--load-template", dest="load_template", help="Load a template JSON file at startup")
     
     args = parser.parse_args()
     
@@ -68,6 +69,14 @@ def main():
     # Create and show main window
     window = MainWindow(debug_enabled=args.debug)
     window.show()
+
+    # Auto-load template at startup if provided, but only after UI becomes ready
+    if args.load_template:
+        template_path = args.load_template.lstrip('@')
+        def _deferred_load():
+            # Extra delay to allow Ollama/model checks to settle
+            QTimer.singleShot(300, lambda: window._load_template(template_path, show_messages=False))
+        window.ui_ready.connect(_deferred_load)
     
     # Start event loop
     sys.exit(app.exec())

@@ -44,6 +44,8 @@ class MainWindow(QMainWindow):
     
     # Custom signals
     content_rating_changed = Signal(str)
+    # Emitted when UI is ready after initial show
+    ui_ready = Signal()
     
     def __init__(self, debug_enabled: bool = False):
         super().__init__()
@@ -123,6 +125,14 @@ class MainWindow(QMainWindow):
         
         # Set navigation state
         self.navigation_state = NavigationState.CURRENT
+        
+        # Fire ui_ready after a short delay to allow widgets/services to settle
+        QTimer.singleShot(300, self._emit_ui_ready)
+
+    def _emit_ui_ready(self):
+        if self.debug_enabled:
+            info(r"DEBUG NAV: Emitting ui_ready", LogArea.GENERAL)
+        self.ui_ready.emit()
     
     def _get_prompt_engine(self):
         """Lazy load the prompt engine when first needed."""
@@ -999,7 +1009,7 @@ class MainWindow(QMainWindow):
             self.llm_widget.set_value("deepseek-r1:8b")
         
         # Clear preview
-        self._update_preview()
+        self._schedule_preview_update()
         
         # Show status message
         self._show_status_message("All fields cleared")
@@ -1059,15 +1069,23 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save template: {str(e)}")
     
-    def _load_template(self):
-        """Load a template file with backward compatibility and PromptState support."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Load Template", 
-            str(self.templates_dir),
-            "JSON Files (*.json);;All Files (*)"
-        )
+    def _load_template(self, file_path: str = None, show_messages: bool = True):
+        """Load a template file with backward compatibility and PromptState support.
+        If file_path is provided, loads that file directly; otherwise opens a file dialog.
+        """
+        if not file_path:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, "Load Template", 
+                str(self.templates_dir),
+                "JSON Files (*.json);;All Files (*)"
+            )
         
         if file_path:
+            # Set flag to prevent preview updates during template loading
+            self._loading_template = True
+            # Add a short post-load suppression window to let signals settle
+            self._suppress_preview_updates = True
+            
             try:
                 if self.debug_enabled:
                     info(f"Loading template from: {file_path}", LogArea.LOAD)
@@ -1137,8 +1155,8 @@ class MainWindow(QMainWindow):
                     if hasattr(self, 'debug_action'):
                         self.debug_action.setChecked(self.debug_enabled)
                 
-                # Update preview
-                self._update_preview()
+                # Update preview (will be triggered automatically when signals are unblocked)
+                # No need to call _update_preview() here - it will be triggered by field changes
                 
                 # Refresh existing tags to update visual state after template loading
                 self._refresh_existing_tags()
@@ -1146,15 +1164,16 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     info(f"Template loading completed successfully", LogArea.LOAD)
                 
-                # Show single popup with any issues
-                if issues:
-                    message = f"Template loaded from {Path(file_path).name}\n\n"
-                    message += "Issues found:\n"
-                    for issue in issues:
-                        message += f"• {issue}\n"
-                    QMessageBox.warning(self, "Template Loaded with Issues", message)
-                else:
-                    QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
+                # Show single popup with any issues (optional)
+                if show_messages:
+                    if issues:
+                        message = f"Template loaded from {Path(file_path).name}\n\n"
+                        message += "Issues found:\n"
+                        for issue in issues:
+                            message += f"• {issue}\n"
+                        QMessageBox.warning(self, "Template Loaded with Issues", message)
+                    else:
+                        QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
                 
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
                 
@@ -1163,7 +1182,14 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     import traceback
                     debug(f"Template loading traceback: {traceback.format_exc()}", LogArea.ERROR)
-                QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+                if show_messages:
+                    QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+            finally:
+                # Clear the template loading flag
+                self._loading_template = False
+                # Clear suppression shortly after to avoid cascades
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(250, lambda: setattr(self, '_suppress_preview_updates', False))
     
     def _convert_legacy_template_to_prompt_state(self, template_data):
         """Convert legacy template format to PromptState."""
@@ -1645,6 +1671,11 @@ class MainWindow(QMainWindow):
     def _refresh_existing_tags(self):
         """Refresh existing tags to check if they're still missing after snippet reload."""
         try:
+            # Skip during template loading to avoid cascades
+            if hasattr(self, '_loading_template') and self._loading_template:
+                if self.debug_enabled:
+                    debug(r"Skipping _refresh_existing_tags during template loading", LogArea.REFRESH)
+                return
             debug(r"Starting _refresh_existing_tags()", LogArea.REFRESH)
             selected_filters = self._get_selected_filters()
             debug(r"Current filters: {selected_filters}", LogArea.REFRESH)
@@ -1862,6 +1893,29 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'preview_panel'):
             return
         
+        # Reentrancy guard
+        if hasattr(self, '_updating_preview') and self._updating_preview:
+            if self.debug_enabled:
+                info(r"DEBUG NAV: Preview update skipped - already updating", LogArea.GENERAL)
+            return
+        
+        # Suppression window guard
+        if not force_update and hasattr(self, '_suppress_preview_updates') and self._suppress_preview_updates:
+            if self.debug_enabled:
+                info(r"DEBUG NAV: Preview update skipped - suppression window", LogArea.GENERAL)
+            return
+        
+        # Skip during template loading or state restoration unless forced
+        if not force_update:
+            if hasattr(self, '_restoring_state') and self._restoring_state:
+                if self.debug_enabled:
+                    info(r"DEBUG NAV: Preview update skipped - restoring state", LogArea.GENERAL)
+                return
+            if hasattr(self, '_loading_template') and self._loading_template:
+                if self.debug_enabled:
+                    info(r"DEBUG NAV: Preview update skipped - loading template", LogArea.GENERAL)
+                return
+        
         # Don't update if we're transitioning (prevents cascading)
         if self.navigation_state == NavigationState.TRANSITIONING and not force_update:
             if self.debug_enabled:
@@ -1910,6 +1964,8 @@ class MainWindow(QMainWindow):
                     info(r"DEBUG NAV: User modified fields on 0/X - updating cache", LogArea.GENERAL)
                 self._cache_current_state()
         
+        # Mark as updating
+        self._updating_preview = True
         try:
             # Generate preview text
             preview_text = self._generate_preview_text()
@@ -1928,6 +1984,9 @@ class MainWindow(QMainWindow):
             error(r"updating preview: {e}", LogArea.ERROR)
             if hasattr(self, 'preview_panel'):
                 self.preview_panel.update_preview("", is_final=False, preserve_tab=preserve_tab)
+        finally:
+            # Clear updating flag
+            self._updating_preview = False
     
     def _update_llm_status_lazy(self):
         """Lazy update LLM status to avoid blocking startup."""
@@ -1956,19 +2015,21 @@ class MainWindow(QMainWindow):
         # Update snippet dropdowns
         self._initialize_snippet_dropdowns()
         
-        # Update preview
-        self._update_preview()
+        # Update preview (debounced)
+        self._schedule_preview_update()
     
 
     
     def _on_llm_changed(self, llm_name):
         """Handle LLM selection changes."""
+        if (hasattr(self, '_restoring_state') and self._restoring_state) or (hasattr(self, '_loading_template') and self._loading_template):
+            return
         # Update preview panel LLM info (if preview panel exists)
         if hasattr(self, 'preview_panel'):
             self.preview_panel.update_llm_info(llm_name)
         
-        # Update preview
-        self._update_preview()
+        # Update preview (debounced)
+        self._schedule_preview_update()
     
     def _get_selected_filters(self):
         """Get list of currently selected filters."""
@@ -1980,24 +2041,37 @@ class MainWindow(QMainWindow):
     
     def _set_selected_filters(self, filters):
         """Set the selected filters."""
-        # Reset all filters first
-        for filter_name, action in self.filter_actions.items():
-            action.setChecked(False)
-        # Set filters from list
-        for filter_name in filters:
-            if filter_name in self.filter_actions:
-                self.filter_actions[filter_name].setChecked(True)
+        # Block QAction signals while we change checks
+        for _, action in self.filter_actions.items():
+            if hasattr(action, 'blockSignals'):
+                action.blockSignals(True)
+        try:
+            # Reset all filters first
+            for filter_name, action in self.filter_actions.items():
+                action.setChecked(False)
+            # Set filters from list
+            for filter_name in filters:
+                if filter_name in self.filter_actions:
+                    self.filter_actions[filter_name].setChecked(True)
+        finally:
+            for _, action in self.filter_actions.items():
+                if hasattr(action, 'blockSignals'):
+                    action.blockSignals(False)
     
     def _on_seed_changed(self):
         """Handle seed value changes."""
+        if (hasattr(self, '_restoring_state') and self._restoring_state) or (hasattr(self, '_loading_template') and self._loading_template):
+            return
         # Update preview with new randomization
-        self._update_preview()
+        self._schedule_preview_update()
         
         # Save seed in preferences if needed
         self._save_preferences()
     
     def _on_filter_changed(self, filter_name, checked):
         """Handle filter selection changes."""
+        if (hasattr(self, '_restoring_state') and self._restoring_state) or (hasattr(self, '_loading_template') and self._loading_template):
+            return
         # Log the filter change
         if self.logger:
             self.logger.log_gui_action(f"Filter changed", f"{filter_name}: {'checked' if checked else 'unchecked'}")
@@ -2016,8 +2090,8 @@ class MainWindow(QMainWindow):
         debug(r"Calling _refresh_existing_tags()", LogArea.FILTERS)
         self._refresh_existing_tags()
         
-        # Update preview
-        self._update_preview()
+        # Update preview (debounced)
+        self._schedule_preview_update()
         
         # Save preferences
         self._save_preferences()
@@ -2636,8 +2710,8 @@ class MainWindow(QMainWindow):
             for widget in blocked_widgets:
                 widget.blockSignals(False)
             
-            # Update preview to reflect the loaded values
-            self._update_preview()
+            # Schedule preview update to reflect the loaded values (respect guards)
+            self._schedule_preview_update()
     
     def _find_matching_snippet(self, field_name: str, value: str, snippet_manager) -> tuple:
         """
@@ -2722,7 +2796,12 @@ class MainWindow(QMainWindow):
                 self.preview_panel.final_text.setFont(font)
             
             # Force a preview update to ensure summary reflects the restored fields
-            QTimer.singleShot(100, lambda: self._update_preview(preserve_tab=True, force_update=True))
+            # Skip if a template is currently loading
+            QTimer.singleShot(
+                100,
+                lambda: (None if (hasattr(self, '_loading_template') and self._loading_template)
+                         else self._update_preview(preserve_tab=True, force_update=True))
+            )
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
@@ -2730,6 +2809,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, '_restoring_state') and self._restoring_state:
             if self.debug_enabled:
                 debug(r"Skipping navigation update during state restoration", LogArea.NAVIGATION)
+            return
+        # Skip while preview is updating
+        if hasattr(self, '_updating_preview') and self._updating_preview:
+            if self.debug_enabled:
+                debug(r"Skipping navigation update during preview update", LogArea.NAVIGATION)
             return
         
         if hasattr(self, 'preview_panel'):
@@ -2819,7 +2903,21 @@ class MainWindow(QMainWindow):
                 debug(r"Skipping preview update during state restoration", LogArea.NAVIGATION)
             return
         
+        # Additional protection: Skip if we're in the middle of template loading
+        if hasattr(self, '_loading_template') and self._loading_template:
+            if self.debug_enabled:
+                debug(r"Skipping preview update during template loading", LogArea.NAVIGATION)
+            return
+        
+        # Suppression window after template load
+        if hasattr(self, '_suppress_preview_updates') and self._suppress_preview_updates:
+            if self.debug_enabled:
+                debug(r"Skipping preview update during suppression window", LogArea.NAVIGATION)
+            return
+        
         if hasattr(self, '_preview_update_timer'):
+            if self.debug_enabled:
+                debug(r"Starting debounced preview timer", LogArea.NAVIGATION)
             self._preview_update_timer.start(100)  # 100ms debounce
 
     def _save_all_prompts(self):
