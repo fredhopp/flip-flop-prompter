@@ -1629,7 +1629,7 @@ class MainWindow(QMainWindow):
                 debug(r"Using LLM model: {llm_model}", LogArea.BATCH)
                 debug(r"Using content rating: {content_rating}", LogArea.BATCH)
                 debug(r"Starting batch generation loop for {batch_size} prompts", LogArea.BATCH)
-                debug(r"Batch mode enabled - will add 1 second delays between API calls to prevent Ollama lockup", LogArea.BATCH)
+                debug(r"Batch mode enabled - using concurrent processing with up to 3 workers", LogArea.BATCH)
             
             # Validate LLM model is available
             if not llm_model:
@@ -1645,7 +1645,37 @@ class MainWindow(QMainWindow):
             # Record start time
             start_time = datetime.now()
             
-            # Generate batch prompts sequentially
+            # Generate batch prompts with concurrent requests for better performance
+            import concurrent.futures
+            import threading
+            
+            # Create a thread pool for concurrent API calls
+            max_workers = min(batch_size, 3)  # Limit concurrent requests to prevent overwhelming Ollama
+            if self.debug_enabled:
+                debug(r"Using concurrent processing with {max_workers} workers", LogArea.BATCH)
+            
+            def generate_single_prompt(iteration_data):
+                """Generate a single prompt for concurrent processing."""
+                i, current_seed, prompt_data = iteration_data
+                
+                if self.debug_enabled:
+                    debug(r"Concurrent iteration {i+1} - calling prompt engine.generate_prompt() with model: {llm_model}", LogArea.BATCH)
+                
+                try:
+                    # Generate prompt using the engine - pass the LLM model explicitly
+                    final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled, llm_model)
+                    
+                    if self.debug_enabled:
+                        debug(r"Concurrent iteration {i+1} - received final prompt (length: {len(final_prompt)})", LogArea.BATCH)
+                    
+                    return i, final_prompt, current_seed, None
+                except Exception as e:
+                    if self.debug_enabled:
+                        debug(r"Concurrent iteration {i+1} - error: {str(e)}", LogArea.BATCH)
+                    return i, None, current_seed, str(e)
+            
+            # Prepare all prompt data for concurrent processing
+            iteration_data_list = []
             for i in range(batch_size):
                 if self.debug_enabled:
                     debug(r"Starting iteration {i+1}/{batch_size}", LogArea.BATCH)
@@ -1667,9 +1697,6 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     debug(r"Iteration {i+1} - calculated seed: {current_seed}", LogArea.BATCH)
                 
-                # Update status for this iteration
-                self._show_status_message(f"Generating {i+1}/{batch_size} prompts (seed: {current_seed})...")
-                
                 # Create PromptData object with current seed
                 prompt_data = PromptData(
                     style=self.style_widget.get_randomized_value(current_seed) if hasattr(self, 'style_widget') else "",
@@ -1685,35 +1712,53 @@ class MainWindow(QMainWindow):
                     llm_instructions=llm_instructions
                 )
                 
+                # Add to iteration data list for concurrent processing
+                iteration_data_list.append((i, current_seed, prompt_data))
+            
+            # Process all prompts concurrently
+            results = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all tasks
+                future_to_iteration = {executor.submit(generate_single_prompt, data): data[0] for data in iteration_data_list}
+                
+                # Collect results as they complete
+                completed_count = 0
+                for future in concurrent.futures.as_completed(future_to_iteration):
+                    iteration_num = future_to_iteration[future]
+                    try:
+                        i, final_prompt, current_seed, error = future.result()
+                        results.append((i, final_prompt, current_seed, error))
+                        
+                        completed_count += 1
+                        progress = completed_count / batch_size * 100
+                        self.status_label.setText(f"Batch progress: {progress:.0f}% ({completed_count}/{batch_size})")
+                        self._show_status_message(f"Generated {completed_count}/{batch_size} prompts...")
+                        
+                        if error:
+                            if self.debug_enabled:
+                                debug(r"Iteration {i+1} - failed with error: {error}", LogArea.BATCH)
+                        else:
+                            if self.debug_enabled:
+                                debug(r"Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'", LogArea.BATCH)
+                            
+                            # Save to history with final prompt (each gets individual history entry)
+                            self._save_to_history(final_prompt, "", current_seed)
+                            
+                    except Exception as e:
+                        if self.debug_enabled:
+                            debug(r"Iteration {iteration_num+1} - unexpected error: {str(e)}", LogArea.BATCH)
+                        results.append((iteration_num, None, None, str(e)))
+            
+            # Sort results by iteration number to maintain order
+            results.sort(key=lambda x: x[0])
+            
+            # Check for any errors
+            errors = [r for r in results if r[3] is not None]
+            if errors:
+                error_messages = [f"Iteration {r[0]+1}: {r[3]}" for r in errors]
+                error_summary = "; ".join(error_messages)
                 if self.debug_enabled:
-                    debug(r"Iteration {i+1} - calling prompt engine.generate_prompt() with model: {llm_model}", LogArea.BATCH)
-                
-                # Generate prompt using the engine - pass the LLM model explicitly
-                final_prompt = self._get_prompt_engine().generate_prompt(model, prompt_data, content_rating, self.debug_enabled, llm_model)
-                
-                if self.debug_enabled:
-                    debug(r"Iteration {i+1} - received final prompt (length: {len(final_prompt)})", LogArea.BATCH)
-                    debug(r"Iteration {i+1} - final prompt: '{final_prompt[:200]}{'...' if len(final_prompt) > 200 else ''}'", LogArea.BATCH)
-                
-                # Save to history with final prompt (each gets individual history entry)
-                self._save_to_history(final_prompt, "", current_seed)
-                
-                # Add a small delay between batch iterations to prevent overwhelming Ollama
-                # Only add delay if this isn't the last iteration
-                if i < batch_size - 1:
-                    if self.debug_enabled:
-                        debug(r"Iteration {i+1} - adding 1 second delay before next iteration", LogArea.BATCH)
-                    time.sleep(1)  # 1 second delay between API calls
-                
-                # Get current history state after saving
-                current_pos, total_count = self.history_manager.get_navigation_info()
-                
-                if self.debug_enabled:
-                    debug(r"Iteration {i+1} - saved to history (state: {current_pos}/{total_count})", LogArea.BATCH)
-                
-                # Update progress
-                progress = (i + 1) / batch_size * 100
-                self.status_label.setText(f"Batch progress: {progress:.0f}% ({i+1}/{batch_size})")
+                    debug(r"Batch completed with errors: {error_summary}", LogArea.BATCH)
             
             # Calculate total generation time
             generation_time = (datetime.now() - start_time).total_seconds()
@@ -1745,7 +1790,7 @@ class MainWindow(QMainWindow):
             if batch_size == 1:
                 self._show_status_message(f"Prompt generated successfully in {generation_time:.2f}s")
             else:
-                self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s (with delays to prevent lockup)")
+                self._show_status_message(f"Batch generation completed: {batch_size} prompts in {generation_time:.2f}s (concurrent processing)")
             
         except Exception as e:
             # Stop progress tracking on error
