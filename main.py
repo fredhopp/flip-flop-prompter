@@ -76,7 +76,10 @@ def main():
         def _deferred_load():
             # Extra delay to allow Ollama/model checks to settle
             QTimer.singleShot(300, lambda: window._load_template(template_path, show_messages=False))
+        # Primary trigger
         window.ui_ready.connect(_deferred_load)
+        # Fallback trigger in case ui_ready is delayed or missed
+        QTimer.singleShot(1500, lambda: window._load_template(template_path, show_messages=False))
     
     # Start event loop
     sys.exit(app.exec())

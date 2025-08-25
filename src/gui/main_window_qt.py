@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QSizePolicy, QPushButton, QProgressBar, QStatusBar,
     QLineEdit, QComboBox, QCheckBox, QSpinBox
 )
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer, QEvent
 from PySide6.QtGui import QAction, QFont
 
 from .tag_field_widgets_qt import TagTextFieldWidget, TagTextAreaWidget, SeedFieldWidget
@@ -125,6 +125,52 @@ class MainWindow(QMainWindow):
         
         # Set navigation state
         self.navigation_state = NavigationState.CURRENT
+        
+        # Debug counters for cycle detection
+        self._dbg_prev_sched_count = 0
+        self._dbg_prev_update_count = 0
+        self._dbg_last_reset_time = time.monotonic()
+        self._dbg_cycle_threshold = 100  # calls per 2 seconds
+
+        # Install global event filter to log QMessageBox storms
+        try:
+            app = QApplication.instance()
+            if app:
+                app.installEventFilter(self)
+                self._dbg_popup_count = 0
+                self._dbg_popup_last_reset = time.monotonic()
+        except Exception:
+            pass
+
+    def eventFilter(self, obj, event):
+        # Log and optionally rate-limit QMessageBox show/hide to detect cycles
+        try:
+            if isinstance(obj, QMessageBox):
+                if event.type() in (QEvent.Show, QEvent.Hide):
+                    now = time.monotonic()
+                    if now - self._dbg_popup_last_reset > 2.0:
+                        self._dbg_popup_count = 0
+                        self._dbg_popup_last_reset = now
+                    self._dbg_popup_count += 1
+                    if self.debug_enabled:
+                        debug(r"QMessageBox event: {event.type().name if hasattr(event.type(), 'name') else int(event.type())} count={self._dbg_popup_count}", LogArea.LOAD)
+                    # If popups are storming, block further shows briefly
+                    if event.type() == QEvent.Show and self._dbg_popup_count > 10:
+                        if self.debug_enabled:
+                            error(r"Popup storm detected; suppressing this QMessageBox show", LogArea.LOAD)
+                        return True  # Filter out this event
+            # Log paint/update storms
+            if event.type() in (QEvent.UpdateRequest, QEvent.Paint):
+                now = time.monotonic()
+                if not hasattr(self, '_dbg_paint_last_reset') or now - getattr(self, '_dbg_paint_last_reset', 0) > 2.0:
+                    self._dbg_paint_count = 0
+                    self._dbg_paint_last_reset = now
+                self._dbg_paint_count += 1
+                if self._dbg_paint_count % 200 == 0 and self.debug_enabled:
+                    debug(r"High frequency UI updates: {self._dbg_paint_count} in last window", LogArea.NAVIGATION)
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
         
         # Fire ui_ready after a short delay to allow widgets/services to settle
         QTimer.singleShot(300, self._emit_ui_ready)
@@ -1073,6 +1119,11 @@ class MainWindow(QMainWindow):
         """Load a template file with backward compatibility and PromptState support.
         If file_path is provided, loads that file directly; otherwise opens a file dialog.
         """
+        # Re-entry guard
+        if hasattr(self, '_loading_template') and self._loading_template:
+            if self.debug_enabled:
+                info(r"[LOAD] Template load requested while already loading - skipping", LogArea.LOAD)
+            return
         if not file_path:
             file_path, _ = QFileDialog.getOpenFileName(
                 self, "Load Template", 
@@ -1085,6 +1136,18 @@ class MainWindow(QMainWindow):
             self._loading_template = True
             # Add a short post-load suppression window to let signals settle
             self._suppress_preview_updates = True
+            
+            # Stop any pending preview timer and disable UI updates to avoid flicker/cycling
+            try:
+                if hasattr(self, '_preview_update_timer'):
+                    self._preview_update_timer.stop()
+            except Exception:
+                pass
+            try:
+                self._updates_enabled_before_load = self.updatesEnabled()
+            except Exception:
+                self._updates_enabled_before_load = True
+            self.setUpdatesEnabled(False)
             
             try:
                 if self.debug_enabled:
@@ -1164,16 +1227,12 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     info(f"Template loading completed successfully", LogArea.LOAD)
                 
-                # Show single popup with any issues (optional)
-                if show_messages:
-                    if issues:
-                        message = f"Template loaded from {Path(file_path).name}\n\n"
-                        message += "Issues found:\n"
-                        for issue in issues:
-                            message += f"• {issue}\n"
-                        QMessageBox.warning(self, "Template Loaded with Issues", message)
-                    else:
-                        QMessageBox.information(self, "Success", f"Template loaded from {file_path}")
+                # Log any issues and update status bar instead of showing modal popups
+                if issues:
+                    info(r"Template loaded with issues: {issues}", LogArea.LOAD)
+                    self._show_status_message(f"Template loaded with {len(issues)} issue(s)")
+                else:
+                    self._show_status_message(f"Template loaded from {Path(file_path).name}")
                 
                 self._show_status_message(f"Template loaded from {Path(file_path).name}")
                 
@@ -1182,14 +1241,21 @@ class MainWindow(QMainWindow):
                 if self.debug_enabled:
                     import traceback
                     debug(f"Template loading traceback: {traceback.format_exc()}", LogArea.ERROR)
-                if show_messages:
-                    QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+                # Avoid modal popup on error; log and status-bar only
+                self._show_status_message("Failed to load template - see log")
             finally:
                 # Clear the template loading flag
                 self._loading_template = False
                 # Clear suppression shortly after to avoid cascades
                 from PySide6.QtCore import QTimer
                 QTimer.singleShot(250, lambda: setattr(self, '_suppress_preview_updates', False))
+                # No modal popups; rely on status bar and logs only
+                # Re-enable UI updates
+                try:
+                    self.setUpdatesEnabled(self._updates_enabled_before_load)
+                    self.update()
+                except Exception:
+                    pass
     
     def _convert_legacy_template_to_prompt_state(self, template_data):
         """Convert legacy template format to PromptState."""
@@ -1964,6 +2030,8 @@ class MainWindow(QMainWindow):
                     info(r"DEBUG NAV: User modified fields on 0/X - updating cache", LogArea.GENERAL)
                 self._cache_current_state()
         
+        # Mark as updating
+        self._updating_preview = True
         # Mark as updating
         self._updating_preview = True
         try:
@@ -2915,9 +2983,30 @@ class MainWindow(QMainWindow):
                 debug(r"Skipping preview update during suppression window", LogArea.NAVIGATION)
             return
         
+        # Cycle detection: rate-limit scheduler calls
+        now = time.monotonic()
+        if now - self._dbg_last_reset_time > 2.0:
+            self._dbg_prev_sched_count = 0
+            self._dbg_prev_update_count = 0
+            self._dbg_last_reset_time = now
+        self._dbg_prev_sched_count += 1
+        if self._dbg_prev_sched_count > self._dbg_cycle_threshold:
+            import traceback
+            stack = ''.join(traceback.format_stack(limit=8))
+            error(r"Preview scheduler call flood detected; temporarily suppressing updates\n{stack}", LogArea.NAVIGATION)
+            self._suppress_preview_updates = True
+            QTimer.singleShot(500, lambda: setattr(self, '_suppress_preview_updates', False))
+            return
+
         if hasattr(self, '_preview_update_timer'):
             if self.debug_enabled:
-                debug(r"Starting debounced preview timer", LogArea.NAVIGATION)
+                try:
+                    sender_obj = self.sender()
+                    sender_name = getattr(sender_obj, 'objectName', lambda: '')() if sender_obj else ''
+                    sender_type = type(sender_obj).__name__ if sender_obj else 'None'
+                    debug(r"Starting debounced preview timer - sender={sender_type} {sender_name}", LogArea.NAVIGATION)
+                except Exception:
+                    debug(r"Starting debounced preview timer", LogArea.NAVIGATION)
             self._preview_update_timer.start(100)  # 100ms debounce
 
     def _save_all_prompts(self):
@@ -2981,6 +3070,13 @@ class MainWindow(QMainWindow):
         # Set flag to prevent recursive calls
         self._restoring_state = True
         
+        # Temporarily disable widget updates to avoid visible cycling during bulk changes
+        try:
+            self._updates_were_enabled = self.updatesEnabled()
+        except Exception:
+            self._updates_were_enabled = True
+        self.setUpdatesEnabled(False)
+        
         # Block ALL field widget signals during restoration
         self._block_all_field_signals()
         
@@ -3026,4 +3122,11 @@ class MainWindow(QMainWindow):
             
             # Clear flag immediately (no timer needed)
             self._restoring_state = False
+            
+            # Re-enable updates
+            try:
+                self.setUpdatesEnabled(self._updates_were_enabled)
+                self.update()
+            except Exception:
+                pass
 
