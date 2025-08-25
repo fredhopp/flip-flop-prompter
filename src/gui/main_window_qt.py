@@ -302,6 +302,12 @@ class MainWindow(QMainWindow):
     def _emit_ui_ready(self):
         if self.debug_enabled:
             info(r"DEBUG NAV: Emitting ui_ready", LogArea.GENERAL)
+        
+        # Create initial cache of the default state as 0/X
+        if self.debug_enabled:
+            info(r"DEBUG NAV: Creating initial cache after UI ready", LogArea.GENERAL)
+        self._cache_current_state()
+        
         self.ui_ready.emit()
     
     def _get_prompt_engine(self):
@@ -1354,6 +1360,11 @@ class MainWindow(QMainWindow):
                 # Refresh existing tags to update visual state after template loading
                 self._refresh_existing_tags()
                 
+                # Create initial cache of the loaded state as 0/X
+                if self.debug_enabled:
+                    info(r"DEBUG NAV: Creating initial cache after template load", LogArea.GENERAL)
+                self._cache_current_state()
+                
                 if self.debug_enabled:
                     info(f"Template loading completed successfully", LogArea.LOAD)
                 
@@ -2088,8 +2099,21 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'preview_panel'):
             return
         # Handle history edits: keep smart jump/cache behavior, skip text generation
+        # Skip smart jump logic if this is a forced update or if we're in the middle of state restoration
+        if self.debug_enabled:
+            debug(r"_update_preview called with force_update={force_update}, _restoring_state={getattr(self, '_restoring_state', False)}, _intentionally_navigating={getattr(self, '_intentionally_navigating', False)}", LogArea.NAVIGATION)
+        
         if not force_update and not (hasattr(self, '_restoring_state') and self._restoring_state) and not (hasattr(self, '_intentionally_navigating') and self._intentionally_navigating):
             current_pos, total_count = self.history_manager.get_navigation_info()
+            if self.debug_enabled:
+                info(r"DEBUG NAV: _update_preview at position {current_pos}/{total_count}", LogArea.GENERAL)
+                # Add stack trace to see what's calling _update_preview
+                import traceback
+                stack_trace = traceback.format_stack()
+                if len(stack_trace) > 2:
+                    caller = stack_trace[-3].strip()  # Get the caller of the caller
+                    info(r"DEBUG NAV: _update_preview called from: {caller}", LogArea.GENERAL)
+            
             if current_pos > 0:
                 if self.debug_enabled:
                     debug(r"User modified fields on history position {current_pos}/{total_count} - caching as new 0/X", LogArea.NAVIGATION)
@@ -2692,8 +2716,12 @@ class MainWindow(QMainWindow):
             if self.history_manager.jump_to_position(position):
                 self._update_history_navigation()
         finally:
-            # Clear flag immediately (no timer needed)
-            self._intentionally_navigating = False
+            # Clear flag after a delay to cover any delayed preview updates
+            # This prevents the bug where navigating to history state 1/1 would reset to 0/1
+            # because _restore_from_history_entry() schedules a delayed _update_preview() call
+            # that would execute after _intentionally_navigating was already cleared
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(200, lambda: setattr(self, '_intentionally_navigating', False))
     
     def _should_jump_to_current_state(self) -> bool:
         """Check if we should jump back to current state (0/X) when field changes."""
@@ -2735,12 +2763,18 @@ class MainWindow(QMainWindow):
         """Cache the current field state as 0/X state."""
         if self.debug_enabled:
             info(r"DEBUG NAV: Caching current state", LogArea.GENERAL)
+            # Add more detailed logging about what we're caching
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            info(r"DEBUG NAV: Caching at position {current_pos}/{total_count}", LogArea.GENERAL)
         
         # Capture current state as PromptState
         self._cached_current_state = self.capture_current_state()
         
         if self.debug_enabled:
             debug(r"Cached PromptState with {len(self._cached_current_state.field_values)} fields", LogArea.NAVIGATION)
+            # Log some key field values to verify what's being cached
+            for field_name, value in list(self._cached_current_state.field_values.items())[:3]:  # First 3 fields
+                info(r"DEBUG NAV: Cached field '{field_name}' = '{value[:50]}{'...' if len(value) > 50 else ''}'", LogArea.GENERAL)
     
     def _restore_cached_current_state(self):
         """Restore the cached 0/X state to the fields."""
@@ -2751,6 +2785,12 @@ class MainWindow(QMainWindow):
         
         if self.debug_enabled:
             info(r"DEBUG NAV: Restoring cached current state", LogArea.GENERAL)
+            # Add more detailed logging about what we're restoring
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            info(r"DEBUG NAV: Restoring at position {current_pos}/{total_count}", LogArea.GENERAL)
+            # Log some key field values to verify what's being restored
+            for field_name, value in list(self._cached_current_state.field_values.items())[:3]:  # First 3 fields
+                info(r"DEBUG NAV: Restoring field '{field_name}' = '{value[:50]}{'...' if len(value) > 50 else ''}'", LogArea.GENERAL)
         
         # Use the PromptState restoration method
         self.restore_from_prompt_state(self._cached_current_state)
@@ -2997,6 +3037,8 @@ class MainWindow(QMainWindow):
                 lambda: (None if (hasattr(self, '_loading_template') and self._loading_template)
                          else self._update_preview(preserve_tab=True, force_update=True))
             )
+            if self.debug_enabled:
+                debug(r"Scheduled delayed _update_preview call with force_update=True", LogArea.NAVIGATION)
     
     def _update_history_navigation(self):
         """Update navigation controls state."""
@@ -3050,11 +3092,20 @@ class MainWindow(QMainWindow):
     
     def _show_current_state(self):
         """Show the current state of the fields (not from history)."""
+        if self.debug_enabled:
+            info(r"DEBUG NAV: _show_current_state called", LogArea.GENERAL)
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            info(r"DEBUG NAV: _show_current_state at position {current_pos}/{total_count}", LogArea.GENERAL)
+            info(r"DEBUG NAV: _cached_current_state exists: {self._cached_current_state is not None}", LogArea.GENERAL)
+        
         # If we have a cached current state, restore it first
         if self._cached_current_state:
             if self.debug_enabled:
                 info(r"DEBUG NAV: Restoring cached current state in _show_current_state", LogArea.GENERAL)
             self._restore_cached_current_state()
+        else:
+            if self.debug_enabled:
+                info(r"DEBUG NAV: No cached current state available in _show_current_state", LogArea.GENERAL)
         
         # Live preview removed; do not generate or update here
         if self.debug_enabled:
@@ -3265,7 +3316,7 @@ class MainWindow(QMainWindow):
         try:
             result = subprocess.run(
                 ['tasklist', '//FI', 'IMAGENAME eq ollama.exe', '//FO', 'CSV'],
-                capture_output=True, text=True, shell=True
+                capture_output=True, text=True, shell=False
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split('\n')
@@ -3284,8 +3335,8 @@ class MainWindow(QMainWindow):
         # Check parent-child relationships using wmic
         try:
             result = subprocess.run(
-                ['wmic', 'process', 'where', 'name="ollama.exe"', 'get', 'ProcessId,ParentProcessId,CommandLine', '/format:csv'],
-                capture_output=True, text=True, shell=True
+                ['wmic', 'process', 'where', 'name="ollama.exe"', 'get', 'ProcessId,ParentProcessId,CommandLine', '//format:csv'],
+                capture_output=True, text=True, shell=False
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split('\n')
