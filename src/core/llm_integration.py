@@ -36,6 +36,28 @@ class OllamaProvider(LLMProvider):
         self.model_name = model_name
         self.base_url = base_url
         self.session = requests.Session()
+        
+        # Configure session for better reliability
+        self.session.headers.update({
+            'User-Agent': 'FlipFlopPrompt/1.0',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+        
+        # Set connection pooling and retry settings
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        
+        retry_strategy = Retry(
+            total=1,  # Only retry once to avoid long delays
+            backoff_factor=0.1,
+            status_forcelist=[500, 502, 503, 504]
+        )
+        
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        
         self.process_tracker = process_tracker  # Callback to check if Ollama process is tracked
         
         # Create debug directory in user data folder
@@ -270,8 +292,12 @@ class OllamaProvider(LLMProvider):
         
         try:
             debug("Making POST request to Ollama API...", LogArea.OLLAMA)
+            api_start_time = time.time()
             
-            response = self.session.post(f"{self.base_url}/api/chat", json=payload)
+            response = self.session.post(f"{self.base_url}/api/chat", json=payload, timeout=30)
+            
+            api_time = time.time() - api_start_time
+            debug(f"Ollama API call completed in {api_time:.2f} seconds", LogArea.OLLAMA)
             
             debug(f"Received response - status: {response.status_code}", LogArea.OLLAMA)
             
@@ -300,6 +326,18 @@ class OllamaProvider(LLMProvider):
             debug("Returning final prompt", LogArea.OLLAMA)
             
             return final_prompt
+        except requests.exceptions.Timeout:
+            debug("Ollama API request timed out after 30 seconds", LogArea.OLLAMA)
+            if debug_enabled and debug_folder:
+                error_info = f"Timeout Error: Request timed out after 30 seconds\nPayload: {json.dumps(payload, indent=2)}"
+                self._save_debug_file(debug_folder, "timeout_error.txt", error_info)
+            raise Exception("Ollama API request timed out. The server may be overloaded or unresponsive.")
+        except requests.exceptions.ConnectionError as e:
+            debug(f"Connection error to Ollama API: {str(e)}", LogArea.OLLAMA)
+            if debug_enabled and debug_folder:
+                error_info = f"Connection Error: {str(e)}\nPayload: {json.dumps(payload, indent=2)}"
+                self._save_debug_file(debug_folder, "connection_error.txt", error_info)
+            raise Exception(f"Failed to connect to Ollama API: {str(e)}")
         except Exception as e:
             debug(f"Error occurred: {str(e)}", LogArea.OLLAMA)
             
