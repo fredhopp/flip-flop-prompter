@@ -2792,8 +2792,13 @@ class MainWindow(QMainWindow):
             for field_name, value in list(self._cached_current_state.field_values.items())[:3]:  # First 3 fields
                 info(r"DEBUG NAV: Restoring field '{field_name}' = '{value[:50]}{'...' if len(value) > 50 else ''}'", LogArea.GENERAL)
         
-        # Use the PromptState restoration method
-        self.restore_from_prompt_state(self._cached_current_state)
+        # Use the PromptState restoration method - don't restore final prompt for current state
+        self.restore_from_prompt_state(self._cached_current_state, restore_final_prompt=False)
+        
+        # Ensure placeholder text is shown for current state (0/X)
+        if hasattr(self, 'preview_panel'):
+            current_pos, total_count = self.history_manager.get_navigation_info()
+            self.preview_panel.set_history_state(False, total_count)
     
     def _jump_to_current_state(self):
         """Jump back to current state (0/X) and load the cached state."""
@@ -3017,18 +3022,8 @@ class MainWindow(QMainWindow):
                 # Summary removed
                 debug(r"_intentionally_navigating flag is: {self._intentionally_navigating}", LogArea.NAVIGATION)
             
-            # Use the new PromptState restoration method
-            self.restore_from_prompt_state(entry)
-            
-            # Restore the final prompt if it exists
-            if entry.final_prompt:
-                if self.debug_enabled:
-                    debug(r"Setting final prompt text: '{entry.final_prompt[:100]}{'...' if len(entry.final_prompt) > 100 else ''}'", LogArea.NAVIGATION) 
-                self.preview_panel.final_text.setPlainText(entry.final_prompt)
-                # Set regular font for generated content
-                font = self.preview_panel.final_text.font()
-                font.setItalic(False)
-                self.preview_panel.final_text.setFont(font)
+            # Use the new PromptState restoration method - restore final prompt for history states
+            self.restore_from_prompt_state(entry, restore_final_prompt=True)
             
             # Force a preview update to ensure summary reflects the restored fields
             # Skip if a template is currently loading
@@ -3234,7 +3229,7 @@ class MainWindow(QMainWindow):
         
         return prompt_state
     
-    def restore_from_prompt_state(self, prompt_state: PromptState):
+    def restore_from_prompt_state(self, prompt_state: PromptState, restore_final_prompt: bool = True):
         """Restore the application state from a PromptState object."""
         if self.debug_enabled:
             info(r"DEBUG NAV: Restoring from PromptState", LogArea.GENERAL)
@@ -3278,8 +3273,8 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'llm_widget'):
                 self.llm_widget.set_value(prompt_state.llm_model)
             
-            # Restore generated content
-            if hasattr(self, 'preview_panel'):
+            # Restore generated content only if requested
+            if restore_final_prompt and hasattr(self, 'preview_panel'):
                 if prompt_state.final_prompt:
                     self.preview_panel.set_final_prompt(prompt_state.final_prompt)
             
