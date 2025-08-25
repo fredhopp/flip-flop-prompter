@@ -43,6 +43,9 @@ class OllamaProvider(LLMProvider):
     
     def is_available(self) -> bool:
         """Check if Ollama is available and the specified model is loaded."""
+        import time
+        check_start = time.time()
+        
         try:
             debug(f"Checking availability from {self.base_url}/api/tags", LogArea.OLLAMA)
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
@@ -57,21 +60,32 @@ class OllamaProvider(LLMProvider):
                 # If no specific model is required, just check if Ollama is running
                 if self.model_name is None:
                     debug("No model specified, checking if Ollama is running", LogArea.OLLAMA)
+                    check_time = time.time() - check_start
+                    info(f"STARTUP: Ollama availability check took {check_time:.3f}s", LogArea.GENERAL)
                     return True
                 
                 # Check if the specific model is available
                 model_found = any(model.get('name') == self.model_name for model in models)
                 debug(f"Model '{self.model_name}' found: {model_found}", LogArea.OLLAMA)
+                check_time = time.time() - check_start
+                info(f"STARTUP: Ollama availability check took {check_time:.3f}s", LogArea.GENERAL)
                 return model_found
             else:
                 debug(f"Availability check failed - status {response.status_code}: {response.text}", LogArea.OLLAMA)
+                check_time = time.time() - check_start
+                info(f"STARTUP: Ollama availability check (failed) took {check_time:.3f}s", LogArea.GENERAL)
                 return False
         except Exception as e:
             debug(f"Exception in availability check: {str(e)}", LogArea.OLLAMA)
+            check_time = time.time() - check_start
+            info(f"STARTUP: Ollama availability check (exception) took {check_time:.3f}s", LogArea.GENERAL)
             return False
     
     def get_available_models(self) -> List[str]:
         """Get list of available models from Ollama."""
+        import time
+        models_start = time.time()
+        
         try:
             debug(f"Getting available models from {self.base_url}/api/tags", LogArea.OLLAMA)
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
@@ -88,12 +102,19 @@ class OllamaProvider(LLMProvider):
                 debug(f"Extracted model names: {model_names}", LogArea.OLLAMA)
                 debug(f"Number of models extracted: {len(model_names)}", LogArea.OLLAMA)
                 debug(f"About to return model names: {model_names}", LogArea.OLLAMA)
+                
+                models_time = time.time() - models_start
+                info(f"STARTUP: Ollama get_available_models took {models_time:.3f}s", LogArea.GENERAL)
                 return model_names
             else:
                 debug(f"Failed to get models - status {response.status_code}: {response.text}", LogArea.OLLAMA)
+                models_time = time.time() - models_start
+                info(f"STARTUP: Ollama get_available_models (failed) took {models_time:.3f}s", LogArea.GENERAL)
                 return []
         except Exception as e:
             debug(f"Exception getting available models: {str(e)}", LogArea.OLLAMA)
+            models_time = time.time() - models_start
+            info(f"STARTUP: Ollama get_available_models (exception) took {models_time:.3f}s", LogArea.GENERAL)
             return []
 
     def unload_model_from_vram(self, target_model: str) -> bool:

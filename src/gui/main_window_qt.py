@@ -50,6 +50,11 @@ class MainWindow(QMainWindow):
     def __init__(self, debug_enabled: bool = False):
         super().__init__()
         
+        # Track total startup time until UI responsiveness
+        self._startup_start_time = time.time()
+        
+        init_start = time.time()
+        
         # Initialize components with lazy loading
         self.prompt_engine = None  # Lazy load when needed
         self._prompt_engine_initialized = False
@@ -75,9 +80,14 @@ class MainWindow(QMainWindow):
         self.open_snippet_popups = []
         
         # Initialize history manager (session-only, no persistence)
+        history_start = time.time()
         self.history_manager = HistoryManager()
+        history_time = time.time() - history_start
+        if self.debug_enabled:
+            info(f"STARTUP: HistoryManager initialization took {history_time:.3f}s", LogArea.GENERAL)
         
         # User data directories
+        dir_start = time.time()
         self.user_data_dir = theme_manager.user_data_dir
         self.templates_dir = self.user_data_dir / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -86,42 +96,130 @@ class MainWindow(QMainWindow):
         self.cache_dir = self.user_data_dir / ".cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.generation_cache_file = self.cache_dir / "generation_times.json"
+        dir_time = time.time() - dir_start
+        if self.debug_enabled:
+            info(f"STARTUP: Directory setup took {dir_time:.3f}s", LogArea.GENERAL)
         
         # Initialize UI
+        ui_start = time.time()
         self._setup_window()
+        setup_window_time = time.time() - ui_start
+        if self.debug_enabled:
+            info(f"STARTUP: _setup_window took {setup_window_time:.3f}s", LogArea.GENERAL)
+        
+        menu_start = time.time()
         self._create_menu_bar()
+        menu_time = time.time() - menu_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_menu_bar took {menu_time:.3f}s", LogArea.GENERAL)
+        
+        central_start = time.time()
         self._create_central_widget()
+        central_time = time.time() - central_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_central_widget took {central_time:.3f}s", LogArea.GENERAL)
+        
+        fields_start = time.time()
         self._create_input_fields()
+        fields_time = time.time() - fields_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_input_fields took {fields_time:.3f}s", LogArea.GENERAL)
+        
+        model_start = time.time()
         self._create_model_selection_row()
+        model_time = time.time() - model_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_model_selection_row took {model_time:.3f}s", LogArea.GENERAL)
+        
+        button_start = time.time()
         self._create_button_frame()
+        button_time = time.time() - button_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_button_frame took {button_time:.3f}s", LogArea.GENERAL)
+        
+        preview_start = time.time()
         self._create_preview_panel()
+        preview_time = time.time() - preview_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_preview_panel took {preview_time:.3f}s", LogArea.GENERAL)
+        
+        status_start = time.time()
         self._create_status_bar()
+        status_time = time.time() - status_start
+        if self.debug_enabled:
+            info(f"STARTUP: _create_status_bar took {status_time:.3f}s", LogArea.GENERAL)
+        
+        ui_total_time = time.time() - ui_start
+        if self.debug_enabled:
+            info(f"STARTUP: Total UI creation took {ui_total_time:.3f}s", LogArea.GENERAL)
         
         # Initialize components (lazy load LLM components)
+        components_start = time.time()
         self._update_llm_status_lazy()
+        llm_time = time.time() - components_start
+        if self.debug_enabled:
+            info(f"STARTUP: _update_llm_status_lazy took {llm_time:.3f}s", LogArea.GENERAL)
+        
+        snippet_start = time.time()
         self._initialize_snippet_dropdowns()
+        snippet_time = time.time() - snippet_start
+        if self.debug_enabled:
+            info(f"STARTUP: _initialize_snippet_dropdowns took {snippet_time:.3f}s", LogArea.GENERAL)
+        
+        callbacks_start = time.time()
         self._setup_callbacks()  # Set up callbacks after all widgets exist
+        callbacks_time = time.time() - callbacks_start
+        if self.debug_enabled:
+            info(f"STARTUP: _setup_callbacks took {callbacks_time:.3f}s", LogArea.GENERAL)
+        
+        components_total_time = time.time() - components_start
+        if self.debug_enabled:
+            info(f"STARTUP: Total components initialization took {components_total_time:.3f}s", LogArea.GENERAL)
         
         # Load user preferences
+        prefs_start = time.time()
         self._load_preferences()
+        prefs_time = time.time() - prefs_start
+        if self.debug_enabled:
+            info(f"STARTUP: _load_preferences took {prefs_time:.3f}s", LogArea.GENERAL)
         
         # Auto-start Ollama if preference is set
+        ollama_start = time.time()
         if hasattr(self, 'auto_start_ollama_action') and self.auto_start_ollama_action.isChecked():
             self._auto_start_ollama()
+        ollama_time = time.time() - ollama_start
+        if self.debug_enabled:
+            info(f"STARTUP: Ollama auto-start check took {ollama_time:.3f}s", LogArea.GENERAL)
         
         # Set initial theme checkmark
+        theme_start = time.time()
         current_theme = theme_manager.get_current_theme()
         self._update_theme_checkmarks(current_theme)
+        theme_time = time.time() - theme_start
+        if self.debug_enabled:
+            info(f"STARTUP: Theme setup took {theme_time:.3f}s", LogArea.GENERAL)
         
         # Apply modern styling
+        styling_start = time.time()
         self._apply_styling()
+        styling_time = time.time() - styling_start
+        if self.debug_enabled:
+            info(f"STARTUP: _apply_styling took {styling_time:.3f}s", LogArea.GENERAL)
         
         # Ensure navigation controls are properly styled
+        nav_start = time.time()
         if hasattr(self, 'preview_panel'):
             self.preview_panel.refresh_navigation_styling()
+        nav_time = time.time() - nav_start
+        if self.debug_enabled:
+            info(f"STARTUP: Navigation styling took {nav_time:.3f}s", LogArea.GENERAL)
         
         # Initialize progress tracking
+        progress_start = time.time()
         self._init_progress_tracking()
+        progress_time = time.time() - progress_start
+        if self.debug_enabled:
+            info(f"STARTUP: Progress tracking init took {progress_time:.3f}s", LogArea.GENERAL)
         
         # Set navigation state
         self.navigation_state = NavigationState.CURRENT
@@ -136,6 +234,7 @@ class MainWindow(QMainWindow):
         self._suppress_popups = False
 
         # Install global event filter to log QMessageBox storms
+        event_start = time.time()
         try:
             app = QApplication.instance()
             if app:
@@ -144,7 +243,18 @@ class MainWindow(QMainWindow):
                 self._dbg_popup_last_reset = time.monotonic()
         except Exception:
             pass
+        event_time = time.time() - event_start
+        if self.debug_enabled:
+            info(f"STARTUP: Event filter setup took {event_time:.3f}s", LogArea.GENERAL)
 
+        total_init_time = time.time() - init_start
+        if self.debug_enabled:
+            info(f"STARTUP: Total MainWindow initialization took {total_init_time:.3f}s", LogArea.GENERAL)
+            info(f"STARTUP: MainWindow breakdown - History: {history_time:.3f}s, Dirs: {dir_time:.3f}s, UI: {ui_total_time:.3f}s, Components: {components_total_time:.3f}s, Prefs: {prefs_time:.3f}s, Ollama: {ollama_time:.3f}s, Theme: {theme_time:.3f}s, Styling: {styling_time:.3f}s", LogArea.GENERAL)
+        
+        # Fire ui_ready after a short delay to allow widgets/services to settle
+        QTimer.singleShot(300, self._emit_ui_ready)
+    
     def eventFilter(self, obj, event):
         # Log and optionally rate-limit QMessageBox show/hide to detect cycles
         try:
@@ -1986,17 +2096,30 @@ class MainWindow(QMainWindow):
     
     def _update_llm_status_lazy(self):
         """Lazy update LLM status to avoid blocking startup."""
-        # Schedule LLM status update for after window is shown
+        # Schedule LLM status update for after window is shown with a longer delay
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(100, self._update_llm_status)
+        QTimer.singleShot(2000, self._update_llm_status)  # Increased delay to 2 seconds
     
     def _update_llm_status(self):
         """Update LLM status (now called lazily after startup)."""
+        llm_start = time.time()
         # This will be called after the window is shown
         if hasattr(self, 'llm_widget'):
             # Trigger LLM connection check in background
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, self.llm_widget._check_ollama_connection)
+        
+        llm_time = time.time() - llm_start
+        if self.debug_enabled:
+            info(f"STARTUP: _update_llm_status took {llm_time:.3f}s", LogArea.GENERAL)
+    
+    def _check_ui_responsiveness(self):
+        """Check when UI becomes responsive after all initialization."""
+        if hasattr(self, '_startup_start_time'):
+            total_time = time.time() - self._startup_start_time
+            if self.debug_enabled:
+                info(f"STARTUP: UI responsiveness check at {total_time:.3f}s", LogArea.GENERAL)
+                info(f"STARTUP: Window is now responsive and usable", LogArea.GENERAL)
     
     def _initialize_snippet_dropdowns(self):
         """Initialize snippet dropdowns with current content rating."""
@@ -2130,6 +2253,8 @@ class MainWindow(QMainWindow):
     
     def _setup_callbacks(self):
         """Set up all callbacks after widgets are created."""
+        callbacks_start = time.time()
+        
         # Initialize field_widgets dictionary for caching
         self.field_widgets = {}
         field_names = ['style', 'setting', 'weather', 'datetime', 'subjects', 'pose', 'camera', 'framing', 'grading', 'details', 'llm_instructions', 'seed']
@@ -2181,6 +2306,10 @@ class MainWindow(QMainWindow):
         
         # Initial preview update - delay to ensure window is ready
         QTimer.singleShot(100, self._update_preview)
+        
+        callbacks_time = time.time() - callbacks_start
+        if self.debug_enabled:
+            info(f"STARTUP: _setup_callbacks took {callbacks_time:.3f}s", LogArea.GENERAL)
     
     def _update_status_bar(self):
         """Update the status bar with word and character count."""
@@ -2279,37 +2408,47 @@ class MainWindow(QMainWindow):
     
     def _auto_start_ollama(self):
         """Auto-start Ollama on application startup if preference is set."""
+        ollama_start = time.time()
         try:
             # Check if Ollama is already running
             if self._is_ollama_running():
                 info(r"DEBUG OLLAMA: Ollama is already running, skipping auto-start", LogArea.GENERAL)
+                ollama_time = time.time() - ollama_start
+                if self.debug_enabled:
+                    info(f"STARTUP: Ollama auto-start (already running) took {ollama_time:.3f}s", LogArea.GENERAL)
                 return
             
             info(r"DEBUG OLLAMA: Auto-starting Ollama...", LogArea.GENERAL)
             
             # Start Ollama in background
-            def start_ollama_thread():
+            def start_ollama():
                 try:
-                    subprocess.Popen(["ollama", "serve"], 
-                                   stdout=subprocess.DEVNULL, 
-                                   stderr=subprocess.DEVNULL)
-                    time.sleep(3)  # Wait for startup
-                    
-                    # Update UI on main thread
-                    QTimer.singleShot(0, self._on_ollama_started)
+                    # Use subprocess.Popen to start Ollama in background
+                    process = subprocess.Popen(
+                        ['ollama', 'serve'],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                    )
+                    info(r"DEBUG OLLAMA: Ollama started with PID: {process.pid}", LogArea.GENERAL)
                 except Exception as e:
-                    debug(r"Auto-start failed: {str(e)}", LogArea.OLLAMA)
+                    error(r"DEBUG OLLAMA: Failed to start Ollama: {e}", LogArea.GENERAL)
             
-            # Start in background thread
-            thread = threading.Thread(target=start_ollama_thread, daemon=True)
-            thread.start()
+            # Start Ollama in a separate thread to avoid blocking
+            ollama_thread = threading.Thread(target=start_ollama, daemon=True)
+            ollama_thread.start()
             
-            # Show status
-            self.statusBar().showMessage("Auto-starting Ollama...")
-            
+            # Return immediately - don't wait for Ollama to start
+            ollama_time = time.time() - ollama_start
+            if self.debug_enabled:
+                info(f"STARTUP: Ollama auto-start initiated in {ollama_time:.3f}s (non-blocking)", LogArea.GENERAL)
+                
         except Exception as e:
-            debug(r"Error during auto-start: {str(e)}", LogArea.OLLAMA)
-
+            error(r"DEBUG OLLAMA: Error in auto-start: {e}", LogArea.GENERAL)
+            ollama_time = time.time() - ollama_start
+            if self.debug_enabled:
+                info(f"STARTUP: Ollama auto-start (with error) took {ollama_time:.3f}s", LogArea.GENERAL)
+    
     def _start_ollama(self):
         """Start Ollama server in background."""
         try:

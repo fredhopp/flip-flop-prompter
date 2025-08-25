@@ -7,6 +7,7 @@ A tool for creating and refining prompts for AI image generation models.
 
 import sys
 import argparse
+import time
 from pathlib import Path
 
 # Add the src directory to the Python path
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, QMessageLogContext, QMessageLogger
 from PySide6.QtCore import qInstallMessageHandler, QTimer
 from src.gui.main_window_qt import MainWindow
-from src.utils.logger import initialize_logger
+from src.utils.logger import initialize_logger, info, LogArea
 
 
 def qt_message_handler(message_type, context, message):
@@ -43,6 +44,8 @@ def qt_message_handler(message_type, context, message):
 
 def main():
     """Main entry point for PySide6 version."""
+    startup_start = time.time()
+    
     parser = argparse.ArgumentParser(description="FlipFlopPrompt - AI Image Generation Prompt Builder (PySide6)")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("-t", "--load-template", dest="load_template", help="Load a template JSON file at startup")
@@ -50,10 +53,16 @@ def main():
     args = parser.parse_args()
     
     # Initialize logger with debug mode
+    logger_start = time.time()
     logger = initialize_logger(args.debug)
+    logger_time = time.time() - logger_start
+    info(f"STARTUP: Logger initialization took {logger_time:.3f}s", LogArea.GENERAL)
     
     # Create QApplication
+    app_start = time.time()
     app = QApplication(sys.argv)
+    app_time = time.time() - app_start
+    info(f"STARTUP: QApplication creation took {app_time:.3f}s", LogArea.GENERAL)
     
     # Install custom message handler to suppress QPainter messages
     if not args.debug:
@@ -67,9 +76,23 @@ def main():
     # Enable high DPI scaling (Qt 6.x handles this automatically)
     
     # Create and show main window
+    window_start = time.time()
     window = MainWindow(debug_enabled=args.debug)
+    window_creation_time = time.time() - window_start
+    info(f"STARTUP: MainWindow creation took {window_creation_time:.3f}s", LogArea.GENERAL)
+    
+    # Show the window
+    show_start = time.time()
     window.show()
-
+    show_time = time.time() - show_start
+    info(f"STARTUP: Window.show() took {show_time:.3f}s", LogArea.GENERAL)
+    
+    # Check UI responsiveness after a short delay
+    QTimer.singleShot(100, window._check_ui_responsiveness)
+    
+    # Fire ui_ready signal after window is shown
+    QTimer.singleShot(300, window._emit_ui_ready)
+    
     # Auto-load template at startup if provided, but only after UI becomes ready
     if args.load_template:
         template_path = args.load_template.lstrip('@')
@@ -80,6 +103,10 @@ def main():
         window.ui_ready.connect(_deferred_load)
         # Fallback trigger in case ui_ready is delayed or missed
         QTimer.singleShot(1500, lambda: window._load_template(template_path, show_messages=False))
+    
+    total_startup_time = time.time() - startup_start
+    info(f"STARTUP: Total startup time: {total_startup_time:.3f}s", LogArea.GENERAL)
+    info(f"STARTUP: Breakdown - Logger: {logger_time:.3f}s, QApp: {app_time:.3f}s, Window: {window_creation_time:.3f}s, Show: {show_time:.3f}s", LogArea.GENERAL)
     
     # Start event loop
     sys.exit(app.exec())
